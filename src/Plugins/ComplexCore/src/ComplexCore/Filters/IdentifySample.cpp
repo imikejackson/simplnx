@@ -10,10 +10,10 @@ namespace complex
 {
 namespace
 {
-constexpr int64 k_MISSING_GEOM_ERR = -650;
+constexpr int64 k_MissingGeomErr = -650;
 
 template <typename T>
-void _execute(DataStructure& data, const DataPath& imageGeomPath, const DataPath& goodVoxelsArrayPath, bool fillHoles)
+void executeIdentifySample(DataStructure& data, const DataPath& imageGeomPath, const DataPath& goodVoxelsArrayPath, bool fillHoles)
 {
   using ArrayType = DataArray<T>;
 
@@ -295,7 +295,7 @@ IFilter::PreflightResult IdentifySample::preflightImpl(const DataStructure& data
   if(imageGeom == nullptr)
   {
     std::string ss = fmt::format("Could not find ImageGeom at path '{}'", imageGeomPath.toString());
-    return {MakeErrorResult<OutputActions>(k_MISSING_GEOM_ERR, ss)};
+    return {MakeErrorResult<OutputActions>(k_MissingGeomErr, ss)};
   }
 
   int8 arrayType = 0;
@@ -304,7 +304,7 @@ IFilter::PreflightResult IdentifySample::preflightImpl(const DataStructure& data
   if(inputData == nullptr)
   {
     std::string ss = fmt::format("Could not find IDataArray at path '{}'", goodVoxelsArrayPath.toString());
-    return {MakeErrorResult<OutputActions>(k_MISSING_GEOM_ERR, ss)};
+    return {MakeErrorResult<OutputActions>(k_MissingGeomErr, ss)};
   }
 
   arrayType = getArrayType(inputData);
@@ -329,11 +329,11 @@ Result<> IdentifySample::executeImpl(DataStructure& data, const Arguments& args,
 
   if(arrayType == 1)
   {
-    _execute<bool>(data, imageGeomPath, goodVoxelsArrayPath, fillHoles);
+    executeIdentifySample<bool>(data, imageGeomPath, goodVoxelsArrayPath, fillHoles);
   }
   if(arrayType == 2)
   {
-    _execute<uint8>(data, imageGeomPath, goodVoxelsArrayPath, fillHoles);
+    executeIdentifySample<uint8>(data, imageGeomPath, goodVoxelsArrayPath, fillHoles);
   }
 
   return {};

@@ -10,8 +10,8 @@ namespace complex
 {
 namespace
 {
-constexpr StringLiteral k_ArrayThresholds_Key = "array_thresholds";
-constexpr StringLiteral k_CreatedDataPath_Key = "created_data_path";
+constexpr StringLiteral k_ArrayThresholdsKey = "array_thresholds";
+constexpr StringLiteral k_CreatedDataPathKey = "created_data_path";
 
 constexpr int64 k_PathNotFoundError = -178;
 
@@ -33,9 +33,9 @@ public:
   template <typename T>
   void filterDataLessThan(const DataArray<T>& m_Input)
   {
-    size_t m_NumValues = m_Input.getNumberOfTuples();
+    size_t mNumValues = m_Input.getNumberOfTuples();
     T value = static_cast<T>(m_ComparisonValue);
-    for(size_t i = 0; i < m_NumValues; ++i)
+    for(size_t i = 0; i < mNumValues; ++i)
     {
       m_Output[i] = (m_Input[i] < value);
     }
@@ -47,9 +47,9 @@ public:
   template <typename T>
   void filterDataGreaterThan(const DataArray<T>& m_Input)
   {
-    size_t m_NumValues = m_Input.getNumberOfTuples();
+    size_t mNumValues = m_Input.getNumberOfTuples();
     T value = static_cast<T>(m_ComparisonValue);
-    for(size_t i = 0; i < m_NumValues; ++i)
+    for(size_t i = 0; i < mNumValues; ++i)
     {
       m_Output[i] = (m_Input[i] > value);
     }
@@ -61,9 +61,9 @@ public:
   template <typename T>
   void filterDataEqualTo(const DataArray<T>& m_Input)
   {
-    size_t m_NumValues = m_Input.getNumberOfTuples();
+    size_t mNumValues = m_Input.getNumberOfTuples();
     T value = static_cast<T>(m_ComparisonValue);
-    for(size_t i = 0; i < m_NumValues; ++i)
+    for(size_t i = 0; i < mNumValues; ++i)
     {
       m_Output[i] = (m_Input[i] == value);
     }
@@ -75,9 +75,9 @@ public:
   template <typename T>
   void filterDataNotEqualTo(const DataArray<T>& m_Input)
   {
-    size_t m_NumValues = m_Input.getNumberOfTuples();
+    size_t mNumValues = m_Input.getNumberOfTuples();
     T value = static_cast<T>(m_ComparisonValue);
-    for(size_t i = 0; i < m_NumValues; ++i)
+    for(size_t i = 0; i < mNumValues; ++i)
     {
       m_Output[i] = (m_Input[i] != value);
     }
@@ -190,7 +190,7 @@ public:
  * @param newArrayPtr
  * @param inverse
  */
-void InsertThreshold(int64_t numItems, BoolArray& currentArray, complex::IArrayThreshold::UnionOperator unionOperator, std::vector<bool>& newArrayPtr, bool inverse)
+void insertThreshold(int64_t numItems, BoolArray& currentArray, complex::IArrayThreshold::UnionOperator unionOperator, std::vector<bool>& newArrayPtr, bool inverse)
 {
 
   for(int64_t i = 0; i < numItems; i++)
@@ -213,7 +213,8 @@ void InsertThreshold(int64_t numItems, BoolArray& currentArray, complex::IArrayT
 }
 
 /**
- * @brief thresholdValue
+ * @brief performThresholdValue
+ *
  * @param comparisonValue
  * @param dataStructure
  * @param outputResultArrayPath
@@ -221,7 +222,8 @@ void InsertThreshold(int64_t numItems, BoolArray& currentArray, complex::IArrayT
  * @param replaceInput
  * @param inverse
  */
-void ThresholdValue(std::shared_ptr<ArrayThreshold>& comparisonValue, DataStructure& dataStructure, DataPath& outputResultArrayPath, int32_t& err, bool replaceInput, bool inverse)
+void performThresholdValue
+    (std::shared_ptr<ArrayThreshold>& comparisonValue, DataStructure& dataStructure, DataPath& outputResultArrayPath, int32_t& err, bool replaceInput, bool inverse)
 {
   if(nullptr == comparisonValue)
   {
@@ -261,11 +263,11 @@ void ThresholdValue(std::shared_ptr<ArrayThreshold>& comparisonValue, DataStruct
   else
   {
     // insert into current threshold
-    InsertThreshold(totalTuples, outputResultArray, unionOperator, tempResultVector, inverse);
+    insertThreshold(totalTuples, outputResultArray, unionOperator, tempResultVector, inverse);
   }
 }
 
-void ThresholdSet(std::shared_ptr<ArrayThresholdSet>& inputComparisonSet, DataStructure& dataStructure, DataPath& outputResultArrayPath, int32_t& err, bool replaceInput, bool inverse)
+void performThresholdSet(std::shared_ptr<ArrayThresholdSet>& inputComparisonSet, DataStructure& dataStructure, DataPath& outputResultArrayPath, int32_t& err, bool replaceInput, bool inverse)
 {
   if(nullptr == inputComparisonSet)
   {
@@ -297,13 +299,14 @@ void ThresholdSet(std::shared_ptr<ArrayThresholdSet>& inputComparisonSet, DataSt
     if(std::dynamic_pointer_cast<ArrayThresholdSet>(threshold))
     {
       std::shared_ptr<ArrayThresholdSet> comparisonSet = std::dynamic_pointer_cast<ArrayThresholdSet>(threshold);
-      ThresholdSet(comparisonSet, dataStructure, outputResultArrayPath, err, !firstValueFound, false);
+      performThresholdSet(comparisonSet, dataStructure, outputResultArrayPath, err, !firstValueFound, false);
       firstValueFound = true;
     }
     else if(std::dynamic_pointer_cast<ArrayThreshold>(threshold))
     {
       std::shared_ptr<ArrayThreshold> comparisonValue = std::dynamic_pointer_cast<ArrayThreshold>(threshold);
-      ThresholdValue(comparisonValue, dataStructure, outputResultArrayPath, err, !firstValueFound, false);
+      performThresholdValue
+          (comparisonValue, dataStructure, outputResultArrayPath, err, !firstValueFound, false);
       firstValueFound = true;
     }
   }
@@ -323,7 +326,7 @@ void ThresholdSet(std::shared_ptr<ArrayThresholdSet>& inputComparisonSet, DataSt
   else
   {
     // insert into current threshold
-    InsertThreshold(totalTuples, outputResultArray, inputComparisonSet->getUnionOperator(), tempResultVector, inverse);
+    insertThreshold(totalTuples, outputResultArray, inputComparisonSet->getUnionOperator(), tempResultVector, inverse);
   }
 }
 
@@ -353,11 +356,16 @@ std::string MultiThresholdObjects::humanName() const
 Parameters MultiThresholdObjects::parameters() const
 {
   Parameters params;
+<<<<<<< HEAD
 
   params.insertSeparator(Parameters::Separator{"Input Parameters"});
   params.insert(
       std::make_unique<ArrayThresholdsParameter>(k_ArrayThresholds_Key, "Data Thresholds", "DataArray thresholds to mask", ArrayThresholdSet{}, ArrayThresholdsParameter::AllowedComponentShapes{{1}}));
   params.insert(std::make_unique<ArrayCreationParameter>(k_CreatedDataPath_Key, "Mask Array", "DataPath to the created Mask Array", DataPath{}));
+=======
+  params.insert(std::make_unique<ArrayThresholdsParameter>(k_ArrayThresholdsKey, "Data Thresholds", "DataArray thresholds to mask", ArrayThresholdSet{}));
+  params.insert(std::make_unique<ArrayCreationParameter>(k_CreatedDataPathKey, "Mask Array", "DataPath to the created Mask Array", DataPath{}));
+>>>>>>> 0ab402c (Update clang-tidy config. Add script to update codes to proper coding style)
   return params;
 }
 
@@ -392,8 +400,8 @@ std::vector<usize> getDims(const DataStructure& data, const std::set<DataPath>& 
 
 IFilter::PreflightResult MultiThresholdObjects::preflightImpl(const DataStructure& data, const Arguments& args, const MessageHandler& messageHandler, const std::atomic_bool& shouldCancel) const
 {
-  auto thresholdsObject = args.value<ArrayThresholdSet>(k_ArrayThresholds_Key);
-  auto maskArrayPath = args.value<DataPath>(k_CreatedDataPath_Key);
+  auto thresholdsObject = args.value<ArrayThresholdSet>(k_ArrayThresholdsKey);
+  auto maskArrayPath = args.value<DataPath>(k_CreatedDataPathKey);
 
   auto thresholdPaths = thresholdsObject.getRequiredPaths();
   // If the paths are empty just return now.
@@ -451,8 +459,8 @@ IFilter::PreflightResult MultiThresholdObjects::preflightImpl(const DataStructur
 Result<> MultiThresholdObjects::executeImpl(DataStructure& dataStructure, const Arguments& args, const PipelineFilter* pipelineNode, const MessageHandler& messageHandler,
                                             const std::atomic_bool& shouldCancel) const
 {
-  auto thresholdsObject = args.value<ArrayThresholdSet>(k_ArrayThresholds_Key);
-  auto maskArrayPath = args.value<DataPath>(k_CreatedDataPath_Key);
+  auto thresholdsObject = args.value<ArrayThresholdSet>(k_ArrayThresholdsKey);
+  auto maskArrayPath = args.value<DataPath>(k_CreatedDataPathKey);
 
   bool firstValueFound = false;
 
@@ -463,13 +471,14 @@ Result<> MultiThresholdObjects::executeImpl(DataStructure& dataStructure, const 
     if(std::dynamic_pointer_cast<ArrayThresholdSet>(threshold))
     {
       std::shared_ptr<ArrayThresholdSet> comparisonSet = std::dynamic_pointer_cast<ArrayThresholdSet>(threshold);
-      ThresholdSet(comparisonSet, dataStructure, maskArrayPath, err, !firstValueFound, thresholdsObject.isInverted());
+      performThresholdSet(comparisonSet, dataStructure, maskArrayPath, err, !firstValueFound, thresholdsObject.isInverted());
       firstValueFound = true;
     }
     else if(std::dynamic_pointer_cast<ArrayThreshold>(threshold))
     {
       std::shared_ptr<ArrayThreshold> comparisonValue = std::dynamic_pointer_cast<ArrayThreshold>(threshold);
-      ThresholdValue(comparisonValue, dataStructure, maskArrayPath, err, !firstValueFound, thresholdsObject.isInverted());
+      performThresholdValue
+          (comparisonValue, dataStructure, maskArrayPath, err, !firstValueFound, thresholdsObject.isInverted());
       firstValueFound = true;
     }
   }
