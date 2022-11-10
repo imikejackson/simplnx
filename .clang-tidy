@@ -27,7 +27,7 @@ Checks: '
   readability-*,
   -readability-function-cognitive-complexity,
   -readability-function-size,
-  -readability-identifier-naming,
+  readability-identifier-naming,
   -readability-uppercase-literal-suffix,
   -readability-magic-numbers
 '
@@ -35,6 +35,20 @@ WarningsAsErrors: '*'
 HeaderFilterRegex: 'complex/.*\.hpp'
 FormatStyle: file
 CheckOptions:
-  - key: cppcoreguidelines-macro-usage.AllowedRegexp
-    value: 'COMPLEX_EXPORT|COMPLEX_NO_EXPORT|COMPLEX_DEPRECATED'
-...
+  - { key: readability-identifier-naming.NamespaceCase,       value: lower_case }
+  - { key: readability-identifier-naming.ClassCase,           value: CamelCase  }
+  - { key: readability-identifier-naming.ClassMethodCase,     value: camelBack  }
+  - { key: readability-identifier-naming.PrivateMemberPrefix, value: m_         }
+  - { key: readability-identifier-naming.PrivateMember,       value: CamelCase  }
+  - { key: readability-identifier-naming.StructCase,          value: CamelCase  }
+  - { key: readability-identifier-naming.FunctionCase,        value: camelBack }
+  - { key: readability-identifier-naming.VariableCase,        value: camelBack }
+  - { key: readability-identifier-naming.GlobalConstantCase,  value: CamelCase }
+  - { key: readability-identifier-naming.GlobalConstantPrefix,value: s_ }
+  - { key: readability-identifier-naming.GlobalFunctionCase,  value: CamelCase }
+  - { key: readability-identifier-naming.LocalPointerCase,    value: camelBack }
+  - { key: readability-identifier-naming.LocalPointerSuffix,  value: Ptr }
+  - { key: readability-identifier-naming.TypeAliasCase,       value: CamelCase }
+  - { key: readability-identifier-naming.TypeAliasSuffix,     value: Type }
+  - { key: readability-identifier-naming.MacroDefinitionCase,  value: UPPER_CASE } 
+

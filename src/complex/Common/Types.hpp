@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <set>
-
+// NOLINTBEGIN(readability-identifier-naming)
 namespace complex
 {
 namespace types
@@ -22,6 +22,7 @@ using usize = std::size_t;
 using float32 = float;
 using float64 = double;
 } // namespace types
+// NOLINTEND(readability-identifier-naming)
 using namespace types;
 
 enum class NumericType : uint8
