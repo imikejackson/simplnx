@@ -33,7 +33,7 @@ class COMPLEXCORE_EXPORT RegularGridSampleSurfaceMesh : public SampleSurfaceMesh
 {
 public:
   RegularGridSampleSurfaceMesh(DataStructure& dataStructure, const IFilter::MessageHandler& mesgHandler, const std::atomic_bool& shouldCancel, RegularGridSampleSurfaceMeshInputValues* inputValues);
-  ~RegularGridSampleSurfaceMesh() noexcept;
+  ~RegularGridSampleSurfaceMesh() noexcept override;
 
   RegularGridSampleSurfaceMesh(const RegularGridSampleSurfaceMesh&) = delete;
   RegularGridSampleSurfaceMesh(RegularGridSampleSurfaceMesh&&) noexcept = delete;

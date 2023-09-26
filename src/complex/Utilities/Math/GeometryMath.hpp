@@ -513,6 +513,92 @@ char RayIntersectsTriangle(const Ray<T>& ray, const complex::Point3D<T>& p0, con
   }
 }
 
+/* Adapted from https://github.com/erich666/jgt-code/blob/master/Volume_02/Number_1/Moller1997a/raytri.c */
+/* code rewritten to do tests on the sign of the determinant */
+/* the division is before the test of the sign of the det    */
+/* and one CROSS has been moved out from the if-else if-else
+ * @param rayOrigin
+ * @param rayDirection
+ * @param v0 First Vertex of Triangle
+ * @param v1  Second Vertex of Triangle
+ * @param v2  Third Vertex of Triangle
+ * @param t part of Barycentric Coord
+ * @param u part of Barycentric Coord
+ * @param v part of Barycentric Coord
+ * @return If the point is within the triangle
+ */
+inline bool RayTriangleIntersect(const FloatVec3& orig, const FloatVec3& dir, const FloatVec3& vert0, const FloatVec3& vert1, const FloatVec3& vert2, FloatVec3& bcoord)
+{
+  constexpr float k_Epsilon = 1e-8;
+
+  FloatVec3 edge1, edge2, tvec, pvec, qvec;
+  double det, inv_det;
+
+  /* find vectors for two edges sharing vert0 */
+  edge1 = vert1 - vert0;
+  edge2 = vert2 - vert0;
+
+  /* begin calculating determinant - also used to calculate U parameter */
+  pvec = dir.cross(edge2);
+
+  /* if determinant is near zero, ray lies in plane of triangle */
+  det = edge1.dot(pvec);
+
+  /* calculate distance from vert0 to ray origin */
+  tvec = orig - vert0;
+
+  inv_det = 1.0 / det;
+
+  qvec = tvec.cross(edge1);
+
+  if(det > k_Epsilon)
+  {
+    bcoord[0] = tvec.dot(pvec);
+    if(bcoord[0] < 0.0 || bcoord[0] > det)
+    {
+      return false;
+    }
+
+    /* calculate V parameter and test bounds */
+    // bcoord[1] = DOT(dir, qvec);
+    bcoord[1] = dir.dot(qvec);
+    if(bcoord[1] < 0.0 || bcoord[0] + bcoord[1] > det)
+    {
+      return false;
+    }
+  }
+  else if(det < -k_Epsilon)
+  {
+    /* calculate U parameter and test bounds */
+    bcoord[0] = tvec.dot(pvec);
+    if(bcoord[0] > 0.0 || bcoord[0] < det)
+    {
+      return false;
+    }
+
+    /* calculate V parameter and test bounds */
+    bcoord[1] = dir.dot(qvec);
+    if(bcoord[1] > 0.0 || bcoord[0] + bcoord[1] < det)
+    {
+      return false;
+    }
+  }
+  else
+  {
+    return false;
+  } /* ray is parallel to the plane of the triangle */
+
+  // float t = edge2.dotProduct(qvec) * inv_det;
+  float u = bcoord[0] * inv_det;
+  float v = bcoord[1] * inv_det;
+
+  bcoord[0] = 1 - u - v;
+  bcoord[1] = u;
+  bcoord[2] = v;
+
+  return true;
+}
+
 /**
  * @breif !!!Uses unseeded randomness, but only for validity checks [SHOULD not affect outcomes]!!! Determines if a point is in the polyhedron
  * @param faces the geometry to query
@@ -548,37 +634,41 @@ char IsPointInPolyhedron(const complex::TriangleGeom& triangleGeom, const std::v
   const auto& vertexListDataStore = vertexListRef.getDataStoreRef();
   const auto& faceListDataStore = faceListRef.getDataStoreRef();
 
-  Point3D<T> v0;
-  Point3D<T> v1;
-  Point3D<T> v2;
+//  Point3D<T> v0;
+//  Point3D<T> v1;
+//  Point3D<T> v2;
+
+  FloatVec3 v0;
+  FloatVec3 v1;
+  FloatVec3 v2;
 
   usize numFaces = faceIds.size();
-  while(iter++ < numFaces)
+ // while(iter++ < numFaces)
   {
     crossings = 0;
-
-    std::array<T, 3> eulerAngles;
-    float rand1 = distribution(generator);
-    float rand2 = distribution(generator);
-
-    eulerAngles[2] = (2.0f * rand1) - 1.0f;
-    float t = Constants::k_2PiF * rand2;
-    float w = std::sqrt(1.0f - (eulerAngles[2] * eulerAngles[2]));
-    eulerAngles[0] = w * std::cos(t);
-    eulerAngles[1] = w * std::sin(t);
-
-    // Generate and add ray to point to find other end
-    Ray<T> ray(point, ZXZEuler(eulerAngles.data()), radius);
+//
+//    std::array<T, 3> eulerAngles;
+//    float rand1 = distribution(generator);
+//    float rand2 = distribution(generator);
+//
+//    eulerAngles[2] = (2.0f * rand1) - 1.0f;
+//    float t = Constants::k_2PiF * rand2;
+//    float w = std::sqrt(1.0f - (eulerAngles[2] * eulerAngles[2]));
+//    eulerAngles[0] = w * std::cos(t);
+//    eulerAngles[1] = w * std::sin(t);
+//
+//    // Generate and add ray to point to find other end
+//    Ray<T> ray(point, ZXZEuler(eulerAngles.data()), radius);
 
     bool doNextCheck = false;
     for(usize face = 0; face < numFaces; face++)
     {
       char code = '?';
-      if(!DoesRayIntersectBox(ray, faceBBs[faceIds[face]]))
-      {
-        code = '0';
-      }
-      else
+//      if(!DoesRayIntersectBox(ray, faceBBs[faceIds[face]]))
+//      {
+//        code = '0';
+//      }
+//      else
       {
         //        std::array<Point3D<T>, 3> coords;
         //        triangleGeom.getFaceCoordinates(faceIds[face], coords);
@@ -593,7 +683,9 @@ char IsPointInPolyhedron(const complex::TriangleGeom& triangleGeom, const std::v
         vertId = faceListDataStore[faceId * 3 + 2];
         v2 = {vertexListDataStore[vertId * 3], vertexListDataStore[vertId * 3 + 1], vertexListDataStore[vertId * 3 + 2]};
 
-        code = RayIntersectsTriangle(ray, v0, v1, v2);
+        //code = RayIntersectsTriangle(ray, v0, v1, v2);
+        FloatVec3 bcoords;
+       code = (RayTriangleIntersect(point, {0.0f, 0.0f, 1.0f}, v0, v1, v2, bcoords) ? 'f' : 'z');
       }
 
       /* If ray is degenerate, then goto outer while to generate another. */
@@ -616,12 +708,12 @@ char IsPointInPolyhedron(const complex::TriangleGeom& triangleGeom, const std::v
       }
 
     } /* End check each face */
-    if(doNextCheck)
-    {
-      continue;
-    }
-    /* No degeneracies encountered: ray is generic, so finished. */
-    break;
+//    if(doNextCheck)
+//    {
+//      continue;
+//    }
+//    /* No degeneracies encountered: ray is generic, so finished. */
+//    break;
 
   } /* End while loop */
 

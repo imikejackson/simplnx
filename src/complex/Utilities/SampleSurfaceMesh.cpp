@@ -113,7 +113,6 @@ public:
     BoundingBox3Df boundingBox(GeometryMath::FindBoundingBoxOfFaces(m_Faces, m_FaceIds));
     float32 radius = GeometryMath::FindDistanceBetweenPoints(boundingBox.getMinPoint(), boundingBox.getMaxPoint());
 
-    usize pointsVisited = 0;
     // check points in vertex array to see if they are in the bounding box of the feature
     for(usize i = start; i < end; i++)
     {
@@ -135,8 +134,6 @@ public:
           m_PolyIds[i] = iter;
         }
       }
-      pointsVisited++;
-
       // Check for the filter being cancelled.
       if(m_ShouldCancel)
       {
@@ -298,7 +295,7 @@ Result<> SampleSurfaceMesh::execute(SampleSurfaceMeshInputValues& inputValues)
 
       ParallelDataAlgorithm dataAlg;
       dataAlg.setRange(0, points.size());
-      dataAlg.setParallelizationEnabled(true);
+      dataAlg.setParallelizationEnabled(false);
       dataAlg.execute(SampleSurfaceMeshImplByPoints(this, triangleGeom, faceLists[featureId], faceBBs, points, featureId, polyIds, m_ShouldCancel));
     }
   }
