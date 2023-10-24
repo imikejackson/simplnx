@@ -58,9 +58,15 @@ public:
         }
 
         Point3Df point = m_Points[i];
+        // If query point is outside bounding box, finished.
+        if(!GeometryMath::IsPointInBox(point, boundingBox))
+        {
+          continue;
+        }
+        // If query point is **inside** the bouding box, then lets see if it is inside the polyhedrons
         if(m_PolyIds[i] == 0)
         {
-          char code = GeometryMath::IsPointInPolyhedron(m_Faces, m_FaceIds[iter], m_FaceBBs, point, boundingBox, radius);
+          char code = GeometryMath::IsPointInPolyhedron(m_Faces, m_FaceIds[iter], m_FaceBBs, point, radius);
           if(code == 'i' || code == 'V' || code == 'E' || code == 'F')
           {
             m_PolyIds[i] = iter;
@@ -116,6 +122,12 @@ public:
     // check points in vertex array to see if they are in the bounding box of the feature
     for(usize i = start; i < end; i++)
     {
+      // Check for the filter being cancelled.
+      if(m_ShouldCancel)
+      {
+        return;
+      }
+
       auto now = std::chrono::steady_clock::now();
       // Only send updates every 1 second
       if(std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count() > 1000)
@@ -126,19 +138,21 @@ public:
       }
 
       Point3Df point = m_Points[i];
+      // If query point is outside bounding box, finished.
+      if(!GeometryMath::IsPointInBox(point, boundingBox))
+      {
+        continue;
+      }
+      // If query point is **inside** the bouding box, then lets see if it is inside the polyhedrons
       if(m_PolyIds[i] == 0)
       {
-        char code = GeometryMath::IsPointInPolyhedron(m_Faces, m_FaceIds, m_FaceBBs, point, boundingBox, radius);
+        char code = GeometryMath::IsPointInPolyhedron(m_Faces, m_FaceIds, m_FaceBBs, point, radius);
         if(code == 'i' || code == 'V' || code == 'E' || code == 'F')
         {
           m_PolyIds[i] = iter;
         }
       }
-      // Check for the filter being cancelled.
-      if(m_ShouldCancel)
-      {
-        return;
-      }
+
     }
   }
 

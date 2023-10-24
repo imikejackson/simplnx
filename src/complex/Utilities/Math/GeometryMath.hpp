@@ -612,15 +612,9 @@ inline bool RayTriangleIntersect(const FloatVec3& orig, const FloatVec3& dir, co
  */
 template <typename T>
 char IsPointInPolyhedron(const complex::TriangleGeom& triangleGeom, const std::vector<int32>& faceIds, const std::vector<BoundingBox3D<T>>& faceBBs, const Point3D<T>& point,
-                         const complex::BoundingBox3D<T>& bounds, T radius)
+                         T radius)
 {
   usize iter = 0, crossings = 0;
-
-  //* If query point is outside bounding box, finished. */
-  if(!IsPointInBox(point, bounds))
-  {
-    return 'o';
-  }
 
   std::random_device randomDevice;           // Will be used to obtain a seed for the random number engine
   std::mt19937_64 generator(randomDevice()); // Standard mersenne_twister_engine seeded with rd()
@@ -634,41 +628,40 @@ char IsPointInPolyhedron(const complex::TriangleGeom& triangleGeom, const std::v
   const auto& vertexListDataStore = vertexListRef.getDataStoreRef();
   const auto& faceListDataStore = faceListRef.getDataStoreRef();
 
-//  Point3D<T> v0;
-//  Point3D<T> v1;
-//  Point3D<T> v2;
+  Point3D<T> v0;
+  Point3D<T> v1;
+  Point3D<T> v2;
 
-  FloatVec3 v0;
-  FloatVec3 v1;
-  FloatVec3 v2;
+  FloatVec3 bcoords (0.0f, 0.0f, 0.0f); // Reusable for the loops
 
   usize numFaces = faceIds.size();
- // while(iter++ < numFaces)
+  while(iter++ < numFaces)
   {
     crossings = 0;
-//
-//    std::array<T, 3> eulerAngles;
-//    float rand1 = distribution(generator);
-//    float rand2 = distribution(generator);
-//
-//    eulerAngles[2] = (2.0f * rand1) - 1.0f;
-//    float t = Constants::k_2PiF * rand2;
-//    float w = std::sqrt(1.0f - (eulerAngles[2] * eulerAngles[2]));
-//    eulerAngles[0] = w * std::cos(t);
-//    eulerAngles[1] = w * std::sin(t);
-//
-//    // Generate and add ray to point to find other end
-//    Ray<T> ray(point, ZXZEuler(eulerAngles.data()), radius);
+
+    std::array<T, 3> eulerAngles;
+    float rand1 = distribution(generator);
+    float rand2 = distribution(generator);
+    float rand3 = distribution(generator);
+
+    eulerAngles[2] = (2.0f * rand1) - 1.0f;
+    float t = Constants::k_2PiF * rand2;
+    float w = std::sqrt(1.0f - (eulerAngles[2] * eulerAngles[2]));
+    eulerAngles[0] = w * std::cos(t);
+    eulerAngles[1] = w * std::sin(t);
+
+    // Generate and add ray to point to find other end
+    Ray<T> ray(point, ZXZEuler(eulerAngles.data()), radius);
 
     bool doNextCheck = false;
     for(usize face = 0; face < numFaces; face++)
     {
       char code = '?';
-//      if(!DoesRayIntersectBox(ray, faceBBs[faceIds[face]]))
-//      {
-//        code = '0';
-//      }
-//      else
+      if(!DoesRayIntersectBox(ray, faceBBs[faceIds[face]]))
+      {
+        code = '0';
+      }
+      else
       {
         //        std::array<Point3D<T>, 3> coords;
         //        triangleGeom.getFaceCoordinates(faceIds[face], coords);
@@ -683,9 +676,20 @@ char IsPointInPolyhedron(const complex::TriangleGeom& triangleGeom, const std::v
         vertId = faceListDataStore[faceId * 3 + 2];
         v2 = {vertexListDataStore[vertId * 3], vertexListDataStore[vertId * 3 + 1], vertexListDataStore[vertId * 3 + 2]};
 
-        //code = RayIntersectsTriangle(ray, v0, v1, v2);
-        FloatVec3 bcoords;
-       code = (RayTriangleIntersect(point, {0.0f, 0.0f, 1.0f}, v0, v1, v2, bcoords) ? 'f' : 'z');
+        code = RayIntersectsTriangle(ray, v0, v1, v2);
+
+        // Create the direction vector and normalize it.
+        FloatVec3 dir(rand1, rand2, rand3);
+        const float32 magnitude = dir.magnitude();
+        if(magnitude != 0.0f)
+        {
+          dir = dir / magnitude;
+        }
+        bool doesIntersect = RayTriangleIntersect(point, dir, v0, v1, v2, bcoords);
+        if(doesIntersect)
+        {
+          code = 'f';
+        }
       }
 
       /* If ray is degenerate, then goto outer while to generate another. */
@@ -708,12 +712,12 @@ char IsPointInPolyhedron(const complex::TriangleGeom& triangleGeom, const std::v
       }
 
     } /* End check each face */
-//    if(doNextCheck)
-//    {
-//      continue;
-//    }
-//    /* No degeneracies encountered: ray is generic, so finished. */
-//    break;
+    if(doNextCheck)
+    {
+      continue;
+    }
+    /* No degeneracies encountered: ray is generic, so finished. */
+    break;
 
   } /* End while loop */
 
