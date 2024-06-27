@@ -110,6 +110,8 @@ get_property(SIMPLNX_DEBUG_POSTFIX GLOBAL PROPERTY SIMPLNX_DEBUG_POSTFIX)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
+set_property(GLOBAL PROPERTY FETCH_FILE_INDEX 0)
+
 # -----------------------------------------------------------------------
 # This section creates a global file that holds the commands to copy data
 # files, test data files, pipelines into a single cmake file that gets
@@ -124,7 +126,11 @@ file(WRITE ${FETCH_FILE_PATH} "# -----------------------------------------------
 # -----------------------------------------------------------------------\n
 cmake_policy(SET CMP0012 NEW)
 cmake_policy(SET CMP0054 NEW)\n
+set(LOG_FILE \"${simplnx_BINARY_DIR}/simplnx_fetch_remote_files.log\")\n
+FILE(WRITE \"\${LOG_FILE}\" \"Log Start\n\")\n
 ")
+
+message(STATUS "FETCH_FILE_PATH: ${FETCH_FILE_PATH}")
 
 set(TEST_WORKING_DIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 if(CMAKE_GENERATOR MATCHES "Visual Studio")
