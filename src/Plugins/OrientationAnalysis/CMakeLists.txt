@@ -1,9 +1,8 @@
 # ------------------------------------------------------------------------------
 # Required EbsdLib and H5Support
 # ------------------------------------------------------------------------------
-find_package(H5Support REQUIRED)
+include("${simplnx_SOURCE_DIR}/cmake/UseEbsdLib.cmake")
 
-find_package(EbsdLib REQUIRED)
 
 # ------------------------------------------------------------------------------
 # EbsdLib needs install rules for creating packages
