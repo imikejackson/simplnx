@@ -69,15 +69,6 @@
         }
       ]
     },
-    "ebsd": {
-      "description": "Ebsd data processing",
-      "dependencies": [
-        {
-          "name": "ebsdlib",
-          "version>=": "1.0.32"
-        }
-      ]
-    },
     "compressors": {
       "description": "Compressors for binary data",
       "dependencies": [

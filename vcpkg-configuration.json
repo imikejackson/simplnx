@@ -13,7 +13,6 @@
         "blosc",
         "boost-mp11",
         "catch2",
-        "ebsdlib",
         "eigen3",
         "expected-lite",
         "fmt",

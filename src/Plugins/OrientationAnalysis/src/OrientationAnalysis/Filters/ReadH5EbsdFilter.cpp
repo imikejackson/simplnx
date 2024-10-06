@@ -272,8 +272,7 @@ Result<> ReadH5EbsdFilter::executeImpl(DataStructure& dataStructure, const Argum
   inputValues.cellAttributeMatrixPath = pDataContainerNameValue.createChildPath(pCellAttributeMatrixNameValue);
   inputValues.cellEnsembleMatrixPath = pCellEnsembleAttributeMatrixNameValue;
 
-  ReadH5Ebsd readH5Ebsd(dataStructure, messageHandler, shouldCancel, &inputValues);
-  return readH5Ebsd();
+  return ReadH5Ebsd(dataStructure, messageHandler, shouldCancel, &inputValues)();
 }
 
 namespace
