@@ -76,6 +76,8 @@ public:
     AbstractMontage = 25,
     GridMontage = 26,
 
+    StatsDataArray = 27,
+
     Unknown = 999,
     Any = 4294967295U
   };

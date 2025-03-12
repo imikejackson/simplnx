@@ -296,6 +296,10 @@ Result<> AddOutputArray(const GeometryArrayInfo& arrayInfo, const DataPath& outp
     return MakeErrorResult(-56, fmt::format("Geometry at path '{}' has array with name '{}' that has array type 'Any'.  This should NEVER happen.  Please contact the developers.", arrayInfo.name,
                                             outputGeomPath.toString()));
   }
+  case IArray::ArrayType::StatsDataArray:
+  default:
+    return MakeErrorResult(-56, fmt::format("Geometry at path '{}' has array with name '{}' that has array type 'Any'.  This should NEVER happen.  Please contact the developers.", arrayInfo.name,
+                                            outputGeomPath.toString()));
   }
 
   return {};

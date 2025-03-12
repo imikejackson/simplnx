@@ -460,6 +460,7 @@ set(SIMPLNX_HDRS
   ${SIMPLNX_SOURCE_DIR}/DataStructure/NeighborList.hpp
   ${SIMPLNX_SOURCE_DIR}/DataStructure/ScalarData.hpp
   ${SIMPLNX_SOURCE_DIR}/DataStructure/StringArray.hpp
+    ${SIMPLNX_SOURCE_DIR}/DataStructure/IStatsData.hpp
 
   ${SIMPLNX_SOURCE_DIR}/Filter/AbstractParameter.hpp
   ${SIMPLNX_SOURCE_DIR}/Filter/AnyCloneable.hpp
@@ -676,6 +677,7 @@ set(SIMPLNX_SRCS
   ${SIMPLNX_SOURCE_DIR}/DataStructure/Metadata.cpp
   ${SIMPLNX_SOURCE_DIR}/DataStructure/NeighborList.cpp
   ${SIMPLNX_SOURCE_DIR}/DataStructure/StringArray.cpp
+    ${SIMPLNX_SOURCE_DIR}/DataStructure/IStatsData.cpp
 
   ${SIMPLNX_SOURCE_DIR}/Filter/AbstractParameter.cpp
   ${SIMPLNX_SOURCE_DIR}/Filter/Arguments.cpp

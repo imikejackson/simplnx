@@ -16,6 +16,7 @@ public:
     StringArray,
     DataArray,
     NeighborListArray,
+    StatsDataArray,
     Any
   };
 
