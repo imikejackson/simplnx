@@ -190,7 +190,7 @@ private:
   const DataPath& m_VertexAMPath;
   const DataPath& m_CellAMPath;
   const bool m_Allocate;
-  FileCache& m_Cache;
+  DeformV12FileCache& m_Cache;
   usize m_LineCount = 0;
   std::vector<std::string> m_UserDefinedVariables = {};
   std::vector<DataPath> m_UserDefinedArrays = {};
@@ -418,7 +418,7 @@ private:
         m_UserDefinedArrays.reserve(m_UserDefinedVariables.size());
         for(const auto& userDefinedVariable : m_UserDefinedVariables)
         {
-          DataArrayMetadata metadata = {};
+          DeformV12DataArrayMetadata metadata = {};
           metadata.path = parentPath.createChildPath(userDefinedVariable);
           metadata.tupleCount = arrayTupleSize;
           metadata.componentCount = 1;
@@ -429,7 +429,7 @@ private:
       }
       else
       {
-        DataArrayMetadata metadata = {};
+        DeformV12DataArrayMetadata metadata = {};
         metadata.path = parentPath.createChildPath(dataArrayName);
         metadata.tupleCount = arrayTupleSize;
         metadata.componentCount = componentCount;
@@ -791,7 +791,7 @@ ReadDeformKeyFileV12::ReadDeformKeyFileV12(DataStructure& dataStructure, const I
 , m_InputValues(inputValues)
 , m_ShouldCancel(shouldCancel)
 , m_MessageHandler(mesgHandler)
-, m_Cache(FileCache{})
+, m_Cache(DeformV12FileCache{})
 {
 }
 
@@ -811,7 +811,7 @@ void ReadDeformKeyFileV12::updateProgress(const std::string& progressMessage)
 }
 
 // -----------------------------------------------------------------------------
-FileCache& ReadDeformKeyFileV12::getCache()
+DeformV12FileCache& ReadDeformKeyFileV12::getCache()
 {
   return m_Cache;
 }

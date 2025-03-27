@@ -114,6 +114,7 @@ set(${PLUGIN_NAME}UnitTest_SRCS
   ReadCSVFileTest.cpp
   ReadHDF5DatasetTest.cpp
   ReadRawBinaryTest.cpp
+  ReadSPParksDumpFileTest.cpp
   ReadStlFileTest.cpp
   ReadStringDataArrayTest.cpp
   ReadTextDataArrayTest.cpp

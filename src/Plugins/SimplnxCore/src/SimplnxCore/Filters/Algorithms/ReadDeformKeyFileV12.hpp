@@ -11,17 +11,17 @@ namespace fs = std::filesystem;
 
 namespace nx::core
 {
-struct SIMPLNXCORE_EXPORT DataArrayMetadata
+struct SIMPLNXCORE_EXPORT DeformV12DataArrayMetadata
 {
   DataPath path;
   usize tupleCount;
   usize componentCount;
 };
 
-struct SIMPLNXCORE_EXPORT FileCache
+struct SIMPLNXCORE_EXPORT DeformV12FileCache
 {
   fs::path inputFile;
-  std::vector<DataArrayMetadata> dataArrays;
+  std::vector<DeformV12DataArrayMetadata> dataArrays;
   usize vertexAttrMatTupleCount;
   usize cellAttrMatTupleCount;
   fs::file_time_type timeStamp;
@@ -60,13 +60,13 @@ public:
 
   const std::atomic_bool& getCancel();
   void updateProgress(const std::string& progMessage);
-  FileCache& getCache();
+  DeformV12FileCache& getCache();
 
 private:
   DataStructure& m_DataStructure;
   const ReadDeformKeyFileV12InputValues* m_InputValues = nullptr;
   const std::atomic_bool& m_ShouldCancel;
   const IFilter::MessageHandler& m_MessageHandler;
-  FileCache m_Cache = {};
+  DeformV12FileCache m_Cache = {};
 };
 } // namespace nx::core

@@ -114,6 +114,7 @@ set(FilterList
   ReadHDF5DatasetFilter
   ReadRawBinaryFilter
   ReadStlFileFilter
+  ReadSPParksDumpFileFilter
   ReadStringDataArrayFilter
   ReadTextDataArrayFilter
   ReadVolumeGraphicsFileFilter
@@ -275,6 +276,7 @@ set(AlgorithmList
 #  ReadDREAM3D
   ReadHDF5Dataset
   ReadRawBinary
+  ReadSPParksDumpFile
   ReadStlFile
   ReadStringDataArray
   ReadTextDataArray

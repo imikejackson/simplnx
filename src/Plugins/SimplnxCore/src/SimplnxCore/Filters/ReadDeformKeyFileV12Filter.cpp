@@ -18,7 +18,7 @@ using namespace nx::core;
 namespace
 {
 std::atomic_int32_t s_InstanceId = 0;
-std::map<int32, FileCache> s_HeaderCache;
+std::map<int32, DeformV12FileCache> s_HeaderCache;
 } // namespace
 
 namespace nx::core
@@ -141,7 +141,7 @@ IFilter::PreflightResult ReadDeformKeyFileV12Filter::preflightImpl(const DataStr
     resultOutputActions.value().appendAction(std::move(createAction));
   }
 
-  for(const DataArrayMetadata& daMetadata : s_HeaderCache[m_InstanceId].dataArrays)
+  for(const DeformV12DataArrayMetadata& daMetadata : s_HeaderCache[m_InstanceId].dataArrays)
   {
     if(daMetadata.path.getParent() == vertexDataPath)
     {
