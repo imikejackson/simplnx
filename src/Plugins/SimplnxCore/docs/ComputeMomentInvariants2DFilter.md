@@ -16,14 +16,15 @@ See below figure from [1] that can help the user classify objects.
 
 % Auto generated parameter table will be inserted here
 
-# Citations
+## Citations
 
 [1] J.P. MacSleyne, J.P. Simmons, M. De Graef, *On the use of 2-D moment invariants for the automated classification of particle shapes*, Acta Materialia, Volume 56, Issue 3, February 2008, Pages 427-437, ISSN 1359-6454, [http://dx.doi.org/10.1016/j.actamat.2007.09.039.](http://dx.doi.org/10.1016/j.actamat.2007.09.039.)
 [http://www.sciencedirect.com/science/article/pii/S1359645407006702](http://www.sciencedirect.com/science/article/pii/S1359645407006702)
 
-# Acknowledgements
+## Acknowledgements
 
 The authors would like to thank Dr. Marc De Graef from Carnegie Mellon University for enlightening discussions and a concrete implementation from which to start this filter.
+
 ## Example Pipelines
 
 ## License & Copyright

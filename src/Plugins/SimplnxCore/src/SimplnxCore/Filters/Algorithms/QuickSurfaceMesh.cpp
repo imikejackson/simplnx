@@ -8,9 +8,12 @@
 #include "simplnx/Utilities/DataArrayUtilities.hpp"
 #include "simplnx/Utilities/Meshing/TriangleUtilities.hpp"
 #include "simplnx/Utilities/ParallelData3DAlgorithm.hpp"
+#include "simplnx/Utilities/ArrayCreationUtilities.hpp"
 
 #include <array>
 #include <unordered_map>
+
+#define QSM_CREATE_TRIPLE_LINES 0
 
 using namespace nx::core;
 
@@ -61,168 +64,6 @@ struct EdgeHasher
 // -----------------------------------------------------------------------------
 using VertexMap = std::unordered_map<VertexType, IGeometry::MeshIndexType, VertexHasher>;
 using EdgeMap = std::unordered_map<EdgeType, IGeometry::MeshIndexType, EdgeHasher>;
-
-// -----------------------------------------------------------------------------
-struct GenerateTripleLinesImpl
-{
-  using MeshIndexType = typename QuickSurfaceMesh::MeshIndexType;
-
-  GenerateTripleLinesImpl(ImageGeom* imageGeom, Int32AbstractDataStore& featureIdsStore, VertexMap& vertexMapRef, EdgeMap& edgeMapRef)
-  : origin(imageGeom->getOrigin())
-  , res(imageGeom->getSpacing())
-  , featureIds(featureIdsStore)
-  , vertexMap(vertexMapRef)
-  , edgeMap(edgeMapRef)
-  {
-    SizeVec3 udims = imageGeom->getDimensions();
-
-    xP = udims[0];
-    yP = udims[1];
-    zP = udims[2];
-  }
-
-  void compute(usize zStart, usize zEnd, usize yStart, usize yEnd, usize xStart, usize xEnd) const
-  {
-    for(size_t k = zStart; k < zEnd; k++)
-    {
-      for(size_t j = yStart; j < yEnd; j++)
-      {
-        for(size_t i = xStart; i < xEnd; i++)
-        {
-          point = (k * xP * yP) + (j * xP) + i;
-          // Case 1
-          neigh1 = point + 1;
-          neigh2 = point + (xP * yP) + 1;
-          neigh3 = point + (xP * yP);
-
-          VertexType const p0 = {{origin[0] + static_cast<float>(i) * res[0] + res[0], origin[1] + static_cast<float>(j) * res[1] + res[1], origin[2] + static_cast<float>(k) * res[2] + res[2]}};
-
-          VertexType const p1 = {{origin[0] + static_cast<float>(i) * res[0] + res[0], origin[1] + static_cast<float>(j) * res[1], origin[2] + static_cast<float>(k) * res[2] + res[2]}};
-
-          VertexType const p2 = {{origin[0] + static_cast<float>(i) * res[0], origin[1] + static_cast<float>(j) * res[1] + res[1], origin[2] + static_cast<float>(k) * res[2] + res[2]}};
-
-          VertexType const p3 = {{origin[0] + static_cast<float>(i) * res[0] + res[0], origin[1] + static_cast<float>(j) * res[1] + res[1], origin[2] + static_cast<float>(k) * res[2]}};
-
-          uFeatures.clear();
-          uFeatures.insert(featureIds[point]);
-          uFeatures.insert(featureIds[neigh1]);
-          uFeatures.insert(featureIds[neigh2]);
-          uFeatures.insert(featureIds[neigh3]);
-
-          if(uFeatures.size() > 2)
-          {
-            auto iter = vertexMap.find(p0);
-            if(iter == vertexMap.end())
-            {
-              vertexMap[p0] = vertCounter++;
-            }
-            iter = vertexMap.find(p1);
-            if(iter == vertexMap.end())
-            {
-              vertexMap[p1] = vertCounter++;
-            }
-            MeshIndexType i0 = vertexMap[p0];
-            MeshIndexType i1 = vertexMap[p1];
-
-            const EdgeType tmpEdge = {{i0, i1}};
-            auto eiter = edgeMap.find(tmpEdge);
-            if(eiter == edgeMap.end())
-            {
-              edgeMap[tmpEdge] = edgeCounter++;
-            }
-          }
-
-          // Case 2
-          neigh1 = point + xP;
-          neigh2 = point + (xP * yP) + xP;
-          neigh3 = point + (xP * yP);
-
-          uFeatures.clear();
-          uFeatures.insert(featureIds[point]);
-          uFeatures.insert(featureIds[neigh1]);
-          uFeatures.insert(featureIds[neigh2]);
-          uFeatures.insert(featureIds[neigh3]);
-          if(uFeatures.size() > 2)
-          {
-            auto iter = vertexMap.find(p0);
-            if(iter == vertexMap.end())
-            {
-              vertexMap[p0] = vertCounter++;
-            }
-            iter = vertexMap.find(p2);
-            if(iter == vertexMap.end())
-            {
-              vertexMap[p2] = vertCounter++;
-            }
-
-            MeshIndexType i0 = vertexMap[p0];
-            MeshIndexType i2 = vertexMap[p2];
-
-            const EdgeType tmpEdge = {{i0, i2}};
-            auto eiter = edgeMap.find(tmpEdge);
-            if(eiter == edgeMap.end())
-            {
-              edgeMap[tmpEdge] = edgeCounter++;
-            }
-          }
-
-          // Case 3
-          neigh1 = point + 1;
-          neigh2 = point + xP + 1;
-          neigh3 = point + +xP;
-
-          uFeatures.clear();
-          uFeatures.insert(featureIds[point]);
-          uFeatures.insert(featureIds[neigh1]);
-          uFeatures.insert(featureIds[neigh2]);
-          uFeatures.insert(featureIds[neigh3]);
-          if(uFeatures.size() > 2)
-          {
-            auto iter = vertexMap.find(p0);
-            if(iter == vertexMap.end())
-            {
-              vertexMap[p0] = vertCounter++;
-            }
-            iter = vertexMap.find(p3);
-            if(iter == vertexMap.end())
-            {
-              vertexMap[p3] = vertCounter++;
-            }
-
-            MeshIndexType i0 = vertexMap[p0];
-            MeshIndexType i3 = vertexMap[p3];
-
-            const EdgeType tmpEdge = {{i0, i3}};
-            auto eiter = edgeMap.find(tmpEdge);
-            if(eiter == edgeMap.end())
-            {
-              edgeMap[tmpEdge] = edgeCounter++;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  void operator()(const Range3D& range) const
-  {
-    compute(range[0], range[1], range[2], range[3], range[4], range[5]);
-  }
-
-private:
-  mutable MeshIndexType point = 0, neigh1 = 0, neigh2 = 0, neigh3 = 0;
-  mutable MeshIndexType vertCounter = 0;
-  mutable MeshIndexType edgeCounter = 0;
-  mutable MeshIndexType xP;
-  mutable MeshIndexType yP;
-  mutable MeshIndexType zP;
-  FloatVec3 origin;
-  FloatVec3 res;
-  Int32AbstractDataStore& featureIds;
-  VertexMap& vertexMap;
-  EdgeMap& edgeMap;
-  mutable std::set<int32_t> uFeatures;
-};
 
 // -----------------------------------------------------------------------------
 void GetGridCoordinates(const IGridGeometry* grid, size_t x, size_t y, size_t z, QuickSurfaceMesh::VertexStore& verts, IGeometry::MeshIndexType nodeIndex)
@@ -405,9 +246,12 @@ Result<> QuickSurfaceMesh::operator()()
     m_DataStructure.removeData(triangleGeom.getElementContainingVertId().value());
     m_DataStructure.removeData(triangleGeom.getElementNeighborsId().value());
   }
-
-#ifdef QSM_CREATE_TRIPLE_LINES
-  if(m_InputValues->pGenerateTripleLines)
+  if(m_InputValues->GenerateTripleLines)
+  {
+    generateTripleLines();
+  }
+#if QSM_CREATE_TRIPLE_LINES
+  if(m_InputValues->GenerateTripleLines)
   {
     IGeometry::SharedTriList* triangle = triangleGeom.getFaces();
     IGeometry::SharedVertexList* vertices = triangleGeom.getVertices();
@@ -472,7 +316,6 @@ Result<> QuickSurfaceMesh::operator()()
     }
 
     // Now that we all of that out of the way, generate the triple lines
-    generateTripleLines();
   }
 #endif
 
@@ -1556,10 +1399,6 @@ void QuickSurfaceMesh::createNodesAndTriangles(std::vector<MeshIndexType>& m_Nod
 // -----------------------------------------------------------------------------
 void QuickSurfaceMesh::generateTripleLines()
 {
-  if(m_ShouldCancel)
-  {
-    return;
-  }
   /**
    * This is a bit of experimental code where we define a triple line as an edge
    * that shares voxels with at least 3 unique Feature Ids. This is different
@@ -1605,24 +1444,16 @@ void QuickSurfaceMesh::generateTripleLines()
   MeshIndexType vertCounter = 0;
   MeshIndexType edgeCounter = 0;
 
-  // Cycle through again assigning coordinates to each node and assigning node numbers and feature labels to each triangle
-  ParallelData3DAlgorithm algorithm;
-  algorithm.setRange(Range3D(xP - 1, yP - 1, zP - 1));
-  if(featureIds.getChunkShape().has_value())
-  {
-    const auto chunkShape = featureIds.getChunkShape().value();
-    algorithm.setChunkSize(Range3D(chunkShape[0], chunkShape[1], chunkShape[2]));
-  }
-  algorithm.setParallelizationEnabled(false);
-  algorithm.execute(GenerateTripleLinesImpl(imageGeom, featureIds, vertexMap, edgeMap));
+  std::vector<int32> edgeFeatureIds;
+  edgeFeatureIds.reserve(10000); // Just a guess.
 
-#if QSM_CREATE_TRIPLE_LINES
   for(size_t k = 0; k < zP - 1; k++)
   {
     for(size_t j = 0; j < yP - 1; j++)
     {
       for(size_t i = 0; i < xP - 1; i++)
       {
+
         point = (k * xP * yP) + (j * xP) + i;
         // Case 1
         neigh1 = point + 1;
@@ -1662,6 +1493,10 @@ void QuickSurfaceMesh::generateTripleLines()
           auto eiter = edgeMap.find(tmpEdge);
           if(eiter == edgeMap.end())
           {
+            edgeFeatureIds.push_back( featureIds[point]);
+            edgeFeatureIds.push_back( featureIds[neigh1]);
+            edgeFeatureIds.push_back( featureIds[neigh2]);
+            edgeFeatureIds.push_back( featureIds[neigh3]);
             edgeMap[tmpEdge] = edgeCounter++;
           }
         }
@@ -1696,6 +1531,10 @@ void QuickSurfaceMesh::generateTripleLines()
           auto eiter = edgeMap.find(tmpEdge);
           if(eiter == edgeMap.end())
           {
+            edgeFeatureIds.push_back( featureIds[point]);
+            edgeFeatureIds.push_back( featureIds[neigh1]);
+            edgeFeatureIds.push_back( featureIds[neigh2]);
+            edgeFeatureIds.push_back( featureIds[neigh3]);
             edgeMap[tmpEdge] = edgeCounter++;
           }
         }
@@ -1730,15 +1569,18 @@ void QuickSurfaceMesh::generateTripleLines()
           auto eiter = edgeMap.find(tmpEdge);
           if(eiter == edgeMap.end())
           {
+            edgeFeatureIds.push_back( featureIds[point]);
+            edgeFeatureIds.push_back( featureIds[neigh1]);
+            edgeFeatureIds.push_back( featureIds[neigh2]);
+            edgeFeatureIds.push_back( featureIds[neigh3]);
             edgeMap[tmpEdge] = edgeCounter++;
           }
         }
       }
     }
   }
-#endif
 
-  std::string edgeGeometryName = "[Edge Geometry]";
+  std::string edgeGeometryName = "Triple Lines";
 
   DataPath edgeGeometryDataPath({edgeGeometryName});
   std::string sharedVertListName = "SharedVertList";
@@ -1750,18 +1592,27 @@ void QuickSurfaceMesh::generateTripleLines()
   IGeometry::SharedVertexList* vertices = Float32Array::CreateWithStore<DataStore<float>>(m_DataStructure, sharedVertListName, {numVerts}, {numComps}, m_DataStructure.getId(edgeGeometryDataPath));
   auto& verticesRef = vertices->getDataStoreRef();
 
-  for(const auto& vert : vertexMap)
+  size_t totalVertsUsed = 0;
+  for(auto vert : vertexMap)
   {
     float v0 = vert.first[0];
     float v1 = vert.first[1];
     float v2 = vert.first[2];
     MeshIndexType idx = vert.second;
-    const MeshIndexType offset = idx * numComps;
-    verticesRef.setValue(offset + 0, v0);
-    verticesRef.setValue(+1, v1);
-    verticesRef.setValue(idx * numComps + 2, v2);
+    vertices->setComponent(idx, 0, v0);
+    vertices->setComponent(idx, 1, v1);
+    vertices->setComponent(idx, 2, v2);
+    if(idx > totalVertsUsed)
+    {
+      totalVertsUsed = idx;
+    }
   }
+
+  std::cout << "TotalVertsUsed: " << totalVertsUsed << std::endl;
+  std::cout << "Total Vertices Allocated: " << vertexMap.size() * 3 << std::endl;
+
   tripleLineEdge->setVertices(*vertices);
+  tripleLineEdge->resizeVertexList(totalVertsUsed);
 
   std::string sharedEdgeListName = "SharedEdgeList";
   size_t numEdges = edgeMap.size();
@@ -1770,13 +1621,38 @@ void QuickSurfaceMesh::generateTripleLines()
       IGeometry::SharedEdgeList::CreateWithStore<DataStore<MeshIndexType>>(m_DataStructure, sharedEdgeListName, {numEdges}, {numEdgeComps}, m_DataStructure.getId(edgeGeometryDataPath));
   auto& edgesRef = edges->getDataStoreRef();
 
-  for(const auto& edge : edgeMap)
+  DataPath edgeFeatureIdsDataPath = edgeGeometryDataPath.createChildPath("EdgeData").createChildPath("featureIds");
+  auto* edgeAttributeMatrix = AttributeMatrix::Create(m_DataStructure, "EdgeData", {numEdges}, tripleLineEdge->getId());
+  Result result = ArrayCreationUtilities::CreateArray<int32>(m_DataStructure, {numEdges}, {4}, edgeFeatureIdsDataPath, IDataAction::Mode::Execute);
+  if(result.invalid())
+  {
+    return;
+    // return MergeResults(result, MakeErrorResult(-5510, fmt::format("{}CreateGeometry2DAction: Could not allocate SharedVertList '{}'", prefix, vertexPath.toString())));
+  }
+  auto* edgeFeatureIdsPtr = m_DataStructure.getDataAs<Int32Array>(edgeFeatureIdsDataPath);
+
+  totalVertsUsed = 0;
+  for(auto edge : edgeMap)
   {
     MeshIndexType i0 = edge.first[0];
     MeshIndexType i1 = edge.first[1];
     MeshIndexType idx = edge.second;
-    edgesRef.setValue(idx * numComps + 0, i0);
-    edgesRef.setValue(idx * numComps + 1, i1);
+    edges->setComponent(idx, 0, i0);
+    edges->setComponent(idx, 1, i1);
+
+    edgeFeatureIdsPtr->setComponent(idx, 0, edgeFeatureIds[idx * 4 + 0]);
+    edgeFeatureIdsPtr->setComponent(idx, 1, edgeFeatureIds[idx * 4 + 1]);
+    edgeFeatureIdsPtr->setComponent(idx, 2, edgeFeatureIds[idx * 4 + 2]);
+    edgeFeatureIdsPtr->setComponent(idx, 3, edgeFeatureIds[idx * 4 + 3]);
+
+
+    if(idx > totalVertsUsed)
+    {
+      totalVertsUsed = idx;
+    }
   }
   tripleLineEdge->setEdgeList(*edges);
+  tripleLineEdge->setEdgeAttributeMatrix(*edgeAttributeMatrix);
+  tripleLineEdge->resizeEdgeList(totalVertsUsed);
+  edgeAttributeMatrix->resizeTuples({totalVertsUsed});
 }

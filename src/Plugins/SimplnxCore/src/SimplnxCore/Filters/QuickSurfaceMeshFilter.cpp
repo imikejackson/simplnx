@@ -62,7 +62,7 @@ Parameters QuickSurfaceMeshFilter::parameters() const
   params.insert(std::make_unique<BoolParameter>(k_FixProblemVoxels_Key, "Attempt to Fix Problem Voxels", "See help page.", false));
   params.insert(std::make_unique<BoolParameter>(k_RepairTriangleWinding_Key, "Attempt to Make Windings Consistent",
                                                 "If true, attempts to repair the windings for the mesh. This may not be possible. See help page.", true));
-  // params.insert(std::make_unique<BoolParameter>(k_GenerateTripleLines_Key, "Generate Triple Lines", "Experimental feature. May not work.", false));
+  params.insert(std::make_unique<BoolParameter>(k_GenerateTripleLines_Key, "Generate Triple Lines", "Experimental feature. May not work.", false));
 
   params.insert(std::make_unique<GeometrySelectionParameter>(k_GridGeometryDataPath_Key, "Grid Geometry", "The complete path to the Grid Geometry from which to create a Triangle Geometry", DataPath{},
                                                              GeometrySelectionParameter::AllowedTypes{IGeometry::Type::Image, IGeometry::Type::RectGrid}));
@@ -212,7 +212,7 @@ Result<> QuickSurfaceMeshFilter::executeImpl(DataStructure& dataStructure, const
 {
   nx::core::QuickSurfaceMeshInputValues inputValues;
 
-  // inputValues.GenerateTripleLines = filterArgs.value<bool>(k_GenerateTripleLines_Key);
+  inputValues.GenerateTripleLines = filterArgs.value<bool>(k_GenerateTripleLines_Key);
   inputValues.FixProblemVoxels = filterArgs.value<bool>(k_FixProblemVoxels_Key);
   inputValues.RepairTriangleWinding = filterArgs.value<bool>(k_RepairTriangleWinding_Key);
 
