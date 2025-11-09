@@ -4,6 +4,7 @@
 find_package(H5Support REQUIRED)
 
 find_package(EbsdLib REQUIRED)
+message(STATUS "EbsdLib_VERSION: ${EbsdLib_VERSION}")
 
 # ------------------------------------------------------------------------------
 # EbsdLib needs install rules for creating packages

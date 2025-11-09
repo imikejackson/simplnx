@@ -1,0 +1,36 @@
+#include <string>
+
+
+namespace nx::core::dependency::version
+{
+
+std::string getEigenVersion();
+
+std::string getHdf5Version();
+
+std::string getItkVersion();
+
+std::string getTbbVersion();
+
+std::string getFmtVersion();
+
+std::string getNLohmannVersion();
+
+std::string getExpectedLiteVersion();
+
+std::string getSpanLiteVersion();
+
+std::string getBoostMp11Version();
+
+std::string getNodVersion();
+
+std::string getReprocVersion();
+
+std::string getEbsdLibVersion();
+
+std::string getVtkVersion();
+
+std::string getQtVersion();
+
+
+}

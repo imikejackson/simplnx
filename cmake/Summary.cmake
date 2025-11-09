@@ -3,17 +3,9 @@ function(OSInformation)
         execute_process(COMMAND uname -v OUTPUT_VARIABLE DARWIN_VERSION)
         string(REGEX MATCH "[0-9]+" DARWIN_VERSION ${DARWIN_VERSION})
 
-        if(DARWIN_VERSION EQUAL 19) # macOS 10.15 Catalina (Xcode 11.x or Xcode 12.x)
-            # message(STATUS "Found macOS 10.15 Catalina as the host. Darwin Version:${DARWIN_VERSION}")
-            set(CMAKE_MACOS_NAME "Catalina")
-            set(CMAKE_MACOS_VERSION "10.15")
-        endif()
-
-        if(DARWIN_VERSION EQUAL 20) # macOS 11.00 Big Sur (Xcode 12.x)
-            # message(STATUS "Found macOS 11.00 Big Sur as the host. Darwin Version:${DARWIN_VERSION}")
-            set(CMAKE_MACOS_NAME "Big Sur")
-            set(CMAKE_MACOS_VERSION "11.00")
-        endif()
+        execute_process(COMMAND sw_vers -productVersion
+                        OUTPUT_VARIABLE OSX_PRODUCT_VERSION)
+        string(STRIP "${OSX_PRODUCT_VERSION}" OSX_PRODUCT_VERSION)
 
         IF (DARWIN_VERSION EQUAL 21) # macOS 12.00 Monterey (Xcode 12.x/Xcode 13.x)
             set(CMAKE_MACOS_NAME "Monterey")
@@ -25,7 +17,22 @@ function(OSInformation)
             set(CMAKE_MACOS_VERSION "13.00")
         ENDIF ()
 
-        message(STATUS "* System: MacOS ${CMAKE_MACOS_VERSION} ${CMAKE_MACOS_NAME} Running on ${CMAKE_SYSTEM_PROCESSOR}")
+        IF (DARWIN_VERSION EQUAL 23) # macOS 14.00 Sonoma (Xcode 14.x/Xcode 15.x)
+            set(CMAKE_MACOS_NAME "Sonoma")
+            set(CMAKE_MACOS_VERSION "14.00")
+        ENDIF ()
+
+        IF (DARWIN_VERSION EQUAL 24) # macOS 15.00 Sequoia (Xcode 15.x/Xcode 16.x)
+            set(CMAKE_MACOS_NAME "Sequoia")
+            set(CMAKE_MACOS_VERSION "16.00")
+        ENDIF ()
+
+        IF (DARWIN_VERSION EQUAL 25) # macOS 26.00 Ventura (Xcode 16.x/Xcode 17.x)
+            set(CMAKE_MACOS_NAME "Tahoe")
+            set(CMAKE_MACOS_VERSION "26.00")
+        ENDIF ()
+
+        message(STATUS "* System: MacOS ${CMAKE_MACOS_NAME} (${OSX_PRODUCT_VERSION}) Running on ${CMAKE_SYSTEM_PROCESSOR}")
     else()
         message(STATUS "* System: ${CMAKE_SYSTEM_NAME}")
         message(STATUS "* Version: ${CMAKE_SYSTEM_VERSION}")
@@ -103,3 +110,10 @@ foreach(d3dPlugin ${SIMPLNX_PLUGIN_LIST})
 endforeach()
 
 message(STATUS "* ======================================================================")
+
+
+set(DEPENDENCY_HEADER_NAME "SIMPLNXLibraryDependencyVersions")
+configure_file("${CMAKE_CURRENT_LIST_DIR}/dependency_library_version.h.in"
+               "${PROJECT_BINARY_DIR}/SIMPLNXLibraryDependencyVersions.hpp")
+configure_file("${CMAKE_CURRENT_LIST_DIR}/dependency_library_version.cpp.in"
+               "${PROJECT_BINARY_DIR}/SIMPLNXLibraryDependencyVersions.cpp")

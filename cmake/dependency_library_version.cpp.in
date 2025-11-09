@@ -1,0 +1,69 @@
+
+#include "@DEPENDENCY_HEADER_NAME@.hpp"
+
+
+
+namespace nx::core::dependency::version
+{
+
+std::string getEigenVersion()
+{
+    return {"@Eigen3_VERSION@"};
+}
+
+std::string getHdf5Version()
+{
+    return {"@HDF5_VERSION@"};
+}
+
+std::string getItkVersion()
+{
+    return {"@ITK_VERSION@"};
+}
+
+std::string getTbbVersion()
+{
+    return {"@TBB_VERSION@"};
+}
+
+std::string getFmtVersion()
+{
+    return {"@fmt_VERSION@"};
+}
+
+std::string getNLohmannVersion()
+{
+    return {"@nlohmann_json_VERSION@"};
+}
+
+std::string getExpectedLiteVersion()
+{
+    return {"@expected-lite_VERSION@"};
+}
+
+std::string getSpanLiteVersion()
+{
+    return {"@span-lite_VERSION@"};
+}
+
+std::string getBoostMp11Version()
+{
+    return {"@boost_mp11_VERSION@"};
+}
+
+std::string getNodVersion()
+{
+    return {"@nod_VERSION@"};
+}
+
+std::string getReprocVersion()
+{
+    return {"@reproc_VERSION@"};
+}
+
+std::string getEbsdLibVersion()
+{
+    return {"@EbsdLib_VERSION@"};
+}
+
+}
