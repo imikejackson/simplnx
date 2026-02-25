@@ -71,6 +71,7 @@ set(${PLUGIN_NAME}UnitTest_SRCS
   CreateGeometryTest.cpp
   CreateImageGeometryTest.cpp
   CreatePythonSkeletonTest.cpp
+  CreateScatterChartTest.cpp
   CropEdgeGeometryTest.cpp
   CropImageGeometryTest.cpp
   CropVertexGeometryTest.cpp

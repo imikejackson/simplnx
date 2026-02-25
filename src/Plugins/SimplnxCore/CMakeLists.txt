@@ -1,3 +1,11 @@
+# ------------------------------------------------------------------------------
+# Required McPlotty
+# ------------------------------------------------------------------------------
+include("${simplnx_SOURCE_DIR}/cmake/UseMcPlotty.cmake")
+
+# ------------------------------------------------------------------------------
+# Include the standard simplnx plugin cmake support codes
+# ------------------------------------------------------------------------------
 include("${simplnx_SOURCE_DIR}/cmake/Plugin.cmake")
 
 set(PLUGIN_NAME "SimplnxCore")
@@ -161,6 +169,7 @@ set(FilterList
   WriteStlFileFilter
   WriteVtkRectilinearGridFilter
   WriteVtkStructuredPointsFilter
+    CreateScatterChartFilter
 )
 
 set(ActionList
@@ -324,6 +333,7 @@ set(AlgorithmList
   WriteStlFile
   WriteVtkRectilinearGrid
   WriteVtkStructuredPoints
+    CreateScatterChart
 )
 
 create_simplnx_plugin(NAME ${PLUGIN_NAME}
@@ -361,7 +371,7 @@ set_property(GLOBAL PROPERTY SIMPLNX_EXTRA_LIBRARY_DIRS ${SIMPLNX_EXTRA_LIBRARY_
 #------------------------------------------------------------------------------
 # If there are additional libraries that this plugin needs to link against you
 # can use the target_link_libraries() cmake call
-target_link_libraries(${PLUGIN_NAME} PRIVATE reproc++)
+target_link_libraries(${PLUGIN_NAME} PRIVATE reproc++ mcplotty::mcplotty)
 
 #------------------------------------------------------------------------------
 # If there are additional source files that need to be compiled for this plugin
