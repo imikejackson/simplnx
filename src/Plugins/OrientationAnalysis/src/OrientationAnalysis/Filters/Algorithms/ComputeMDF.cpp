@@ -5,6 +5,7 @@
 #include "simplnx/DataStructure/Geometry/ImageGeom.hpp"
 #include "simplnx/Utilities/ParallelDataAlgorithm.hpp"
 
+#include <EbsdLib/Core/EbsdLibConstants.h>
 #include <EbsdLib/LaueOps/LaueOps.h>
 #include <EbsdLib/Orientation/Euler.hpp>
 #include <EbsdLib/Orientation/Quaternion.hpp>
@@ -48,7 +49,7 @@ Result<> ComputeMDF::operator()()
   for(usize ensembleIndex = 1; ensembleIndex < numEnsembles; ensembleIndex++)
   {
     uint32 structure = crystalStructuresRef[ensembleIndex];
-    if(structure >= orientationOps.size())
+    if(structure > ebsdlib::CrystalStructure::Trigonal_High)
     {
       return MakeErrorResult(-96510, fmt::format("Ensemble {} has unsupported crystal structure {}", ensembleIndex, structure));
     }
