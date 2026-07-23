@@ -91,7 +91,12 @@ Result<> ComputeMDF::operator()()
           }
           ebsdlib::QuatD quat1 = ebsdlib::EulerDType(eulerAnglesRef[cellIndex * 3], eulerAnglesRef[cellIndex * 3 + 1], eulerAnglesRef[cellIndex * 3 + 2]).toQuaternion();
           ebsdlib::QuatD quat2 = ebsdlib::EulerDType(eulerAnglesRef[neighborIndex * 3], eulerAnglesRef[neighborIndex * 3 + 1], eulerAnglesRef[neighborIndex * 3 + 2]).toQuaternion();
-          ebsdlib::QuatD misoQuat = quat1.conjugate() * quat2; // MTEX: inv(o1) .* o2
+          // Crystal-to-crystal misorientation in EbsdLib's passive (epsijk=+1) convention: q1 * conj(q2),
+          // matching LaueOps::calculateMisorientation. This is the passive-quaternion equivalent of MTEX's
+          // active-orientation inv(o1).*o2 (MTEX orientations are the conjugate of EbsdLib's passive quats).
+          // Using conj(q1)*q2 here computes the misorientation in the crystal frame instead, which the MDF
+          // fundamental-zone folding (getMDFFZRod/getMisoBin) mis-reduces, smearing the true correlation.
+          ebsdlib::QuatD misoQuat = quat1 * quat2.conjugate();
           double weight = m_InputValues->UseAreaWeights ? faceAreas[axis] : 1.0;
           kdes[phase]->addMisorientation(misoQuat, weight);
         }

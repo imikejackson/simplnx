@@ -14,9 +14,12 @@
 #include <catch2/catch.hpp>
 
 #include <EbsdLib/LaueOps/LaueOps.h>
+#include <EbsdLib/Orientation/AxisAngle.hpp>
 #include <EbsdLib/Orientation/Euler.hpp>
 #include <EbsdLib/Orientation/Quaternion.hpp>
 #include <EbsdLib/Orientation/Rodrigues.hpp>
+
+#include <cmath>
 
 using namespace nx::core;
 
@@ -71,6 +74,61 @@ DataStructure CreateBicrystalDataStructure(bool splitFeatures)
       (*eulerAngles)[cellIndex * 3 + 0] = secondFeature ? fortyFiveDegrees : 0.0f;
       (*eulerAngles)[cellIndex * 3 + 1] = 0.0f;
       (*eulerAngles)[cellIndex * 3 + 2] = 0.0f;
+    }
+  }
+
+  auto* ensembleAM = AttributeMatrix::Create(dataStructure, "Cell Ensemble Data", {2}, imageGeom->getId());
+  auto* crystalStructures = UnitTest::CreateTestDataArray<uint32>(dataStructure, "CrystalStructures", {2}, {1}, ensembleAM->getId());
+  (*crystalStructures)[0] = 999;
+  (*crystalStructures)[1] = 1;
+
+  return dataStructure;
+}
+
+// Builds an 8x8x1 single-slice bicrystal that is a Sigma3 annealing twin: the left half (x < 4)
+// is feature 1 with a general orientation e1, and the right half is feature 2 whose orientation is
+// chosen so the crystal-to-crystal misorientation (in EbsdLib's passive convention, q1 * conj(q2))
+// is exactly 60 degrees about <111>. Feature 1 is deliberately NOT the identity: with a general e1
+// the correct sample-frame misorientation q1*conj(q2) folds to 60/<111>, whereas the crystal-frame
+// form conj(q1)*q2 folds to a DIFFERENT, non-60 disorientation. A test asserting a 60/<111> peak
+// therefore fails for the crystal-frame form and passes only for the correct sample-frame form.
+DataStructure CreateSigma3TwinDataStructure()
+{
+  DataStructure dataStructure;
+
+  auto* imageGeom = ImageGeom::Create(dataStructure, "ImageGeom");
+  imageGeom->setDimensions({8, 8, 1});
+
+  const usize numCells = 64;
+  auto* cellAM = AttributeMatrix::Create(dataStructure, "Cell Data", {numCells}, imageGeom->getId());
+  auto* eulerAngles = UnitTest::CreateTestDataArray<float32>(dataStructure, "EulerAngles", {numCells}, {3}, cellAM->getId());
+  auto* phases = UnitTest::CreateTestDataArray<int32>(dataStructure, "Phases", {numCells}, {1}, cellAM->getId());
+  auto* featureIds = UnitTest::CreateTestDataArray<int32>(dataStructure, "FeatureIds", {numCells}, {1}, cellAM->getId());
+
+  // Feature 1: a deliberately non-identity, non-symmetric orientation.
+  const ebsdlib::QuatD quat1 = ebsdlib::EulerDType(0.3, 0.4, 0.5).toQuaternion();
+  // Sigma3 twin misorientation: 60 degrees about [111].
+  const double sixtyDegrees = 60.0 * Constants::k_PiOver180D;
+  const double invSqrt3 = 1.0 / std::sqrt(3.0);
+  const double s = std::sin(sixtyDegrees / 2.0);
+  const ebsdlib::QuatD twinMiso(invSqrt3 * s, invSqrt3 * s, invSqrt3 * s, std::cos(sixtyDegrees / 2.0));
+  // Choose feature-2 orientation q2 so that q1 * conj(q2) == twinMiso, i.e. q2 = conj(twinMiso) * q1.
+  const ebsdlib::QuatD quat2 = twinMiso.conjugate() * quat1;
+  const ebsdlib::EulerDType euler1 = ebsdlib::QuaternionDType(quat1).toEuler();
+  const ebsdlib::EulerDType euler2 = ebsdlib::QuaternionDType(quat2).toEuler();
+
+  for(usize y = 0; y < 8; y++)
+  {
+    for(usize x = 0; x < 8; x++)
+    {
+      const usize cellIndex = y * 8 + x;
+      (*phases)[cellIndex] = 1;
+      const bool secondFeature = (x >= 4);
+      (*featureIds)[cellIndex] = secondFeature ? 2 : 1;
+      const ebsdlib::EulerDType& e = secondFeature ? euler2 : euler1;
+      (*eulerAngles)[cellIndex * 3 + 0] = static_cast<float32>(e[0]);
+      (*eulerAngles)[cellIndex * 3 + 1] = static_cast<float32>(e[1]);
+      (*eulerAngles)[cellIndex * 3 + 2] = static_cast<float32>(e[2]);
     }
   }
 
@@ -164,13 +222,13 @@ TEST_CASE("OrientationAnalysis::ComputeMDF: Cubic bicrystal", "[OrientationAnaly
   DataPath angleDistPath = phaseGroupPath.createChildPath("Angle Distribution");
 
   // Independently compute the MDF bin that EbsdLib assigns the 45deg@[001] misorientation using
-  // the SAME quaternion convention as the algorithm (miso = q1.conjugate() * q2).
+  // the SAME quaternion convention as the algorithm (miso = q1 * q2.conjugate()).
   auto orientationOps = ebsdlib::LaueOps::GetAllOrientationOps();
   ebsdlib::LaueOps::Pointer cubicOps = orientationOps[1];
   const double fortyFiveDegrees = 45.0 * Constants::k_PiOver180D;
   ebsdlib::QuatD quat1 = ebsdlib::EulerDType(0.0, 0.0, 0.0).toQuaternion();
   ebsdlib::QuatD quat2 = ebsdlib::EulerDType(fortyFiveDegrees, 0.0, 0.0).toQuaternion();
-  ebsdlib::QuatD misoQuat = quat1.conjugate() * quat2;
+  ebsdlib::QuatD misoQuat = quat1 * quat2.conjugate();
   const int expectedBin = cubicOps->getMisoBin(cubicOps->getMDFFZRod(misoQuat.toRodrigues()));
   const usize expectedMdfSize = cubicOps->getMDFSize();
   REQUIRE(expectedMdfSize == 5832);
@@ -232,6 +290,87 @@ TEST_CASE("OrientationAnalysis::ComputeMDF: Cubic bicrystal", "[OrientationAnaly
   }
   const float64 randomMean = randomSum / static_cast<float64>(randomDensityArray.getNumberOfTuples());
   REQUIRE(std::abs(randomMean - 1.0) < 1.0e-6);
+
+  UnitTest::CheckArraysInheritTupleDims(dataStructure);
+}
+
+// Regression test for the misorientation-frame bug (topic/compute-mdf): ComputeMDF originally
+// computed the crystal-frame misorientation conj(q1)*q2 instead of the sample-frame q1*conj(q2)
+// that EbsdLib's passive convention (and LaueOps::calculateMisorientation) require. On a real
+// Sigma3-twin-rich dataset (Ni Small_IN100) that bug produced an approximately-random MDF whose
+// angle curve peaked at the ~45 degree Mackenzie maximum instead of the ~60 degree twin peak.
+// This test builds an exact 60/<111> twin from a non-identity base orientation (so the two
+// misorientation frames are NOT symmetry-equivalent) and asserts the MDF peaks at 60/<111> and
+// the angle curve peaks near 60, clearly distinct from the ~45 degree random-reference peak.
+TEST_CASE("OrientationAnalysis::ComputeMDF: Sigma3 twin peaks at 60/<111>", "[OrientationAnalysis][ComputeMDF]")
+{
+  UnitTest::LoadPlugins();
+
+  DataStructure dataStructure = CreateSigma3TwinDataStructure();
+
+  ComputeMDFFilter filter;
+  Arguments args = CreateBicrystalArgs(10.0f, 200);
+
+  auto preflightResult = filter.preflight(dataStructure, args);
+  SIMPLNX_RESULT_REQUIRE_VALID(preflightResult.outputActions);
+
+  auto executeResult = filter.execute(dataStructure, args);
+  SIMPLNX_RESULT_REQUIRE_VALID(executeResult.result);
+
+  DataPath outputGroupPath({"MDF Data"});
+  DataPath phaseGroupPath = outputGroupPath.createChildPath("Phase-1");
+  DataPath angleDistPath = phaseGroupPath.createChildPath("Angle Distribution");
+
+  auto orientationOps = ebsdlib::LaueOps::GetAllOrientationOps();
+  ebsdlib::LaueOps::Pointer cubicOps = orientationOps[1];
+
+  // 1. The MDF array peak bin, folded to the fundamental zone, is a 60 degree / <111> misorientation.
+  REQUIRE_NOTHROW(dataStructure.getDataRefAs<Float64Array>(phaseGroupPath.createChildPath("MDF")));
+  const auto& mdfArray = dataStructure.getDataRefAs<Float64Array>(phaseGroupPath.createChildPath("MDF"));
+  usize mdfArgMax = 0;
+  float64 mdfMax = mdfArray[0];
+  for(usize i = 1; i < mdfArray.getNumberOfTuples(); i++)
+  {
+    if(mdfArray[i] > mdfMax)
+    {
+      mdfMax = mdfArray[i];
+      mdfArgMax = i;
+    }
+  }
+  double binCenterSeed[3] = {0.5, 0.5, 0.5};
+  ebsdlib::RodriguesDType peakRod = cubicOps->determineRodriguesVector(binCenterSeed, static_cast<int>(mdfArgMax));
+  ebsdlib::AxisAngleDType peakAxisAngle = peakRod.toAxisAngle();
+  const double peakAngleDeg = peakAxisAngle[3] * Constants::k_180OverPiD;
+  INFO("MDF peak angle (deg): " << peakAngleDeg << " axis (" << peakAxisAngle[0] << ", " << peakAxisAngle[1] << ", " << peakAxisAngle[2] << ")");
+  // The ~5 degree MDF-bin gridify shifts the peak by a couple degrees; allow a modest band.
+  REQUIRE(peakAngleDeg > 56.0);
+  REQUIRE(peakAngleDeg < 63.0);
+  // Axis is <111>: all three |components| ~ 1/sqrt(3) = 0.577.
+  const double invSqrt3 = 1.0 / std::sqrt(3.0);
+  REQUIRE(std::abs(std::abs(peakAxisAngle[0]) - invSqrt3) < 0.1);
+  REQUIRE(std::abs(std::abs(peakAxisAngle[1]) - invSqrt3) < 0.1);
+  REQUIRE(std::abs(std::abs(peakAxisAngle[2]) - invSqrt3) < 0.1);
+
+  // 2. The measured angle-distribution curve peaks near 60 degrees, NOT at the ~45 degree
+  //    Mackenzie (random-reference) maximum. This is the assertion that fails for the buggy
+  //    crystal-frame misorientation (which yields an approximately-random, ~45 degree, curve).
+  REQUIRE_NOTHROW(dataStructure.getDataRefAs<Float64Array>(angleDistPath.createChildPath("Angles")));
+  REQUIRE_NOTHROW(dataStructure.getDataRefAs<Float64Array>(angleDistPath.createChildPath("MDF Density")));
+  const auto& anglesArray = dataStructure.getDataRefAs<Float64Array>(angleDistPath.createChildPath("Angles"));
+  const auto& mdfDensityArray = dataStructure.getDataRefAs<Float64Array>(angleDistPath.createChildPath("MDF Density"));
+  usize densityArgMax = 0;
+  float64 densityMax = mdfDensityArray[0];
+  for(usize i = 1; i < mdfDensityArray.getNumberOfTuples(); i++)
+  {
+    if(mdfDensityArray[i] > densityMax)
+    {
+      densityMax = mdfDensityArray[i];
+      densityArgMax = i;
+    }
+  }
+  INFO("angle-curve peak (deg): " << anglesArray[densityArgMax]);
+  REQUIRE(anglesArray[densityArgMax] > 53.0);
+  REQUIRE(anglesArray[densityArgMax] < 63.0);
 
   UnitTest::CheckArraysInheritTupleDims(dataStructure);
 }
