@@ -375,6 +375,44 @@ TEST_CASE("OrientationAnalysis::ComputeMDF: Sigma3 twin peaks at 60/<111>", "[Or
   UnitTest::CheckArraysInheritTupleDims(dataStructure);
 }
 
+// Regression test for the crystal-structure guard seam: LaueOps::GetAllOrientationOps() returns
+// 12 entries, but only indices 0..10 correspond to named CrystalStructure Laue classes
+// (ebsdlib::CrystalStructure::Trigonal_High == 10); index 11 is a duplicate OrthoRhombicOps entry
+// with no corresponding CrystalStructure enumerator. The original guard `structure >=
+// orientationOps.size()` let a CrystalStructures value of 11 through, so ComputeMDF::operator()
+// would build a MisorientationKDE for it and MisorientationKDE::computeAngleCurve would call
+// random_angle_distribution::MaxMisorientationAngle(11), which hits `default: throw
+// std::invalid_argument` and escapes executeImpl uncaught. This test asserts that both an
+// out-of-range sentinel (999) and the index-11 seam value are rejected with a clean Result error
+// instead of a thrown exception.
+TEST_CASE("OrientationAnalysis::ComputeMDF: unsupported crystal structure returns clean error, not a throw", "[OrientationAnalysis][ComputeMDF]")
+{
+  UnitTest::LoadPlugins();
+
+  DataStructure dataStructure = CreateDataStructure();
+
+  DataPath crystalStructuresPath = DataPath({"ImageGeom"}).createChildPath("Cell Ensemble Data").createChildPath("CrystalStructures");
+  REQUIRE_NOTHROW(dataStructure.getDataRefAs<UInt32Array>(crystalStructuresPath));
+  auto& crystalStructuresRef = dataStructure.getDataRefAs<UInt32Array>(crystalStructuresPath);
+  // Ensemble 0 stays 999 (the unused "invalid" phase, never dereferenced). Ensemble 1 is set to
+  // 11, the duplicate-OrthoRhombicOps seam value described above.
+  REQUIRE(crystalStructuresRef[0] == 999);
+  crystalStructuresRef[1] = 11;
+
+  ComputeMDFFilter filter;
+  Arguments args = CreateBicrystalArgs(10.0f, 200);
+
+  auto preflightResult = filter.preflight(dataStructure, args);
+  SIMPLNX_RESULT_REQUIRE_VALID(preflightResult.outputActions);
+
+  auto executeResult = filter.execute(dataStructure, args);
+  SIMPLNX_RESULT_REQUIRE_INVALID(executeResult.result);
+  REQUIRE(executeResult.result.errors().size() == 1);
+  REQUIRE(executeResult.result.errors()[0].code == -96510);
+
+  UnitTest::CheckArraysInheritTupleDims(dataStructure);
+}
+
 TEST_CASE("OrientationAnalysis::ComputeMDF: no boundaries warns and zero-fills", "[OrientationAnalysis][ComputeMDF]")
 {
   UnitTest::LoadPlugins();
