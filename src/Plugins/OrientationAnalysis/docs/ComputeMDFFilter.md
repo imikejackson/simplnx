@@ -19,6 +19,27 @@ This **Filter** reproduces the default behavior of MTEX 6.1.0's `calcDensity` **
 
 Only **Cell** pairs that share a **Phase** are used to build a given phase's MDF; boundary faces between **Features** of different phases are skipped, since a correlated single-phase MDF is not well defined across a phase boundary.
 
+## How the MDF Is Computed
+
+For each phase, the **Filter** builds the MDF in four steps:
+
+1. **Collect boundary misorientations.** Every **Cell** face where the two neighboring **Cells** belong to different **Features** of the same **Phase** contributes one misorientation, computed directly from the two **Cells'** orientations. This is the "correlated" part: the misorientations come from real neighboring-grain pairs, not from randomly combining single-grain orientations.
+
+2. **Fold to the fundamental zone and assign a grid cell.** Each misorientation is reduced into the misorientation fundamental zone of the phase's Laue class (applying crystal and grain-exchange symmetry so equivalent misorientations map to a single canonical representative) and then assigned to the nearest cell of a **fixed discrete grid**. This is EbsdLib's MDF grid: a fixed number of cells that depends only on the Laue class — for example **5,832 cells (18 × 18 × 18)** for cubic *m-3m*, which works out to roughly **3–4° of misorientation per cell**. The contributing weight of every boundary face landing in a cell is summed there. This "snap to a grid cell" step is why the stored MDF has a finite, fixed resolution.
+
+3. **Estimate the density.** A de la Vallee Poussin kernel (a smooth, bell-shaped weighting function whose width is set by *Kernel Halfwidth*) is centered on each occupied grid cell and summed, with the sum symmetrized over the phase's crystal symmetry and the grain-exchange symmetry between the two grains. Evaluating this kernel sum at every grid-cell center produces the **MDF** array — one density value per cell.
+
+4. **Build the angle-distribution curve.** For each of *Number of Curve Points* angles from 0 up to the largest possible misorientation angle for the Laue class, the density is averaged over all misorientation axes at that angle. This collapses the full 3D MDF down to the 1D **MDF Density** curve. The analytic random-texture distribution for the same Laue class is computed independently to give the **Random Density** curve.
+
+### Resolution of the Output
+
+The MDF this **Filter** produces is a **tabulated density on a fixed grid**, not a continuous mathematical function. Two separate scales set how much detail it can show:
+
+- **The grid spacing** (a few degrees per cell, fixed by the Laue class) is the hard floor on resolution — misorientations are snapped to grid cells before anything else happens, so features finer than one cell cannot be represented no matter what other settings are used.
+- **The kernel halfwidth** (default *10* degrees) is the smoothing width applied on top of the grid. Because the default halfwidth is larger than the grid spacing, the kernel — not the grid — normally sets the width of the features you see. Lowering the halfwidth sharpens the estimate (down to the grid floor); raising it smooths the estimate further.
+
+As a result the output curve looks smooth even though it is assembled from discrete grid cells, and a sharp real feature (such as an annealing-twin peak) will appear as a peak roughly one kernel-halfwidth wide, centered within about one grid cell of its true angle. If you need finer angular detail than the grid provides, that is a limitation of the discrete MDF representation rather than of the input data.
+
 ## Required Inputs
 
 - **Image Geometry**: The geometry whose **Cell** faces are scanned for **Feature** boundaries.
