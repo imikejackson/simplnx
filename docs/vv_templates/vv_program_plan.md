@@ -3,8 +3,8 @@
 Companion to [`vv_policy.md`](./vv_policy.md). The policy says *how* to V&V one filter.
 This says *which* filters, *in what order*, and *at what rigor*.
 
-**Status:** DRAFT — updated 2026-07-28
-**Baseline measured at:** commit `38b1c4e3f` (develop)
+**Status:** DRAFT — updated 2026-08-06
+**Baseline measured at:** `upstream/develop` @ `7f31001bf`
 
 ---
 
@@ -16,10 +16,10 @@ This says *which* filters, *in what order*, and *at what rigor*.
 | — ITKImageProcessing (slated for removal) | 88 |
 | — **real surface** | **214** |
 | V&V reports authored (all branches) | 39 |
-| — of those, present on `develop` | 26 |
+| — of those, present on `develop` | **31** |
 | Filters used in the 68 shipped example pipelines | 115 (114 non-ITK) |
-| Filters whose tests pin against a `6_6_*` archive | 54 |
-| `6_6_*` test-data archives in `download_test_data()` | 26 |
+| Filters pinned to a declared `6_6_*.tar.gz` archive | 36 (29 not yet authored) |
+| Distinct `6_6_*` archives referenced by tests | 21 |
 
 **Measured throughput:** 25 reports between 2026-05-27 and 2026-07-24 at full v2 rigor
 ≈ **3 filters/week**. Verifying all 214 at that rigor is ~14 months of continuous effort.
@@ -31,31 +31,31 @@ The regulated artifact is the MTR analysis pipeline, not the filter fleet. The t
 routine `PW_ANG_routine_v75.d3dpipeline` is **51 steps / 28 unique enabled filters**.
 Including the CTF variant of the routine, the full closure is **29 filters**.
 
-Both remaining gaps were submitted 2026-07-28 by @JDuffeyBQ:
+Both remaining gaps were authored 2026-07-28 by @JDuffeyBQ. `ITKImageWriterFilter`
+(#1693) merged 2026-08-05 and is now the head of `develop`; `RequireMinNumNeighbors`
+(#1694) is **approved and awaiting merge**.
 
-| Filter | PR | Oracle | State |
-|---|---|---|---|
-| `RequireMinNumNeighborsFilter` | #1694 | Class 1 + 4, two 4×1×1 inline fixtures | READY FOR REVIEW |
-| `ITKImageWriterFilter` | #1693 | Class 1 + 4, one 3×2×2 fixture `value(x,y,z)=x+10y+100z` | READY FOR REVIEW — **see decision below** |
+**All 29 closure reports are authored. `develop` carries 23/29 (79%).**
+The remaining six are a merge-and-review problem, not an engineering one — see §6.
 
-**All-branch the closure is therefore 29/29. On `develop` it is 18/29 (62%).**
-The distinction is the whole of §6 — see the merge backlog.
+#### Live risk: the `ITKImageWriterFilter` report is a decaying asset
 
-#### Decision required: ITK removal vs. submission tag
+PR #1693 merged as-is, which settles the immediate question — `PW_ANG_routine_v75` calls
+`ITKImageWriterFilter` today, so it is a genuine closure filter and the closure counts it.
+The underlying tension is unresolved, only deferred:
 
-PR #1693 verifies `ITKImageWriterFilter` in `src/Plugins/ITKImageProcessing/`, the plugin
-slated for removal. Which reading is correct depends on sequencing:
+- **If the submission tags before ITK removal**, nothing further is needed.
+- **If ITK is removed first**, the report is deleted along with the plugin,
+  `src/Plugins/ITKImageProcessing/vv/` (currently one file) disappears, and
+  `WriteImageFilter` reopens as a closure gap that nobody is tracking.
 
-- **Submission tags before ITK removal** — #1693 is correct. `PW_ANG_routine_v75` calls
-  `ITKImageWriterFilter` today, so it is a genuine closure filter. Merge it.
-- **ITK removal lands first** — #1693 is deleted with the plugin, and `WriteImageFilter`
-  (SimplnxCore) reopens as a closure gap. The `src/Plugins/ITKImageProcessing/vv/`
-  directory that #1693 creates is then born to be deleted.
+Whoever executes the ITK removal must check the closure before deleting the plugin.
+Encode this in the Phase 0 CI gate (§3.1): removing a plugin that contains a closure
+filter's V&V report should fail the build, not silently reduce coverage.
 
-Resolve before merging, not after. Mitigation if it breaks the wrong way: the oracle
-design transfers. The `x + 10y + 100z` fixture over XY/XZ/YZ planes is format-agnostic and
-carries over to `WriteImageFilter` despite the different backends (stb/libtiff vs ITK) —
-the re-spend is plumbing, not analysis.
+Mitigation if it goes that way: the oracle design transfers. The `x + 10y + 100z` fixture
+over XY/XZ/YZ planes is format-agnostic and carries over to `WriteImageFilter` despite the
+different backends (stb/libtiff vs ITK) — the re-spend is plumbing, not analysis.
 
 The legacy CTF routine's `ConvertData` and `ChangeAngleRepresentation` steps are **not**
 in the closure — both are now handled inside the CTF reader:
@@ -83,7 +83,9 @@ having no test at all.
 This is not hypothetical. The EbsdLib 2.4.1 `CubicOps` `2·atan2(|v|,w)` precision fix
 broke five filters precisely by exposing exemplars that encoded the pre-fix wrong values.
 
-54 filters are pinned this way; 46 are not yet V&V'ed. Hit rate unknown.
+36 filters are pinned to a declared `6_6_*.tar.gz` archive; 29 of them have no V&V report
+anywhere. A further ~16 test files reference 6.6-era data without a declared archive.
+Hit rate unknown.
 
 ---
 
@@ -135,19 +137,20 @@ closure coverage; a tool that hides that gap is worse than no tool.
 
 ### 3.2 Phase 1 — close the FAA gap (Tier A)
 
-**Authoring is done.** Both closure gaps were submitted 2026-07-28 (#1694, #1693). What
-remains is not engineering — it is review, decision, and merge:
+**Authoring is done — all 29 closure reports exist.** What remains is review and merge:
 
-1. **Decide the ITK sequencing question** in §1.1. This gates whether #1693 is merged
-   as-is or redirected to `WriteImageFilter`.
-2. **Merge the closure backlog.** Nine of the eleven previously-unmerged reports are
-   closure filters, plus the two new PRs. Until these land, `develop` reports 18/29 and
-   any release tag captures an incomplete deliverable. See §6.
+1. **Merge #1694** (`RequireMinNumNeighbors`). Approved, unmerged. This is a free point of
+   coverage requiring no engineering work at all.
+2. **Clear the five `CHANGES_REQUESTED` closure PRs** — #1688, #1687, #1683, #1679, #1672.
+   Until these land, `develop` reports 23/29 and any release tag captures an incomplete
+   deliverable. See §6.
 3. **Re-examine PR #1640** (`VV/BUG: Identify Sample Full V&V`), merged with
    `CHANGES_REQUESTED` and no approving review. `IdentifySampleFilter` is in the closure,
    so its report is the one merged closure entry without a clean second-engineer sign-off.
 4. **Backfill the oracle attestation** (§3.6) across all 29 closure reports. This is the
    audit trail an external reviewer will ask for and it does not exist yet.
+5. **Guard the ITK removal** against silently reopening the `ITKImageWriterFilter` gap
+   (§1.1).
 
 **Estimate:** review-bound, not effort-bound. **Exit:** `develop` reports 29/29 and every
 closure report carries a recorded attestation — at which point the SBIR filter work is
@@ -155,14 +158,18 @@ genuinely, verifiably closed.
 
 ### 3.3 Phase 2 — `6_6_` defect sweep (Tier C, cheapest-first)
 
-Ordered by **archive**, not by filter — the leverage is uneven:
+Ordered by **archive**, not by filter — the leverage is uneven. 36 filters are pinned to
+21 declared `6_6_*.tar.gz` archives; 29 of those filters have no V&V report anywhere:
 
-| Archive | Filters pinned, not yet V&V'ed |
+| Archive | Filters pinned, not yet authored |
 |---|---|
-| `6_6_stats_test_v2` | **6** — AlignSectionsMutualInformation, ComputeEuclideanDistMap, ComputeFeaturePhases, ComputeSchmids, ComputeShapes, ComputeSurfaceAreaToVolume |
-| `6_6_Small_IN100_GBCD` | **4** — ComputeGBCD, ComputeGBCDPoleFigure, WriteGBCDGMTFile, WriteGBCDTriangleData |
-| ~14 archives | 2 each |
-| ~30 archives | 1 each |
+| `6_6_stats_test_v2` | **5** of 9 — AlignSectionsMutualInformation, ComputeEuclideanDistMap, ComputeSchmids, ComputeShapes, ComputeSurfaceAreaToVolume |
+| `6_6_Small_IN100_GBCD` | **4** of 5 — ComputeGBCD, ComputeGBCDPoleFigure, WriteGBCDGMTFile, WriteGBCDTriangleData |
+| `6_6_combine_stl_files_v2` | 2 — CombineStlFiles, WriteStlFile |
+| `6_6_erode_dilate_test` | 2 of 3 — ErodeDilateCoordinationNumber, ErodeDilateMask |
+| `6_6_find_feature_centroids` | 2 — ExtractComponentAsArray, WriteAbaqusHexahedron |
+| `6_6_avizo_writers` | 2 — WriteAvizoRectilinearCoordinate, WriteAvizoUniformCoordinate |
+| remaining 15 archives | 1 each |
 
 **2a — the writers.** `WriteAvizoUniformCoordinate`, `WriteAvizoRectilinearCoordinate`,
 `WriteINLFile`, `WriteSPParksSites`, `WriteStlFile`, `WriteLosAlamosFFT`,
@@ -285,37 +292,39 @@ not an embarrassment.
 
 ## 6. The merge backlog is the critical path
 
-**39 V&V reports have been authored. 26 are on `develop`.** The other 13 exist only on
-unmerged branches, and **11 of those 13 are MTR closure filters**:
+**39 V&V reports have been authored. 31 are on `develop`.** The other 8 exist only on
+unmerged branches, and **6 of those 8 are MTR closure filters**:
 
 | Filter | PR | Blocked on |
 |---|---|---|
-| `RequireMinNumNeighbors` | #1694 | review (new) |
-| `ITKImageWriter` | #1693 | ITK sequencing decision (§1.1) + review |
-| `ReadCtfData` | #1692 | review |
-| `MultiThresholdObjects` | #1688 | `CHANGES_REQUESTED` |
-| `ErodeDilateBadData` | #1687 | `CHANGES_REQUESTED` |
-| `CAxisSegmentFeatures` | #1685 | approved — merge |
-| `WriteDREAM3D` | #1683 | `CHANGES_REQUESTED` |
-| `ComputeCAxisLocations` | #1679 | `CHANGES_REQUESTED` |
-| `ComputeFeaturePhases` | #1672 | `CHANGES_REQUESTED` |
-| `ComputeFeatureSizes` | #1638 | `CHANGES_REQUESTED` |
-| `CopyFeatureArrayToElementArray` | #1689 | review |
+| `RequireMinNumNeighbors` | #1694 | **approved — merge it** |
+| `MultiThresholdObjects` | #1688 | `CHANGES_REQUESTED` (@mmarineBlueQuartz) |
+| `ErodeDilateBadData` | #1687 | `CHANGES_REQUESTED` (@mmarineBlueQuartz) |
+| `WriteDREAM3D` | #1683 | `CHANGES_REQUESTED` (@mmarineBlueQuartz) |
+| `ComputeCAxisLocations` | #1679 | `CHANGES_REQUESTED` (@JDuffeyBQ) |
+| `ComputeFeaturePhases` | #1672 | `CHANGES_REQUESTED` (@nyoungbq) |
 
-The remaining two are non-closure: `CreateFeatureArrayFromElementArray` and
-`ComputeTriangleGeomCentroids`.
+The remaining two are non-closure: `CreateFeatureArrayFromElementArray` (#1695,
+`CHANGES_REQUESTED`) and `ComputeTriangleGeomCentroids`.
 
-The consequence: **the SBIR filter work is finished as engineering and 62% complete as
-evidence.** A release tag cut today would pin `(commit hash, archive SHA512)` pairs — the
-mechanism `vv_policy.md` relies on — against a `develop` that is missing eleven of the
-twenty-nine closure reports.
+**Progress since 2026-07-28:** `develop` went from 18/29 to **23/29**. Merged in that
+window: #1693, #1692, #1689, #1685, #1638. The backlog is clearing, and what remains is
+now concentrated: five PRs on three authors, all in review round-trips, plus one approved
+PR that simply needs a merge button.
+
+The consequence is unchanged in kind, only in size: **the SBIR filter work is finished as
+engineering and 79% complete as evidence.** A release tag cut today would pin
+`(commit hash, archive SHA512)` pairs — the mechanism `vv_policy.md` relies on — against a
+`develop` missing six of the twenty-nine closure reports.
 
 No amount of new V&V improves this number. Clearing the backlog is the highest-value work
 available until `develop` reports 29/29.
 
 ## 7. Open questions
 
-- **ITK removal vs. submission tag** (§1.1) — gates PR #1693. Highest priority.
+- **Does ITK removal land before the submission tag?** (§1.1) — #1693 merged, so this no
+  longer gates anything today, but removing the plugin silently reopens a closure gap.
+  The Phase 0 CI gate must catch it.
 - Are there customer-authored MTR pipelines (beyond the PW templates) that should
   expand the §1.1 closure? If so they must be committed alongside the templates.
 - Does the FAA submission pin a DREAM3D-NX version? If so, the closure's
