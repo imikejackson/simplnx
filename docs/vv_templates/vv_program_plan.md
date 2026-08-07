@@ -3,8 +3,8 @@
 Companion to [`vv_policy.md`](./vv_policy.md). The policy says *how* to V&V one filter.
 This says *which* filters, *in what order*, and *at what rigor*.
 
-**Status:** DRAFT — updated 2026-08-06
-**Baseline measured at:** `upstream/develop` @ `7f31001bf`
+**Status:** DRAFT — updated 2026-08-07
+**Baseline measured at:** `upstream/develop` @ `fa31947b5`
 
 ---
 
@@ -15,8 +15,8 @@ This says *which* filters, *in what order*, and *at what rigor*.
 | Filters declaring `SIMPLNX_DEF_FILTER_TRAITS` | 302 |
 | — ITKImageProcessing (slated for removal) | 88 |
 | — **real surface** | **214** |
-| V&V reports authored (all branches) | 39 |
-| — of those, present on `develop` | **31** |
+| V&V reports authored (all branches) | 40 |
+| — of those, present on `develop` | **33** |
 | Filters used in the 68 shipped example pipelines | 115 (114 non-ITK) |
 | Filters pinned to a declared `6_6_*.tar.gz` archive | 36 (29 not yet authored) |
 | Distinct `6_6_*` archives referenced by tests | 21 |
@@ -31,12 +31,11 @@ The regulated artifact is the MTR analysis pipeline, not the filter fleet. The t
 routine `PW_ANG_routine_v75.d3dpipeline` is **51 steps / 28 unique enabled filters**.
 Including the CTF variant of the routine, the full closure is **29 filters**.
 
-Both remaining gaps were authored 2026-07-28 by @JDuffeyBQ. `ITKImageWriterFilter`
-(#1693) merged 2026-08-05 and is now the head of `develop`; `RequireMinNumNeighbors`
-(#1694) is **approved and awaiting merge**.
+Both remaining gaps were authored 2026-07-28 by @JDuffeyBQ and are now merged —
+`ITKImageWriterFilter` (#1693) and `RequireMinNumNeighbors` (#1694).
 
-**All 29 closure reports are authored. `develop` carries 23/29 (79%).**
-The remaining six are a merge-and-review problem, not an engineering one — see §6.
+**All 29 closure reports are authored. `develop` carries 24/29 (83%).**
+The remaining five are a review problem, not an engineering one — see §6.
 
 #### Live risk: the `ITKImageWriterFilter` report is a decaying asset
 
@@ -123,8 +122,12 @@ That is a single point of failure for the entire SBIR deliverable.
    for the closure, the MTR-adjacent set, and the fleet.
 3. CI check: fail if any filter in the MTR closure lacks a V&V report or changes UUID.
 4. Normalize the `| Status |` line to a fixed vocabulary —
-   `DRAFT` / `READY FOR REVIEW` / `COMPLETE`. Eight different formats are in use today,
-   so the fleet-wide `grep` promised in `vv_policy.md` §"Status tracking" does not work.
+   `DRAFT` / `READY FOR REVIEW` / `COMPLETE`.
+   **Largely done by PR #1701** (approved, pending merge), which flips 26 reports to
+   `COMPLETE`. The leading token is now consistent even though free-text suffixes vary
+   (`COMPLETE — 2026-07-16`, `COMPLETE — all V&V phases complete; …`), so `vv_status.py`
+   should anchor on the leading keyword and treat the tail as human annotation rather
+   than forcing the suffixes into a schema.
 
 5. Author the NX CTF routine (no `.d3dpipeline` equivalent of `PW_CTF_routine_v65.json`
    exists yet) and confirm the `ConvertData` caveat in §1.1 while doing so.
@@ -139,11 +142,13 @@ closure coverage; a tool that hides that gap is worse than no tool.
 
 **Authoring is done — all 29 closure reports exist.** What remains is review and merge:
 
-1. **Merge #1694** (`RequireMinNumNeighbors`). Approved, unmerged. This is a free point of
-   coverage requiring no engineering work at all.
-2. **Clear the five `CHANGES_REQUESTED` closure PRs** — #1688, #1687, #1683, #1679, #1672.
-   Until these land, `develop` reports 23/29 and any release tag captures an incomplete
-   deliverable. See §6.
+1. **Clear the five `CHANGES_REQUESTED` closure PRs** — #1688, #1687, #1683, #1679, #1672.
+   These are now the *only* thing between `develop` and a complete deliverable. Until they
+   land, `develop` reports 24/29 and any release tag captures an incomplete evidence
+   package. See §6.
+2. **Merge #1701** (`VV: Mark filters 'COMPLETE'`), approved and pending. It flips 26
+   reports from `READY FOR REVIEW` to `COMPLETE` and largely satisfies Phase 0 item 4 —
+   see §3.1.
 3. **Re-examine PR #1640** (`VV/BUG: Identify Sample Full V&V`), merged with
    `CHANGES_REQUESTED` and no approving review. `IdentifySampleFilter` is in the closure,
    so its report is the one merged closure entry without a clean second-engineer sign-off.
@@ -216,6 +221,14 @@ call and is expected to be edited; it is committed so the judgment is reviewable
 Order within the phase: filters already touched by Phase 2 first (the oracle work is
 half done), then by shipped-pipeline usage count descending.
 
+**First divergence to reconcile:** V&V of `DBSCANFilter` is underway on
+`nathan/vv/dbscan` — the first post-closure work started, and it is *not* in the list
+above. `DBSCAN` appears 6 times in the shipped example pipelines, so it is defensible
+Phase 3 work under the exposure criterion, but it entered the queue by engineer choice
+rather than by this plan. Either add it to the table or record why it was picked ahead of
+the listed filters. If organic selection keeps outrunning the list, that is evidence the
+list is wrong, not that the engineers are.
+
 **Estimate:** ~34 filters at 5/week ≈ 7 weeks. **Exit:** MTR-adjacent 63/63.
 
 ### 3.5 Phase 4 — long tail (Tier C, open-ended)
@@ -243,7 +256,7 @@ on the grounds that "a wrong oracle silently confirms buggy filters, and the fil
 author is the least likely person to notice."
 
 In practice this is delegated to the PR reviewer, and **the mechanism largely works**:
-of 40 V&V PRs, the merged ones nearly all carry an approving review from a different
+of 42 V&V PRs, the merged ones nearly all carry an approving review from a different
 engineer — `nyoungbq` (10), `imikejackson` (5), `mmarineBlueQuartz` (3), `JDuffeyBQ` (3).
 
 Two problems remain:
@@ -254,6 +267,12 @@ Two problems remain:
    records that they did. The policy's central control is therefore unauditable.
 2. **At least one merge bypassed review entirely** — PR #1640, merged with
    `CHANGES_REQUESTED` and no approval, for a filter inside the MTR closure.
+
+PR #1701 moves in the right direction — one report now reads
+`COMPLETE — … second-engineer sign-off recorded at PR review` — but it names no reviewer
+and no PR number, so it asserts the review happened without providing evidence. Prose is
+not an audit trail. Now is the cheapest time to fix this, while #1701 is flipping 26
+reports at once.
 
 Fix — an attestation, not a new process:
 
@@ -292,30 +311,34 @@ not an embarrassment.
 
 ## 6. The merge backlog is the critical path
 
-**39 V&V reports have been authored. 31 are on `develop`.** The other 8 exist only on
-unmerged branches, and **6 of those 8 are MTR closure filters**:
+**40 V&V reports have been authored. 33 are on `develop`.** The other 7 exist only on
+unmerged branches, and **5 of those 7 are MTR closure filters — every one of them stalled
+in a review round-trip**:
 
 | Filter | PR | Blocked on |
 |---|---|---|
-| `RequireMinNumNeighbors` | #1694 | **approved — merge it** |
 | `MultiThresholdObjects` | #1688 | `CHANGES_REQUESTED` (@mmarineBlueQuartz) |
 | `ErodeDilateBadData` | #1687 | `CHANGES_REQUESTED` (@mmarineBlueQuartz) |
 | `WriteDREAM3D` | #1683 | `CHANGES_REQUESTED` (@mmarineBlueQuartz) |
 | `ComputeCAxisLocations` | #1679 | `CHANGES_REQUESTED` (@JDuffeyBQ) |
 | `ComputeFeaturePhases` | #1672 | `CHANGES_REQUESTED` (@nyoungbq) |
 
-The remaining two are non-closure: `CreateFeatureArrayFromElementArray` (#1695,
-`CHANGES_REQUESTED`) and `ComputeTriangleGeomCentroids`.
+The remaining two are non-closure: `ComputeTriangleGeomCentroids` and `DBSCANFilter`
+(in progress on `nathan/vv/dbscan`, no PR yet).
 
-**Progress since 2026-07-28:** `develop` went from 18/29 to **23/29**. Merged in that
-window: #1693, #1692, #1689, #1685, #1638. The backlog is clearing, and what remains is
-now concentrated: five PRs on three authors, all in review round-trips, plus one approved
-PR that simply needs a merge button.
+**Progress:** `develop` went 18/29 → 23/29 → **24/29** across 2026-07-28 to 2026-08-07.
+Merged in that window: #1693, #1692, #1689, #1685, #1638, #1694, #1695.
+
+**There is no longer any low-hanging fruit.** Every previously-approved or awaiting-review
+PR has landed. The five that remain are all waiting on an author to respond to review
+comments, concentrated on three people — @mmarineBlueQuartz (3), @JDuffeyBQ (1),
+@nyoungbq (1). The bottleneck has shifted from "nobody pressed merge" to "three engineers
+each owe a revision," which is a scheduling problem, not a process one.
 
 The consequence is unchanged in kind, only in size: **the SBIR filter work is finished as
-engineering and 79% complete as evidence.** A release tag cut today would pin
+engineering and 83% complete as evidence.** A release tag cut today would pin
 `(commit hash, archive SHA512)` pairs — the mechanism `vv_policy.md` relies on — against a
-`develop` missing six of the twenty-nine closure reports.
+`develop` missing five of the twenty-nine closure reports.
 
 No amount of new V&V improves this number. Clearing the backlog is the highest-value work
 available until `develop` reports 29/29.
