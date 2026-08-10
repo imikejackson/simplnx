@@ -4,7 +4,7 @@ Companion to [`vv_policy.md`](./vv_policy.md). The policy says *how* to V&V one 
 This says *which* filters, *in what order*, and *at what rigor*.
 
 **Status:** DRAFT — updated 2026-08-10
-**Baseline measured at:** `upstream/develop` @ `165f8713a`
+**Baseline measured at:** `upstream/develop` @ `4d20d5696`
 
 ---
 
@@ -121,10 +121,9 @@ That is a single point of failure for the entire SBIR deliverable.
    `SIMPLNX_DEF_FILTER_TRAITS`, joins to `src/Plugins/*/vv/*.md`, prints coverage
    for the closure, the MTR-adjacent set, and the fleet.
 3. CI check: fail if any filter in the MTR closure lacks a V&V report or changes UUID.
-4. Normalize the `| Status |` line to a fixed vocabulary —
-   `DRAFT` / `READY FOR REVIEW` / `COMPLETE`.
-   **Largely done by PR #1701** (approved, pending merge), which flips 26 reports to
-   `COMPLETE`. The leading token is now consistent even though free-text suffixes vary
+4. ~~Normalize the `| Status |` line to a fixed vocabulary.~~ **DONE** — PR #1701 merged
+   2026-08-10. All 34 reports on `develop` now lead with one of three tokens:
+   31 `COMPLETE`, 2 `DRAFT`, 1 `READY FOR REVIEW`. Free-text suffixes still vary
    (`COMPLETE — 2026-07-16`, `COMPLETE — all V&V phases complete; …`), so `vv_status.py`
    should anchor on the leading keyword and treat the tail as human annotation rather
    than forcing the suffixes into a schema.
@@ -133,8 +132,8 @@ That is a single point of failure for the entire SBIR deliverable.
    exists yet) and confirm the `ConvertData` caveat in §1.1 while doing so.
 
 `vv_status.py` must report against a **named git ref**, not the working tree, and default
-to `develop`. The gap between "all branches" and "`develop`" is currently 11 points of
-closure coverage; a tool that hides that gap is worse than no tool.
+to `develop`. The gap between "all branches" and "`develop`" is currently 4 points of
+closure coverage — down from 11 — and a tool that hides that gap is worse than no tool.
 
 **Exit:** `vv_status.py` reports the closure at a ref, and CI enforces it.
 
@@ -146,10 +145,9 @@ closure coverage; a tool that hides that gap is worse than no tool.
    These are now the *only* thing between `develop` and a complete deliverable. Until they
    land, `develop` reports 25/29 and any release tag captures an incomplete evidence
    package. Three of the four belong to one engineer. See §6.
-2. **Merge #1701** (`VV: Mark filters 'COMPLETE'`) — approved 2026-08-07 and still
-   unmerged. It flips 26 reports from `READY FOR REVIEW` to `COMPLETE` and largely
-   satisfies Phase 0 item 4 (§3.1). It also grows a conflict surface against every V&V PR
-   that touches a report header, so the longer it sits the more it costs.
+2. **Land the two open non-closure PRs** — #1702 (`DBSCAN`) and #1703
+   (`GroupMicroTextureRegions`), both awaiting first review. Neither affects the closure,
+   but #1703 closes the last outstanding `DRAFT` gate items from #1637.
 3. **Re-examine PR #1640** (`VV/BUG: Identify Sample Full V&V`), merged with
    `CHANGES_REQUESTED` and no approving review. `IdentifySampleFilter` is in the closure,
    so its report is the one merged closure entry without a clean second-engineer sign-off.
@@ -257,10 +255,10 @@ on the grounds that "a wrong oracle silently confirms buggy filters, and the fil
 author is the least likely person to notice."
 
 In practice this is delegated to the PR reviewer, and **the mechanism largely works**:
-of 43 V&V PRs, the merged ones nearly all carry an approving review from a different
+of 44 V&V PRs, the merged ones nearly all carry an approving review from a different
 engineer — `nyoungbq` (10), `imikejackson` (5), `mmarineBlueQuartz` (3), `JDuffeyBQ` (3).
 
-Two problems remain:
+Three problems remain:
 
 1. **A PR approval is not an oracle review.** A reviewer approving a diff is reviewing
    code, tests, and documentation. Nothing in the process obliges them to attest that
@@ -268,6 +266,14 @@ Two problems remain:
    records that they did. The policy's central control is therefore unauditable.
 2. **At least one merge bypassed review entirely** — PR #1640, merged with
    `CHANGES_REQUESTED` and no approval, for a filter inside the MTR closure.
+3. **Reports can pass review and still be internally inconsistent.** PR #1703 reworks the
+   `GroupMicroTextureRegions` report from the #1637 cycle and, by its own summary, fixes a
+   code-path count that claimed "9 of 9 exercised" while its own table showed 7, a legacy
+   comparison marked "not run" for the wrong reason, and an overstated 6.5.171 migration
+   impact. That report was `DRAFT`, so nothing was mis-certified — but the defects are the
+   kind a diff-focused review does not catch, and there is no reason to think the
+   `COMPLETE` population is immune. A cheap mitigation: have `vv_status.py` cross-check
+   the dashboard's code-path count against the section table and fail on mismatch.
 
 PR #1701 moves in the right direction — one report now reads
 `COMPLETE — … second-engineer sign-off recorded at PR review` — but it names no reviewer
@@ -324,10 +330,12 @@ review round-trip**:
 | `ComputeFeaturePhases` | #1672 | `CHANGES_REQUESTED` (@nyoungbq) |
 
 The remaining two are non-closure: `ComputeTriangleGeomCentroids` and `DBSCANFilter`
-(#1702, awaiting first review).
+(#1702, awaiting first review). `GroupMicroTextureRegions` (#1703, awaiting first review)
+is already on `develop` but in `DRAFT`; #1703 promotes it to `READY FOR REVIEW`.
 
 **Progress:** `develop` went 18/29 → 23/29 → 24/29 → **25/29** across 2026-07-28 to
-2026-08-10. Merged in that window: #1693, #1692, #1689, #1685, #1638, #1694, #1695, #1679.
+2026-08-10. Merged in that window: #1693, #1692, #1689, #1685, #1638, #1694, #1695, #1679,
+#1701. The closure has not moved since #1679 — #1701 changed statuses only.
 
 **The backlog is now one engineer deep.** Every approved or awaiting-review closure PR has
 landed; all four that remain are waiting on an author to answer review comments, and
