@@ -165,7 +165,74 @@ closure coverage — down from 11 — and a tool that hides that gap is worse th
 closure report carries a recorded attestation — at which point the SBIR filter work is
 genuinely, verifiably closed.
 
-### 3.3 Phase 2 — `6_6_` defect sweep (Tier C, cheapest-first)
+### 3.3 Phase 2 — MTR-adjacent coverage (Tier B)
+
+Filters a Ti supplier could plausibly substitute into or bolt onto the PW routine.
+**64 filters total = 29 closure + 35 additions. 29 authored, 35 remaining.**
+
+> **Reordered 2026-08-18.** This was Phase 3 and now runs ahead of the `6_6_` sweep.
+> Rationale: 11 of these filters are themselves `6_6_`-pinned, so this phase delivers the
+> defect sweep's measurement as a by-product of work that also carries MTR exposure. The
+> `6_6_`-pinned filters left behind are almost entirely niche exporters and specialty
+> analyses no Ti supplier runs. The writers plan at
+> `docs/vv_templates/plans/2026-08-18-phase2a-writer-oracles.md` targets what is now Phase 3.
+
+| Group | Filters |
+|---|---|
+| Alternate EBSD readers | `ReadH5Ebsd`, `ReadH5OimData`, `ReadH5EspritData`, `ReadH5OinaData`, `EbsdToH5Ebsd`, `ConvertHexGridToSquareGrid` |
+| Alignment | `AlignSectionsList`, `AlignSectionsMisorientation`, `AlignSectionsFeatureCentroid` |
+| Segmentation | `EBSDSegmentFeatures`, `ScalarSegmentFeatures`, `MergeTwins` |
+| Cleanup | `ErodeDilateMask`, `ErodeDilateCoordinationNumber`, `RequireMinimumSizeFeatures` |
+| Feature statistics | `ComputeShapes`, `ComputeSurfaceFeatures`, `ComputeBiasedFeatures`, `ComputeEuclideanDistMap`, `ComputeLargestCrossSections`, `ComputeSchmids`, `ComputeSurfaceAreaToVolume` |
+| Data plumbing | `CreateDataArray`, `CreateAttributeMatrix`, `DeleteData`, `MoveData`, `CombineAttributeArrays`, `CropImageGeometry`, `ConditionalSetValue`, `ArrayCalculator`, `ComputeArrayHistogram` |
+| Output / reporting | `WriteFeatureDataCSV`, `WriteASCIIData`, `ReadDREAM3D`, `CreateColorMap` |
+
+All 35 additions are name-verified against the source tree. This list is a judgment
+call and is expected to be edited; it is committed so the judgment is reviewable.
+
+**Roster changes 2026-08-18:**
+- **Removed `AlignSectionsMutualInformation`** — expensive to verify and not part of any
+  plausible Ti-supplier workflow.
+- **Added `ComputeSchmids` and `ComputeSurfaceAreaToVolume`** — both plausible for MTR
+  reporting, and both pinned to `6_6_stats_test_v2`, the highest-leverage archive in the
+  repo (9 filters). **Note:** that archive does *not* fully retire, because
+  `AlignSectionsMutualInformation` also pins it and is now out of scope. Retiring
+  `6_6_stats_test_v2` requires either verifying that filter later or converting its test.
+
+### Opening batch — the 11 dual-purpose filters
+
+Sequence these first. Each carries MTR exposure *and* is pinned to a `6_6_` archive, so
+each one advances the SBIR story and drains the defect backlog at the same time:
+
+`AlignSectionsFeatureCentroid`, `AlignSectionsMisorientation`, `ComputeBiasedFeatures`,
+`ComputeEuclideanDistMap`, `ComputeShapes`, `ComputeSchmids`, `ComputeSurfaceAreaToVolume`,
+`ErodeDilateCoordinationNumber`, `ErodeDilateMask`, `ReadH5OinaData`,
+`RequireMinimumSizeFeatures`
+
+Archives fully retired by this batch: `6_6_ImportH5Data`, `6_6_erode_dilate_test`,
+`6_6_find_biased_features`, `6_6_min_size_input`, `6_6_min_size_output`.
+
+**Report the hit rate from this batch.** It is the measurement Phase 3 was originally
+meant to produce, and it now arrives earlier and attached to filters that matter.
+
+After the opening batch, order by shipped-pipeline usage count descending.
+
+**Throughput caveat:** these are harder than the deferred writers. Do not schedule the
+opening batch against the 5–8 filters/week Tier B figure — the alignment and feature-stats
+filters need realistic EBSD-shaped fixtures and will run closer to Tier A rates.
+
+**First divergence to reconcile:** V&V of `DBSCANFilter` is complete and submitted as
+#1702 — the first post-closure work finished, and it is *not* in the list
+above. `DBSCAN` appears 6 times in the shipped example pipelines, so it is defensible
+Phase 3 work under the exposure criterion, but it entered the queue by engineer choice
+rather than by this plan. Either add it to the table or record why it was picked ahead of
+the listed filters. If organic selection keeps outrunning the list, that is evidence the
+list is wrong, not that the engineers are.
+
+**Estimate:** ~35 filters; the 11-filter opening batch at Tier A-ish rates, the remainder
+nearer Tier B. **Exit:** MTR-adjacent 64/64.
+
+### 3.4 Phase 3 — `6_6_` defect sweep (Tier C, cheapest-first)
 
 Ordered by **archive**, not by filter — the leverage is uneven. 36 filters are pinned to
 21 declared `6_6_*.tar.gz` archives; 29 of those filters have no V&V report anywhere:
@@ -192,48 +259,22 @@ exemplar archive, no `6_6_` dependency afterwards. ~9 filters, purges ~12 archiv
 `ComputeNumFeatures`, `ComputeVolumeFractions`, `ComputeFeaturePhasesBinary`,
 `ComputeBoundaryCells`, `ReverseTriangleWinding`. Class 1/4 on hand-built input.
 
-**Deferred as expensive** (revisit in Phase 3 or 4): the GBCD family, the two metric-based
+**Deferred as expensive** (revisit in Phase 4): the GBCD family, the two metric-based
 filters, `MapPointCloudToRegularGrid`, `AlignSectionsMutualInformation`,
 the surface-meshing group.
 
+`AlignSectionsMutualInformation` was dropped from Phase 2's roster on 2026-08-18 and lands
+here. It is the sole remaining blocker on retiring `6_6_stats_test_v2` once Phase 2's
+opening batch clears the other four consumers.
+
 **Deliverable is per archive, not per filter:** a re-derived archive plus a provenance
-sidecar. Filters pinned to it get their V&V report in Phase 3. The point of this phase
+sidecar. Filters pinned to it get their V&V report in Phase 4. The point of this phase
 is to stop CI from certifying wrong answers, not to move the report counter.
 
 **Report the hit rate.** Every archive that turns out to encode a wrong value is
-evidence for how much the rest of this program is worth. If the rate is near zero,
-Phase 3 can be scaled back; if it is high, Phase 3 should be scaled up.
-
-### 3.4 Phase 3 — MTR-adjacent coverage (Tier B)
-
-Filters a Ti supplier could plausibly substitute into or bolt onto the PW routine.
-**63 filters total = 29 closure + 34 additions. 29 authored, 34 remaining.**
-
-| Group | Filters |
-|---|---|
-| Alternate EBSD readers | `ReadH5Ebsd`, `ReadH5OimData`, `ReadH5EspritData`, `ReadH5OinaData`, `EbsdToH5Ebsd`, `ConvertHexGridToSquareGrid` |
-| Alignment | `AlignSectionsList`, `AlignSectionsMisorientation`, `AlignSectionsFeatureCentroid`, `AlignSectionsMutualInformation` |
-| Segmentation | `EBSDSegmentFeatures`, `ScalarSegmentFeatures`, `MergeTwins` |
-| Cleanup | `ErodeDilateMask`, `ErodeDilateCoordinationNumber`, `RequireMinimumSizeFeatures` |
-| Feature statistics | `ComputeShapes`, `ComputeSurfaceFeatures`, `ComputeBiasedFeatures`, `ComputeEuclideanDistMap`, `ComputeLargestCrossSections` |
-| Data plumbing | `CreateDataArray`, `CreateAttributeMatrix`, `DeleteData`, `MoveData`, `CombineAttributeArrays`, `CropImageGeometry`, `ConditionalSetValue`, `ArrayCalculator`, `ComputeArrayHistogram` |
-| Output / reporting | `WriteFeatureDataCSV`, `WriteASCIIData`, `ReadDREAM3D`, `CreateColorMap` |
-
-All 34 additions are name-verified against the source tree. This list is a judgment
-call and is expected to be edited; it is committed so the judgment is reviewable.
-
-Order within the phase: filters already touched by Phase 2 first (the oracle work is
-half done), then by shipped-pipeline usage count descending.
-
-**First divergence to reconcile:** V&V of `DBSCANFilter` is complete and submitted as
-#1702 — the first post-closure work finished, and it is *not* in the list
-above. `DBSCAN` appears 6 times in the shipped example pipelines, so it is defensible
-Phase 3 work under the exposure criterion, but it entered the queue by engineer choice
-rather than by this plan. Either add it to the table or record why it was picked ahead of
-the listed filters. If organic selection keeps outrunning the list, that is evidence the
-list is wrong, not that the engineers are.
-
-**Estimate:** ~34 filters at 5/week ≈ 7 weeks. **Exit:** MTR-adjacent 63/63.
+evidence for how much the rest of this program is worth. Phase 2's opening batch produces
+the first such measurement; this phase extends it. If the rate is near zero, Phase 4 can be
+scaled back; if it is high, Phase 4 should be scaled up.
 
 ### 3.5 Phase 4 — long tail (Tier C, open-ended)
 
