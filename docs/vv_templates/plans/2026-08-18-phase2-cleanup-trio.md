@@ -51,9 +51,11 @@ From `docs/vv_templates/vv_program_plan.md` §3.3, the first three are dual-purp
 - No filter parameters are added, removed, or re-keyed by this plan, so no parameter-version bumps are expected. If a task turns out to need one, bump the version and add a terse comment in `parameters()` stating what changed.
 - clang-format the files you touched before committing: `/opt/local/clang+llvm-15.0.4-arm64-apple-darwin21.0/bin/clang-format -i -style=file <files>` run from inside the repo. Never run the full-tree sweep script for a focused change.
 
-**Repo:** `/Users/mjackson/Workspace9/simplnx` (branch `vv/forward_plan`)
-**Build directory:** `/Users/mjackson/Workspace9/DREAM3D-Build/simplnx-Rel`
-(configure from repo root with `cmake --preset simplnx-Rel` if absent — the `CMakeUserPresets.json` preset resolves `binaryDir` to `${sourceDir}/../DREAM3D-Build/simplnx-Rel`).
+**PR packaging (requester decision 2026-08-18):** one PR per filter. Branch each task off the synced `upstream/develop` as `vv/<FilterName>` (e.g. `vv/ErodeDilateMask`); do not stack the four tasks on one branch. Tasks 5 and 6 (hit rate, archive hand-off) ride with the last filter PR to land. Where a task's CMakeLists archive removal depends on sibling PRs (the three-consumer `6_6_erode_dilate_test`), the grep guard in that task decides: remove the block only in the PR whose branch already contains the other consumers' conversions (rebase before checking), otherwise leave it and note that retirement completes in the final PR.
+
+**Repo:** `/Users/mjackson/Workspace9/simplnx` (planning branch `vv/forward_plan`)
+**Build directory:** `/Users/mjackson/Workspace9/DREAM3D-Build/NX-Com-Qt69-Vtk96-Rel`
+(requester decision 2026-08-18: reuse the existing DREAM3DNX superbuild rather than configuring a fresh `simplnx-Rel` tree — it is already configured, builds `SimplnxCoreUnitTest`, and `ctest -N` resolves the `SimplnxCore::` tests there; verified 2026-08-18).
 **Legacy binary:** `/Users/mjackson/Applications/DREAM3D.app/Contents/Bin/PipelineRunner` (6.5.171)
 **Legacy source:** `/Users/mjackson/Workspace/D3D_v6.5.171/DREAM3D/Source/Plugins/Processing/ProcessingFilters/` (ignore anything under `DREAM3D-Build/` — generated `moc_*` files)
 **6.5.172 patch branch (only if a legacy bug is confirmed):** `/Users/mjackson/Desktop/ShellScripts/init_6_5_172_build.sh 9`, then work in `/Users/mjackson/Workspace9/6.5.172/DREAM3D`, configure with `cmake --preset D3D-Rel-Qt515-6_5_171`.
@@ -156,7 +158,7 @@ The working branch is **17 commits behind `upstream/develop`**, missing at least
 - [ ] **Step 1: Clear the dirty working tree.** `git status` currently shows unstaged deletions under `Code_Review/vv/WritePoleFigure/`. Confirm with the requester whether these deletions are intentional; commit them separately or restore them. Do not rebase over a dirty tree.
 - [ ] **Step 2: Sync.** `git fetch upstream && git rebase upstream/develop` on `vv/forward_plan`. Expected conflicts: none (local commits are docs-only).
 - [ ] **Step 3: Re-verify the post-sync landscape.** Confirm: (a) `Algorithms/ErodeDilateBadData.cpp` now contains `adjustValidNeighbors` wired in at `:162-163`; (b) `RequireMinNumNeighborsTest.cpp` contains the `DiscriminatingFixture` namespace; (c) `Algorithms/ErodeDilateMask.cpp` still does **not** read the direction flags (finding 1 stands); (d) `grep -rn "6_6_erode_dilate_test" src/` still shows all three test consumers.
-- [ ] **Step 4: Configure and build.** From repo root: `cmake --preset simplnx-Rel`, then `cd /Users/mjackson/Workspace9/DREAM3D-Build/simplnx-Rel && cmake --build . --target SimplnxCoreUnitTest`. Also run `cmake --build . --target Fetch_Remote_Data_Files` once so the baseline suite can run before archives are removed.
+- [ ] **Step 4: Build.** (Requester decision: reuse the existing NX superbuild — no fresh configure.) `cd /Users/mjackson/Workspace9/DREAM3D-Build/NX-Com-Qt69-Vtk96-Rel && cmake --build . --target SimplnxCoreUnitTest`. Also run `cmake --build . --target Fetch_Remote_Data_Files` once so the baseline suite can run before archives are removed.
 - [ ] **Step 5: Verify the legacy toolchain.** `ls /Users/mjackson/Applications/DREAM3D.app/Contents/Bin/PipelineRunner` and run it with no args to confirm it executes. Create `/Users/mjackson/Workspace9/ww_work/`.
 - [ ] **Step 6: Baseline test run.** `ctest -R "SimplnxCore::ErodeDilate|SimplnxCore::RequireMinimum" --verbose` — record the pre-change pass/fail state in the scratch note.
 
@@ -324,7 +326,7 @@ Resolve `detail::k_DilateIndex` / `detail::k_ErodeIndex` against their real name
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cd /Users/mjackson/Workspace9/DREAM3D-Build/simplnx-Rel && cmake --build . --target SimplnxCoreUnitTest \
+cd /Users/mjackson/Workspace9/DREAM3D-Build/NX-Com-Qt69-Vtk96-Rel && cmake --build . --target SimplnxCoreUnitTest \
   && ctest -R "SimplnxCore::ErodeDilateMask" --verbose
 ```
 Expected: the first two may pass; **both direction-flag tests must fail**, because the flags are ignored. If either unexpectedly passes, stop — your fixture is not exercising the flag and needs redesigning before you go further.
@@ -336,7 +338,7 @@ Mirror the merged #1687 pattern: add a file-local `adjustValidNeighbors(std::arr
 - [ ] **Step 4: Run tests to verify they pass**
 
 ```bash
-cd /Users/mjackson/Workspace9/DREAM3D-Build/simplnx-Rel && cmake --build . --target SimplnxCoreUnitTest \
+cd /Users/mjackson/Workspace9/DREAM3D-Build/NX-Com-Qt69-Vtk96-Rel && cmake --build . --target SimplnxCoreUnitTest \
   && ctest -R "SimplnxCore::ErodeDilateMask" --verbose
 ```
 Expected: all four PASS.
@@ -428,7 +430,7 @@ Write three `TEST_CASE`s:
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cd /Users/mjackson/Workspace9/DREAM3D-Build/simplnx-Rel && cmake --build . --target SimplnxCoreUnitTest \
+cd /Users/mjackson/Workspace9/DREAM3D-Build/NX-Com-Qt69-Vtk96-Rel && cmake --build . --target SimplnxCoreUnitTest \
   && ctest -R "SimplnxCore::ErodeDilateCoordinationNumber" --verbose
 ```
 Expected: FAIL until the fixture and expectations are correct.
@@ -511,7 +513,7 @@ Build the fixture and `TEST_CASE`s as described (all-phases run; single-phase ru
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cd /Users/mjackson/Workspace9/DREAM3D-Build/simplnx-Rel && cmake --build . --target SimplnxCoreUnitTest \
+cd /Users/mjackson/Workspace9/DREAM3D-Build/NX-Com-Qt69-Vtk96-Rel && cmake --build . --target SimplnxCoreUnitTest \
   && ctest -R "SimplnxCore::RequireMinimumSizeFeatures" --verbose
 ```
 Expected: FAIL.
@@ -570,17 +572,14 @@ EOF
 
 - [ ] **Step 1: Read the merged state.** Post-sync, read `ErodeDilateBadDataTest.cpp` (the `(Erode)` archive test vs. the `(Erode) Expanded` / `(Dilate) Expanded` inline tests), the report's "Outstanding before promotion to COMPLETE" list, and the deviations doc's follow-up items 1 and 3.
 
-- [ ] **Step 2: Decide the replacement, with the requester.** Two defensible options:
-  - **(a) Drop the `(Erode)` archive test outright** *(recommended)*. The Expanded tests already cover every code path inline with legacy-binary-verified constants across 28 combinations, which is strictly stronger evidence than the 6.6 exemplar diff. The archive's production-scale value is regression breadth, not correctness — and per VV_Notes policy, exemplar archives are to be retired in favour of inline toy data.
-  - **(b) Replace with a compact, provenanced legacy archive** — package the legacy 6.5.171 input/output pairs produced during this batch's A/B runs as a new (non-`6_6_`) archive with a provenance sidecar, per the deviations doc's follow-up item 1. Keeps an executable-scale A/B in CI at the cost of a new archive upload.
-  Record the decision and rationale in the report.
-- [ ] **Step 3: Implement it.** For (a): delete the `(Erode)` `TEST_CASE` (lines ~353–397 post-sync) and its sentinel; keep every other `TEST_CASE` including `SIMPL Backwards Compatibility` untouched. For (b): follow the `publish-exemplars` skill for packaging/upload, then rewrite the test against the new archive.
+- [x] **Step 2: Decide the replacement, with the requester.** **Decided 2026-08-18 by the requester: option (a) — drop the `(Erode)` archive test outright.** The Expanded tests already cover every code path inline with legacy-binary-verified constants across 28 combinations, which is strictly stronger evidence than the 6.6 exemplar diff; per VV_Notes policy, exemplar archives are retired in favour of inline toy data. (Option (b), a compact provenanced legacy archive per the deviations doc's follow-up item 1, was considered and declined.) Record the decision and rationale in the report.
+- [ ] **Step 3: Implement it.** Per the option (a) decision: delete the `(Erode)` `TEST_CASE` (lines ~353–397 post-sync) and its sentinel; keep every other `TEST_CASE` including `SIMPL Backwards Compatibility` untouched.
 - [ ] **Step 4: Retire the archive if last.** `grep -rn "6_6_erode_dilate_test" src/ || echo "NO REMAINING REFERENCES"` — if empty (Tasks 1 and 2 already landed), remove the `download_test_data()` block from `src/Plugins/SimplnxCore/test/CMakeLists.txt` and add a "Retired 2026-08-18, superseded by inline Class 1/Class 2 oracles" banner to `vv/provenance/6_6_erode_dilate_test.md`.
 - [ ] **Step 5: Update the V&V docs.** In `vv/ErodeDilateBadDataFilter.md`, strike the corresponding item from "Outstanding before promotion to COMPLETE" and describe the conversion. Do **not** change its Status line — second-engineer sign-off and the cancel path are still outstanding, and promotion to COMPLETE is that reviewer's call, not this task's.
 - [ ] **Step 6: Run and commit.**
 
 ```bash
-cd /Users/mjackson/Workspace9/DREAM3D-Build/simplnx-Rel && cmake --build . --target SimplnxCoreUnitTest \
+cd /Users/mjackson/Workspace9/DREAM3D-Build/NX-Com-Qt69-Vtk96-Rel && cmake --build . --target SimplnxCoreUnitTest \
   && ctest -R "SimplnxCore::ErodeDilateBadData" --verbose
 ```
 Expected: all remaining `TEST_CASE`s PASS.
@@ -613,7 +612,7 @@ EOF
 - [ ] **Step 1: Run the full SimplnxCore suite**
 
 ```bash
-cd /Users/mjackson/Workspace9/DREAM3D-Build/simplnx-Rel && ctest -R "SimplnxCore::" --verbose 2>&1 | tail -40
+cd /Users/mjackson/Workspace9/DREAM3D-Build/NX-Com-Qt69-Vtk96-Rel && ctest -R "SimplnxCore::" --verbose 2>&1 | tail -40
 ```
 Expected: no new failures. If removing a `download_test_data()` entry broke an unrelated test, restore it — a shared archive is not retirable until every consumer is converted.
 
@@ -672,7 +671,7 @@ EOF
 ## Open questions for the requester
 
 1. ~~Does `RequireMinimumSizeFeatures` have an `ApplyToSinglePhase` parameter?~~ **Resolved 2026-08-18: yes** (`k_ApplySinglePhase_Key` / `k_SinglePhaseNumber_Key`); Task 3 carries the two-phase fixture.
-2. **Are these four PRs, or one?** The plan writes separate commits and assumes separate PRs so each stays reviewable (Task 4 is small enough to ride with Task 1 or 2 if preferred). If you want them batched, say so.
-3. `6_6_stats_test_v2` is **not** retired by this batch — `AlignSectionsMutualInformation` still pins it and is out of scope per the 2026-08-18 roster change. Confirm that is intended before someone tries to delete the archive.
-4. **Task 4 Step 2's replacement choice** — drop the production-scale archive test (recommended) vs. package a fresh provenanced legacy archive. Needs your call before Task 4 executes.
-5. **The dirty working tree** — the unstaged deletions under `Code_Review/vv/WritePoleFigure/` need a decision (commit or restore) before the Task 0 rebase.
+2. ~~Are these four PRs, or one?~~ **Resolved 2026-08-18: one PR per filter** — four PRs, each independently reviewable; the `6_6_erode_dilate_test` retirement completes in whichever of Tasks 1/2/4 lands last.
+3. ~~`6_6_stats_test_v2` retirement~~ **Resolved 2026-08-18: it stays** — `AlignSectionsMutualInformation` still pins it and remains out of scope per the roster change.
+4. ~~Task 4 Step 2's replacement choice~~ **Resolved 2026-08-18: option (a)** — drop the production-scale archive test.
+5. ~~The dirty working tree~~ **Resolved 2026-08-18** — deletions committed (`940627b7b`) and the branch rebased onto `upstream/develop` (Task 0 steps 1–3, 5 complete; step 4 build configure and step 6 baseline run still pending).
