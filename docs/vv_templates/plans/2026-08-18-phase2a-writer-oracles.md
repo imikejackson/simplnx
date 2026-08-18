@@ -22,7 +22,9 @@ Copied verbatim from `docs/vv_templates/vv_policy.md` and `CLAUDE.md`:
 - Every `TEST_CASE` ends with `UnitTest::CheckArraysInheritTupleDims(dataStructure);`.
 - All `getDataRefAs<T>()` calls in tests are wrapped in `REQUIRE_NOTHROW()`.
 - Run tests with `ctest -R "<name>" --verbose`, never the test binary directly.
-- Commit messages: `PREFIX: Subject` + `Signed-off-by: <name from git config>`. **Never** mention AI assistance or add an AI co-author line. Never commit `CLAUDE.md` or anything under `.claude/`.
+- **Every commit in this plan that lands a V&V cycle uses the `VV:` prefix — always.** Follow `docs/vv_templates/commit_template.md`. A V&V is *assumed* to have possibly found and fixed bugs, so a bug fix riding along does **not** change the prefix. Do not invent `VV/BUG:` or `VV/PERF:` variants: `git log --grep='^VV:'` must return every V&V commit, and a slashed variant breaks that anchor.
+- Commit body: summarise the defect and whether 6.5.171 shared it, per the Bug adjudication protocol.
+- `Signed-off-by: <name from git config>`. **Never** mention AI assistance or add an AI co-author line. Never commit `CLAUDE.md` or anything under `.claude/`.
 
 **Build directory:** `/Users/mjackson/Workspace2/DREAM3D-Build/simplnx-Rel`
 (configure from repo root with `cmake --preset simplnx-Rel` if it does not exist).
@@ -436,8 +438,6 @@ Replaces the 6.6-derived exemplar comparison with an inline analytical
 oracle on a 3x2x2 fixture, removing the dependence on golden data that
 was never itself verified.
 
-Use the VV/BUG prefix instead if this commit also carries an algorithm
-fix, and summarise the defect and whether 6.5.171 shared it.
 
 Signed-off-by: YOUR_NAME <YOUR_EMAIL>   # from `git config user.name` / `user.email`
 EOF
