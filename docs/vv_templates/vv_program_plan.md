@@ -34,8 +34,8 @@ Including the CTF variant of the routine, the full closure is **29 filters**.
 Both remaining gaps were authored 2026-07-28 by @JDuffeyBQ and are now merged —
 `ITKImageWriterFilter` (#1693) and `RequireMinNumNeighbors` (#1694).
 
-**All 29 closure reports are authored. `develop` carries 26/29 (90%).**
-The remaining three are a review problem, not an engineering one — and they all belong
+**All 29 closure reports are authored. `develop` carries 27/29 (93%).**
+The remaining two are a review problem, not an engineering one — and they both belong
 to one engineer. See §6.
 
 #### Live risk: the `ITKImageWriterFilter` report is a decaying asset
@@ -146,10 +146,11 @@ closure coverage — down from 11 — and a tool that hides that gap is worse th
 
 **Authoring is done — all 29 closure reports exist.** What remains is review and merge:
 
-1. **Clear the three `CHANGES_REQUESTED` closure PRs** — #1688, #1687, #1683.
-   These are the *only* thing between `develop` and a complete deliverable, and
-   **all three belong to @mmarineBlueQuartz.** Until they land, `develop` reports 26/29
-   and any release tag captures an incomplete evidence package. See §6.
+1. **Clear the two remaining `CHANGES_REQUESTED` closure PRs** — #1688, #1683.
+   (#1687, `ErodeDilateBadData`, merged 2026-08-18.) These are the *only* thing between
+   `develop` and a complete deliverable, and **both belong to @mmarineBlueQuartz.** Until
+   they land, `develop` reports 27/29 and any release tag captures an incomplete evidence
+   package. See §6.
 2. **Land the two open non-closure PRs** — #1702 (`DBSCAN`) and #1703
    (`GroupMicroTextureRegions`), both awaiting first review. Neither affects the closure,
    but #1703 closes the last outstanding `DRAFT` gate items from #1637.
@@ -202,18 +203,55 @@ call and is expected to be edited; it is committed so the judgment is reviewable
 ### Opening batch — the 11 dual-purpose filters
 
 Sequence these first. Each carries MTR exposure *and* is pinned to a `6_6_` archive, so
-each one advances the SBIR story and drains the defect backlog at the same time:
+each one advances the SBIR story and drains the defect backlog at the same time (the
+Cleanup group's three filters completed 2026-08-18, branches pending merge; the
+`ErodeDilateBadData` conversion completed the same day and rides its own branch —
+the filter's V&V itself merged as #1687):
 
 `AlignSectionsFeatureCentroid`, `AlignSectionsMisorientation`, `ComputeBiasedFeatures`,
 `ComputeEuclideanDistMap`, `ComputeShapes`, `ComputeSchmids`, `ComputeSurfaceAreaToVolume`,
 `ErodeDilateCoordinationNumber`, `ErodeDilateMask`, `ReadH5OinaData`,
 `RequireMinimumSizeFeatures`
 
-Archives fully retired by this batch: `6_6_ImportH5Data`, `6_6_erode_dilate_test`,
-`6_6_find_biased_features`, `6_6_min_size_input`, `6_6_min_size_output`.
+Archives fully retired by this batch (target outcome): `6_6_ImportH5Data`,
+`6_6_erode_dilate_test`, `6_6_find_biased_features`, `6_6_min_size_input`,
+`6_6_min_size_output`. (Status 2026-08-18: the two `6_6_min_size_*` archives are retired
+on the `RequireMinimumSizeFeatures` branch; `6_6_erode_dilate_test` retires once the last
+of its three consumer PRs merges — see the hit-rate note below; the rest await their
+filters.)
 
 **Report the hit rate from this batch.** It is the measurement Phase 3 was originally
 meant to produce, and it now arrives earlier and attached to filters that matter.
+
+**Hit rate, first three of the batch (2026-08-18).** `ErodeDilateMask`,
+`ErodeDilateCoordinationNumber`, and `RequireMinimumSizeFeatures` are the first three of
+the eleven to finish: Class 1 (+Class 4 for `RequireMinimumSizeFeatures`) oracle V&V plus a
+full 6.5.171 binary A/B. Verdict B (SIMPLNX defect): **1 of 3** — `ErodeDilateMask`
+accepted its `X`/`Y`/`Z Direction` flags but never read them, a port regression (6.5.171
+honoured them), fixed in-PR. That is the same defect class as
+`ErodeDilateBadDataFilter-D1` from #1687 — two independent instances of one
+copy-paste-era defect family across the erode/dilate group, worth flagging even though
+neither gets a deviation entry (port regressions get none, per policy). Legacy-shared
+output bugs: **0 of 3** — zero deviation entries, no 6.5.172 surgical patch triggered by
+this batch. Post-fix A/B parity was exact: `ErodeDilateMask` 28/28 pipeline pairs,
+`ErodeDilateCoordinationNumber` 44/44 array pairs, `RequireMinimumSizeFeatures` 32/32
+array pairs, all element-wise identical. **A truthful low number is a useful result**: one
+port regression and zero legacy-shared bugs across three filters is the measurement, and
+here the A/B's marginal contribution was catching that port regression and independently
+confirming all five hand oracles, not finding output bugs. The work also surfaced findings
+outside the hit-rate definition proper: one behavioural deviation filed
+(`ErodeDilateMaskFilter-D1` — legacy errors out with `-5555` when `NumIterations <= 0`, NX
+silently no-ops; recommendation pending a product decision), one NX-only defect fixed in
+`ErodeDilateCoordinationNumber` (the cancel flag was plumbed but never read, leaving the
+filter uncancellable), and two legacy-shared hazards documented but not fixed
+(`ErodeDilateCoordinationNumber`'s `Loop=true, CN<=1` non-termination, and
+`RequireMinimumSizeFeatures`'s unguarded feature-id indexing / no-progress loop — both
+verified present in 6.5.171 source). Archives: `6_6_min_size_input` and
+`6_6_min_size_output` retire with the `RequireMinimumSizeFeatures` commit;
+`6_6_erode_dilate_test` has all three consumer conversions complete on their respective
+branches, all pending merge (BadData's underlying V&V already merged as #1687; its
+archive-test conversion is a separate follow-on branch), and retires via a
+`CMakeLists.txt` removal once the last of the three PRs merges.
 
 After the opening batch, order by shipped-pipeline usage count descending.
 
@@ -371,41 +409,42 @@ not an embarrassment.
 
 ## 6. The merge backlog is the critical path
 
-**40 V&V reports have been authored. 35 are on `develop`.** The other 5 exist only on
-unmerged branches, and **3 of those 5 are MTR closure filters — all three owned by the
-same engineer, all three stalled in a review round-trip**:
+**40 V&V reports have been authored. 36 are on `develop`.** The other 4 exist only on
+unmerged branches, and **2 of those 4 are MTR closure filters — both owned by the
+same engineer, both stalled in a review round-trip** (`ErodeDilateBadData`, #1687, merged
+2026-08-18, is no longer in this backlog):
 
 | Filter | PR | Blocked on |
 |---|---|---|
 | `MultiThresholdObjects` | #1688 | `CHANGES_REQUESTED` (@mmarineBlueQuartz) |
-| `ErodeDilateBadData` | #1687 | `CHANGES_REQUESTED` (@mmarineBlueQuartz) |
 | `WriteDREAM3D` | #1683 | `CHANGES_REQUESTED` (@mmarineBlueQuartz) |
 
 The remaining two are non-closure: `ComputeTriangleGeomCentroids` and `DBSCANFilter`
 (#1702, awaiting first review). `GroupMicroTextureRegions` (#1703, awaiting first review)
 is already on `develop` but in `DRAFT`; #1703 promotes it to `READY FOR REVIEW`.
 
-**Progress:** `develop` went 18/29 → 23/29 → 24/29 → 25/29 → **26/29** across 2026-07-28
-to 2026-08-12. Merged in that window: #1693, #1692, #1689, #1685, #1638, #1694, #1695,
+**Progress:** `develop` went 18/29 → 23/29 → 24/29 → 25/29 → 26/29 across 2026-07-28
+to 2026-08-12, then → **27/29** on 2026-08-18 (#1687, `ErodeDilateBadData`, merged).
+Merged in the earlier window: #1693, #1692, #1689, #1685, #1638, #1694, #1695,
 #1679, #1701, #1672.
 
 **The SBIR deliverable is now gated on one engineer's revision queue.** Every other
-contributor's closure work has landed. @mmarineBlueQuartz owes revisions on #1688, #1687,
-and #1683 — three PRs standing between `develop` and 29/29. Nothing else on this plan
-changes that, and no amount of new V&V substitutes for it. If those three cannot be
+contributor's closure work has landed. @mmarineBlueQuartz owes revisions on #1688 and
+#1683 — two PRs standing between `develop` and 29/29. Nothing else on this plan
+changes that, and no amount of new V&V substitutes for it. If those two cannot be
 prioritized, reassigning the review responses is the only other lever.
 
 **The backlog is now one engineer deep.** Every approved or awaiting-review closure PR has
-landed; all four that remain are waiting on an author to answer review comments, and
-**three of the four belong to @mmarineBlueQuartz** (#1688, #1687, #1683). The critical
+landed; all three that remain are waiting on an author to answer review comments, and
+**two of the three belong to @mmarineBlueQuartz** (#1688, #1683). The critical
 path to the SBIR deliverable is one person's revision queue. That is worth knowing
 explicitly — it is a scheduling risk, not a process failure, and it is addressed by
-reassignment or by prioritizing those three above other work, not by more V&V.
+reassignment or by prioritizing those two above other work, not by more V&V.
 
 The consequence is unchanged in kind, only in size: **the SBIR filter work is finished as
-engineering and 90% complete as evidence.** A release tag cut today would pin
+engineering and 93% complete as evidence.** A release tag cut today would pin
 `(commit hash, archive SHA512)` pairs — the mechanism `vv_policy.md` relies on — against a
-`develop` missing three of the twenty-nine closure reports.
+`develop` missing two of the twenty-nine closure reports.
 
 No amount of new V&V improves this number. Clearing the backlog is the highest-value work
 available until `develop` reports 29/29.
