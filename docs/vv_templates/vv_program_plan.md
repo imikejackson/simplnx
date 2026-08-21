@@ -253,6 +253,30 @@ branches, all pending merge (BadData's underlying V&V already merged as #1687; i
 archive-test conversion is a separate follow-on branch), and retires via a
 `CMakeLists.txt` removal once the last of the three PRs merges.
 
+**Hit rate, feature-statistics five (2026-08-20).** `ComputeBiasedFeatures`,
+`ComputeSurfaceAreaToVolume`, `ComputeEuclideanDistMap`, `ComputeShapes` and
+`ComputeSchmids` finished the Feature-statistics group: Class 1 (+Class 4) oracles plus
+full 6.5.171 binary A/B, with every predicted divergence derived from source before any
+run (11/11, 10/10, 87/87, and 93/93 A/B rows matched prediction across the batch — zero
+unpredicted differences). Verdict B (SIMPLNX output defect, fixed in-PR): **3 of 5** —
+`ComputeBiasedFeatures` (2D spacing remap port regression, plus an uninitialized-output
+fill), `ComputeSurfaceAreaToVolume` (shared ±X/±Y face-area swap and truncated sphericity
+exponents), `ComputeShapes` (2D degenerate-Euler `π/180`-for-`π/2` mis-transcription —
+unreachable until the shared 2D voxel-center bug was also fixed — plus the 2D axis remap
+and an empty-feature NaN); `ComputeEuclideanDistMap` needed **no output change**, as
+predicted, and `ComputeSchmids`' suspected uninitialized-output defect was **overturned by
+experiment** into a latent-only regression (the in-core store factory hard-codes zero
+init). Legacy-shared bugs: **three alignment patches** on the 6.5.172 branch
+(`FindBoundingBoxFeatures`, `FindSurfaceAreaToVolume`, `FindShapes`), each proving
+patched-legacy ≡ fixed-NX ≡ oracle. Legacy-only bugs newly documented: six — including
+`FindEuclideanDistMap`'s zero-init corrupting TJ-only/QP-only maps in both distance modes
+(release-note impact) and `FindShapes`' voxel-corner moment bias. **EbsdLib itself was
+fixed** on `topic/3_1_1_staging` (Schmid normalizer constants that let m exceed 0.5;
+uninitialized Hexagonal-Low outputs), with twelve further hexagonal sqrt-divisor literals
+recorded as known-open follow-up; the `ComputeSchmids` PR is merge-blocked until EbsdLib
+3.1.1 ships. Archives: `6_6_find_biased_features` retired outright;
+`6_6_stats_test_v2`'s live consumers drop from six to two.
+
 After the opening batch, order by shipped-pipeline usage count descending.
 
 **Throughput caveat:** these are harder than the deferred writers. Do not schedule the
@@ -277,7 +301,7 @@ Ordered by **archive**, not by filter — the leverage is uneven. 36 filters are
 
 | Archive | Filters pinned, not yet authored |
 |---|---|
-| `6_6_stats_test_v2` | **5** of 9 — AlignSectionsMutualInformation, ComputeEuclideanDistMap, ComputeSchmids, ComputeShapes, ComputeSurfaceAreaToVolume |
+| `6_6_stats_test_v2` | **1** of 9 — AlignSectionsMutualInformation (the other four were authored 2026-08-20, branches pending merge; live test consumers after that batch: AlignSectionsMutualInformation and ComputeFeatureNeighbors) |
 | `6_6_Small_IN100_GBCD` | **4** of 5 — ComputeGBCD, ComputeGBCDPoleFigure, WriteGBCDGMTFile, WriteGBCDTriangleData |
 | `6_6_combine_stl_files_v2` | 2 — CombineStlFiles, WriteStlFile |
 | `6_6_erode_dilate_test` | 2 of 3 — ErodeDilateCoordinationNumber, ErodeDilateMask |
