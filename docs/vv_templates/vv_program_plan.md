@@ -277,6 +277,32 @@ recorded as known-open follow-up; the `ComputeSchmids` PR is merge-blocked until
 3.1.1 ships. Archives: `6_6_find_biased_features` retired outright;
 `6_6_stats_test_v2`'s live consumers drop from six to two.
 
+**Hit rate, align-sections pair (2026-08-21).** `AlignSectionsFeatureCentroid` and
+`AlignSectionsMisorientation`: Class 1 oracles plus full 6.5.171 binary A/B, every divergence
+predicted from source before any run (59 comparables against 6.5.171 with 21 predicted
+divergences for FeatureCentroid; 95 checks all exact-value equal for Misorientation — zero
+unpredicted differences across the pair). Verdict B (SIMPLNX output defect, fixed in-PR):
+**1 of 2** — `AlignSectionsFeatureCentroid` corrected six defects, headlined by the
+*Reference Slice* semantics bug **shared with 6.5.171** (the parameter indexed the internal
+top-down iteration order, so "slice k" anchored physical slice `Z-1-k`; per product ruling
+slice 0 is now the slice at the Z origin — a user-visible behavior change for any pipeline
+with *Use Reference Slice* on, release-note required), plus the shared all-masked-slice
+NaN→int64 UB, the shared/NX bounds guard, uninitialized shift-array tuple 0, demoted-and-broken
+diagnostics, and four further missing preflight guards. One 6.5.172 alignment patch proves
+patched-legacy ≡ fixed-NX ≡ oracle on the divergence fixtures. `AlignSectionsMisorientation`
+needed **no output change**, as predicted — its yield was five new guards closing OOB/UB
+acceptance paths, with legacy parity exact. Legacy-only bugs newly documented: three
+(FeatureCentroid's always-zero "New X/Y Shift" CSV columns, its `>` reference-bound
+off-by-one, and iteration-index diagnostics). New shared-code findings for the follow-up
+queue: the `AlignSections` base silently discards `findShifts` warnings (all four consumers)
+and still crashes the two out-of-batch filters on non-`IDataArray` cell children; guard
+parity for `AlignSectionsList`/`AlignSectionsMutualInformation` is assigned to the engineer
+track. Archives: the orphaned `6_6_align_sections_feature_centroids.tar.gz` download and the
+vestigial `align_sections.tar.gz` retire with these PRs; both filters' circular
+`output_*.dream3d` shift-array comparisons were replaced by hand-derived assertions
+(`AlignSectionsListTest` still consumes the Misorientation output exemplar as a golden input —
+repo-wide circularity closure is a recorded follow-up).
+
 After the opening batch, order by shipped-pipeline usage count descending.
 
 **Throughput caveat:** these are harder than the deferred writers. Do not schedule the
