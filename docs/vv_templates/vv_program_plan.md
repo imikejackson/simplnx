@@ -303,6 +303,30 @@ vestigial `align_sections.tar.gz` retire with these PRs; both filters' circular
 (`AlignSectionsListTest` still consumes the Misorientation output exemplar as a golden input —
 repo-wide circularity closure is a recorded follow-up).
 
+**Hit rate, H5OINA reader (2026-08-24).** `ReadH5OinaDataFilter` is the program's first
+new-filter V&V (no 6.5.171 equivalent exists — verified against the whole legacy tree), so
+the legacy binary A/B is replaced by a Class 2 independent readback: an h5py script re-reads
+every fixture and the real AZtec file and independently derives the expected NX arrays.
+Verdict B: **11 defects corrected — 6 in the filter, 5 in EbsdLib's `H5OinaReader`** (on
+`topic/3_1_1_staging`). Filter side: hexagonal alignment added the literal `30.0` (thirty
+*radians*) to radian-valued φ2 with the option on by default — garbage orientations for
+every hexagonal point in every release that shipped the filter, invisible because the only
+test file was cubic; two multi-scan stacking corruptions (Euler slab offset off by 3×;
+hex alignment applied S times to scan 0 and never to the rest); a process crash reachable
+from a well-formed multi-scan file (ensemble arrays sized from the first scan only); pattern
+import descoped behind an honest unsupported error; stacking order actually implemented
+(previously accepted and ignored). EbsdLib side: the lattice-constant γ slot echoed β; lattice
+angles were imported in radians where every other importer reports degrees (**breaking change
+to a published output, release-noted**); a phase group missing `Lattice Angles` crashed the
+process. The circular NX-generated exemplar comparison was replaced by readback-derived
+assertions (2 → 17 test cases). **Release-gating note:** the EbsdLib 3.1.1 release now gates
+two PRs (`ComputeSchmids`, this one); measured at this batch's head, staging EbsdLib breaks
+exactly **one** test on develop (`ComputeSchmidsFilter`, the known CubicOps drift, corrected
+by the open `ComputeSchmids` PR) — an earlier 29-failure count was a stale-binary artifact
+(`PIPELINE::`/`PY::` tests need `--target all`, not just the unit-test target). Sibling
+exposure (`ReadH5OimData`, `ReadH5EspritData` share several defect shapes through
+`IEbsdOemReader`) is enumerated in the report's follow-ups for the engineer track.
+
 After the opening batch, order by shipped-pipeline usage count descending.
 
 **Throughput caveat:** these are harder than the deferred writers. Do not schedule the
