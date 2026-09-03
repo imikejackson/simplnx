@@ -22,12 +22,6 @@ Centroid component = `Σ(voxel-center coord) / N` over the feature's cells, wher
 | E | 4×1×1 (spacing 2, origin 10) | periodic offset scales with spacing (regression pin for the D2 bug fix) | centroid[1].x = 17.0 (was 15.5 before fix) |
 | (error) | 2×1×1, id 5 of 2 | validation error path (-5351) | execute invalid |
 
-## Second-engineer oracle review
-
-- **Reviewer:** Michael Jackson (technical authority)
-- **Date:** 2026-07-16
-- Review focus: the Fixture E spacing-aware periodic value (17.0) and the D2 bug-fix rationale.
-
 ## Reproduction
 
 The fixtures require no external data. Build the `SimplnxCoreUnitTest` target and run:

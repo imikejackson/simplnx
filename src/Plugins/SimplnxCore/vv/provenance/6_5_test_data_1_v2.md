@@ -75,12 +75,6 @@ Some other tests use arrays or geometries in this archive as legacy regression r
 
 Not applicable. This shared archive does not provide a Class 2, Class 3, or Class 5 canonical oracle for `RequireMinNumNeighborsFilter`. Its valid role in that V&V is limited to input and regression coverage.
 
-## Second-Engineer Oracle Review
-
-- **Reviewer:** skipped
-- **Date:** not applicable
-- **Skip reason:** The archive is not the canonical oracle for `RequireMinNumNeighborsFilter`; the separate inline Class 1 and Class 4 oracle is subject to the filter report's second-engineer review.
-
 ## Regenerated to Fix a Circular-Oracle Situation?
 
 No evidence indicates that this archive was regenerated to fix a circular oracle. Git history shows that v2 replaced `6_5_test_data_1.tar.gz` in PR #1021 while the crop-dimension test variants and their generated reference geometries were added.

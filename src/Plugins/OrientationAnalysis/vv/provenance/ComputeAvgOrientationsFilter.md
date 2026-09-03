@@ -66,11 +66,6 @@ This proves the filter feeds EbsdLib correctly and lands the result in the right
 - Guards (issue #1661): out-of-range `Phases` values and unknown/unsupported crystal-structure values are excluded from both paths and reported as warnings (-54672 / -54671, never silent); fully-excluded features finalize to identity (Rodrigues) / NaN (vMF/Watson). Encoded as `Unknown Crystal Structure and Out-Of-Range Phase Guards`.
 - Multi-phase features: the vMF/Watson `featureIdToPhaseMap` is last-writer-wins — the feature's crystal structure comes from the phase of its highest-index voxel (Rodrigues is per-voxel). Documented in the algorithm and the filter docs; features are normally single-phase.
 
-## Second-engineer oracle review
-
-- **Reviewer:** Michael Jackson (technical authority)
-- **Date:** 2026-07-16
-
 ## Reproduction
 
 The toy data is constructed entirely in `test/ComputeAvgOrientationsTest.cpp` from the literals above (no external files). To reproduce: read the fixture tables here, build the arrays, run the filter with the relevant method toggles, and compare against the expected columns.

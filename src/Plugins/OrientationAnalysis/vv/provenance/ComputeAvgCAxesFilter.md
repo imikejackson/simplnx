@@ -129,11 +129,6 @@ The expected values are checked in the unit test (`test/ComputeAvgCAxesTest.cpp:
 
 Class 1 (Analytical) primary, Class 4 (Invariant) companion. No reference-library invocation, no published-paper figure reproduction, no expert-visual sign-off.
 
-## Second-engineer oracle review
-
-- **Reviewer:** *Skipped — recorded reason:* Class 1 derivation is set-arithmetic on quaternion-rotated c-axes for an 11-cell, 8-feature hand-built fixture.
-- **Date:** JUNE 5, 2026
-
 ## Regenerated to fix a circular-oracle situation?
 
 **Yes.** This archive replaces the retired `7_2_AvgCAxis.tar.gz` (SHA512 not retained in this repo). The retired archive contained exemplar arrays whose reference values were produced by a "special build of DREAM3D 6.6.379 with micro-texture bug fixes" — i.e., reference values produced by a non-baseline DREAM3D build, not by an independent oracle. Per V&V policy line 33 ("'Legacy 6.5.171 produced this output' is never a valid oracle for correctness"), the retired archive failed the independence test even more sharply: it was a *modified* legacy build, not even the baseline. The hand-built Class 1 oracle in this archive is independent of any DREAM3D implementation, and is cross-validated by the A/B root-cause proof confirming SIMPLNX matches a surgically patched local build of the legacy source bit-for-bit.

@@ -164,12 +164,6 @@ The expected values are hard-coded into each TEST_CASE as `REQUIRE(kam[i] == App
 
 N/A — Class 1 and Class 4 oracles only. No reference-library invocation, no paper-figure reproduction, no expert-visual sign-off needed.
 
-## Second-engineer oracle review
-
-- **Reviewer:** *Pending — recommend Joey Kleingers or another OA-domain engineer review the cubic FZ argument (especially the "for pure z-rotations |Δφ1| ≤ 45° the disorientation IS |Δφ1|" claim) and the Fixture 4 multi-feature multi-voxel hand-derivation (6 per-cell expected values with mixed feature mismatch and background skip).*
-- **Date:** *YYYY-MM-DD (pending)*
-- **Skip reason** (if skipped): *N/A — second-engineer review is recommended; not yet performed.*
-
 ## Regenerated to fix a circular-oracle situation?
 
 **Yes.** The inlined analytical dataset replaces the retired exemplar-comparison test. The pre-V&V test consumed the shared `6_6_stats_test_v2.tar.gz` archive's `KernelAverageMisorientations` exemplar, which was a circular oracle: the exemplar values were generated from a SIMPLNX build using EbsdLib < 2.4.1, where every cell's KAM was inflated by the spurious `~0.001–0.03°` self-misorientation precision noise documented as D1. Comparing the post-EbsdLib-2.4.1 SIMPLNX output against those exemplars would systematically fail by ~0.01–0.05° per cell (varies by focal-cell quaternion), which is what surfaced during the EbsdLib precision-cycle V&V work.

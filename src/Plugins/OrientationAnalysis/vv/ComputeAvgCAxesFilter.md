@@ -65,6 +65,8 @@
 
 *Class:* **1 (Analytical)** primary, **4 (Invariant)** companion.
 
+*Second-engineer review:* **Nathan Young — 2026-06-11** (approving reviewer of PR #1631, which delivered this V&V). A *dedicated* oracle-design review was recorded at the time as unnecessary, for the reason kept here: the Class 1 derivation is set-arithmetic on quaternion-rotated c-axes for an 11-cell, 8-feature hand-built fixture.
+
 ### Phase 2 exemplar-provenance finding
 
 The pre-existing exemplar `7_2_AvgCAxis.tar.gz` is a regression-style oracle pinned to a custom DREAM3D 6.6.379 "micro-texture special build" (per its inline ReadMe). Per V&V policy line 33, legacy output is never a valid correctness oracle — doubly disqualified here, since the reference build isn't even 6.5.171 baseline. **Retired** in favor of the hand-built Class 1 dataset below.

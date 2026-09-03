@@ -81,7 +81,7 @@ the feature spans the full extent on that axis.
 (Fixtures A/B/C) and `Class 1/4 - Periodic Boundary` (Fixtures D/E), built + run in `NX-Com-Qt69-Vtk96-Rel`,
 all pass at float32 margin 1e-4.
 
-*Second-engineer review:* **Signed off by Michael Jackson (technical authority), 2026-07-16.**
+*Second-engineer review:* **Signed off by Michael Jackson (technical authority), 2026-07-16.** Review focus: the Fixture E spacing-aware periodic value (17.0) and the D2 bug-fix rationale.
 
 ## Code path coverage
 

@@ -169,12 +169,6 @@ The expected values are hard-coded into each TEST_CASE as `REQUIRE(... == Approx
 
 N/A — Class 1 and Class 4 oracles only. No reference-library invocation, no paper-figure reproduction, no expert-visual sign-off needed.
 
-## Second-engineer oracle review
-
-- **Reviewer:** *Pending — recommend Joey Kleingers or another OA-domain engineer review (a) the closed-form derivation that pure Bunge ZXZ `(0, Φ, 0)` tilts the c-axis by exactly Φ degrees, (b) the Fixture 2 per-feature expected averages (especially F2 and F5 which have non-trivial in-feature spread), and (c) the I6 NaN-propagation expectation for the all-non-hex F3 feature.*
-- **Date:** *YYYY-MM-DD (pending)*
-- **Skip reason** (if skipped): *N/A — second-engineer review is recommended but not yet performed. The Class 1 derivation reuses the math already reviewed during the sibling `ComputeFeatureNeighborCAxisMisalignmentsFilter` V&V cycle (F#6), which used the same pure-Φ Bunge ZXZ argument with the same `|ΔΦ|` reduction.*
-
 ## Regenerated to fix a circular-oracle situation?
 
 **Yes.** The retired `Valid Filter Execution` test consumed the `caxis_data.tar.gz` archive's `FeatureReferenceCAxisMisorientations` / `FeatureAvgCAxisMisorientations` / `FeatureStdevCAxisMisorientations` exemplar arrays as the oracle for the SIMPLNX-generated outputs. Those exemplar arrays were produced by a prior SIMPLNX run — making the test a textbook circular oracle (SIMPLNX-now compared against SIMPLNX-then). Per V&V policy line 33, this is not a valid correctness check. The inlined Class 1 + Class 4 fixtures replace the not-independent oracle with derived-truth oracles + a load-bearing invariant test for the divide-by-zero path. The archive itself is RETAINED in `test/CMakeLists.txt` because `ComputeCAxisLocationsTest.cpp` still consumes it.

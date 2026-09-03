@@ -58,7 +58,10 @@ For detailed explanations of each class — with examples, strengths and weaknes
 - [ ] One-line description of how oracle was applied
 - [ ] Encoded test reference: `<file>::<TEST_CASE>` exists and is greppable
 - [ ] N fixtures stated; all pass at the verified commit
-- [ ] Second-engineer review of oracle design, OR documented skip reason
+- [ ] Second-engineer review of the oracle design is recorded here, in this report — never in the provenance
+      sidecar, which records data lineage only. Name the reviewer and an ISO date; "skipped" is not an
+      acceptable value once the delivering PR has merged (the PR reviewer is the second engineer). If a
+      *dedicated* oracle-design review was judged unnecessary, keep that rationale here alongside the name.
 
 ## Code path coverage
 
