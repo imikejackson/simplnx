@@ -5,9 +5,10 @@
 | Plugin | ITKImageProcessing |
 | SIMPLNX UUID | `a181ee3e-1678-4133-b9c5-a9dd7bfec62f` |
 | DREAM3D 6.5.171 equivalent | `ITKImageWriter` (SIMPL UUID `11473711-f94d-5d96-b749-ec36a81ad338`) - `Source/Plugins/ITKImageProcessing/ITKImageProcessingFilters/ITKImageWriter.{h,cpp}` |
-| Verified commit | *<filled at SBIR deliverable assembly>* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE |
-| Sign-off | Jared Duffey, 07-31-2026. Second engineer: Michael A. Jackson <mike.jackson@bluequartz.net>, 2026-08-07. |
+| Sign-off | Jared Duffey — 2026-07-31 |
+| Second-engineer sign-off | Michael A. Jackson <mike.jackson@bluequartz.net> — 2026-08-07 |
 
 ## At a glance
 
@@ -20,7 +21,7 @@
 | Exemplar archive | None - Class 1+4 oracle uses inline data |
 | Legacy comparison | Reproduced against DREAM3D 6.5.171 with a pipeline-generated copy of the inline oracle and the archived Small IN100 input. All 577 decoded slices match exactly per implementation; D1 and D2 record filename-formatting and plane-metadata differences. See `vv/provenance/ITKImageWriterFilter.md`. |
 | Bug flags | Unsigned uint32/uint64 dispatch was corrected. Current changes add invalid fill-character validation, component-count validation, RGBA dispatch, selected-plane physical metadata, and tuple-copy error propagation. |
-| V&V phase | Regression tests and report amendments in progress |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -29,66 +30,6 @@ ITKImageWriterFilter exports ImageGeom cell data as an ITK image or a 2D image s
 ## Algorithm Relationship
 
 **Minor changes.** Port-time changes are SIMPLNX DataStructure stores, AtomicFile writes, and current ITK APIs. Scalar XY/XZ/YZ decoded pixels match the legacy behavior. The NX writer deliberately preserves the selected physical axes in XZ and YZ output spacing/origin; legacy output used identity 2D metadata (D2). The parameter set is unchanged, so `parametersVersion()` remains `2`; validation has been tightened without a parameter-schema change.
-
-**PR(s):**
-
-**2026**
-
-- [PR #1626](https://github.com/BlueQuartzSoftware/simplnx/pull/1626) ("ENH: Various small doc, bug and enhancement fixes.") - Small documentation, bug, and enhancement fixes.
-- [PR #1585](https://github.com/BlueQuartzSoftware/simplnx/pull/1585) ("ENH: Add Image Reader/Writer that depend on Tiff and Stb libraries.") - Integrates TIFF/STB reader-writer support.
-- [PR #1576](https://github.com/BlueQuartzSoftware/simplnx/pull/1576) ("ENH: Improve error messages across the codebase") - Improves error messages.
-- [PR #1571](https://github.com/BlueQuartzSoftware/simplnx/pull/1571) ("DOC: Add standardized ChoicesParameter descriptions to filter docs") - Adds standardized output-plane choice descriptions.
-- [PR #1555](https://github.com/BlueQuartzSoftware/simplnx/pull/1555) ("ENH: Again require in-memory data for ITK filters") - Restores the ITK in-memory data requirement.
-- [PR #1490](https://github.com/BlueQuartzSoftware/simplnx/pull/1490) ("STY: Fix warnings about unintended slicing of object") - Removes object-slicing warnings.
-- [PR #1476](https://github.com/BlueQuartzSoftware/simplnx/pull/1476) ("BUG/ENH: Fix Backwards Pipeline Compatibility and Add Testing") - Fixes backward-pipeline compatibility.
-
-**2025**
-
-- [PR #1489](https://github.com/BlueQuartzSoftware/simplnx/pull/1489) ("ENH: ItkImageWriter allow user to set the number of padding digits and the fill char") - Adds output-index padding and fill-character controls.
-- [PR #1457](https://github.com/BlueQuartzSoftware/simplnx/pull/1457) ("STY: Clean up 'static inline' from filter headers") - Cleans up static-inline header declarations.
-- [PR #1377](https://github.com/BlueQuartzSoftware/simplnx/pull/1377) ("STY: Ensure all code arguments are consistent across filters") - Standardizes argument style.
-- [PR #1257](https://github.com/BlueQuartzSoftware/simplnx/pull/1257) ("ENH: Add missing documentation comments for preflight and execute methods in filters") - Adds preflight and execute documentation.
-- [PR #1253](https://github.com/BlueQuartzSoftware/simplnx/pull/1253) ("ENH: Merge Initial Out-of-Core infrastructure") - Introduces the initial OOC infrastructure.
-- [PR #1238](https://github.com/BlueQuartzSoftware/simplnx/pull/1238) ("ENH: Added pipeline relative path support") - Adds pipeline-relative path support.
-- [PR #1232](https://github.com/BlueQuartzSoftware/simplnx/pull/1232) ("DOC: General code clean up to make parameters consistent and docs consistent") - Aligns parameter and documentation conventions.
-
-**2024**
-
-- [PR #1088](https://github.com/BlueQuartzSoftware/simplnx/pull/1088) ("Added versioning to filter parameters and json") - Adds filter and parameter versioning, including backwards-compatible parameter JSON reading.
-- [PR #1082](https://github.com/BlueQuartzSoftware/simplnx/pull/1082) ("SIMPLConversion header optimization") - Optimizes SIMPL-conversion headers.
-- [PR #975](https://github.com/BlueQuartzSoftware/simplnx/pull/975) ("DOC: Fix capitalization issue in the documentation for the GitHub link.") - Corrects GitHub link capitalization.
-- [PR #956](https://github.com/BlueQuartzSoftware/simplnx/pull/956) ("ENH: Rename Filters that start with Find/Generate/Calculate to Compute") - Updates documentation for standardized filter names.
-- [PR #941](https://github.com/BlueQuartzSoftware/simplnx/pull/941) ("Moved Result handling outside of AtomicFile") - Moves result handling outside AtomicFile.
-- [PR #934](https://github.com/BlueQuartzSoftware/simplnx/pull/934) ("BUG: Pipeline and Filter human facing label cleanup") - Cleans up human-facing labels.
-- [PR #931](https://github.com/BlueQuartzSoftware/simplnx/pull/931) ("ENH: All filter's class names end with \"Filter\".") - Applies the Filter class-name suffix.
-- [PR #918](https://github.com/BlueQuartzSoftware/simplnx/pull/918) ("BUG: Update ITK Image Writer to Use Atomic File API") - Migrates the writer to the AtomicFile API.
-- [PR #914](https://github.com/BlueQuartzSoftware/simplnx/pull/914) ("DOC: Update all doc files to have correct filter human name") - Corrects the documented filter human name.
-- [PR #874](https://github.com/BlueQuartzSoftware/simplnx/pull/874) ("ENH: Refactor the Parameter Keys to make them consistent and easy to learn") - Refactors parameter keys.
-- [PR #847](https://github.com/BlueQuartzSoftware/simplnx/pull/847) ("DOC: Link directly to the discussion page on GitHub.") - Updates the documentation discussion link.
-
-**2023**
-
-- [PR #801](https://github.com/BlueQuartzSoftware/simplnx/pull/801) ("ENH: Rename complex to simplnx") - Renames the framework namespace and repository identity.
-- [PR #790](https://github.com/BlueQuartzSoftware/simplnx/pull/790) ("ENH: Write Temp Files for All Writers") - Adds temporary-file writing for writers.
-- [PR #779](https://github.com/BlueQuartzSoftware/simplnx/pull/779) ("ENH: Implement SIMPL pipeline conversion") - Implements SIMPL pipeline conversion.
-- [PR #753](https://github.com/BlueQuartzSoftware/simplnx/pull/753) ("API: Standardize I/O Naming to Read/Write") - Standardizes I/O naming.
-- [PR #708](https://github.com/BlueQuartzSoftware/simplnx/pull/708) ("DOC: Update documentation files to allow Sphinx to generate html documentation") - Updates documentation for Sphinx generation.
-- [PR #703](https://github.com/BlueQuartzSoftware/simplnx/pull/703) ("ENH: Enable Out-of-Core functionality") - Adds OOC infrastructure compatibility.
-- [PR #673](https://github.com/BlueQuartzSoftware/simplnx/pull/673) ("ENH: Filter help text filled out. Docs updated with python section") - Adds filter help text and Python documentation.
-- [PR #671](https://github.com/BlueQuartzSoftware/simplnx/pull/671) ("API: Add C++ Class Name to All Default Tags") - Adds C++ class names to default tags.
-- [PR #593](https://github.com/BlueQuartzSoftware/simplnx/pull/593) ("ENH: Update ITK filters to follow naming and parameter layout conventions") - Aligns ITK filter naming and parameter layout.
-- [PR #575](https://github.com/BlueQuartzSoftware/simplnx/pull/575) ("BUG: Fix issue where ITKImageWriter is double looping over the Z dim") - Fixes double iteration over Z.
-- [PR #86](https://github.com/BlueQuartzSoftware/simplnx/pull/86) ("STYLE: Clean Up Includes") - Cleans up includes.
-
-**2022**
-
-- [PR #80](https://github.com/BlueQuartzSoftware/simplnx/pull/80) ("STYLE: Short Variable Patching") - Shortens variable names.
-- [PR #56](https://github.com/BlueQuartzSoftware/simplnx/pull/56) ("Add Filter Comments") - Adds filter comments.
-- [PR #54](https://github.com/BlueQuartzSoftware/simplnx/pull/54) ("DOCS: Update paths and CMake codes to prepare for documentation updates") - Updates documentation paths and CMake configuration.
-- [PR #50](https://github.com/BlueQuartzSoftware/simplnx/pull/50) ("All Parameter keys should be snake_case") - Converts parameter keys to snake_case.
-- [PR #37](https://github.com/BlueQuartzSoftware/simplnx/pull/37) ("Refactored geometry hierarchy") - Refactors the geometry hierarchy.
-- [PR #30](https://github.com/BlueQuartzSoftware/simplnx/pull/30) ("UUID cleaning") - Cleans up filter UUIDs.
-- [PR #2](https://github.com/BlueQuartzSoftware/simplnx/pull/2) ("Newly Created ITK Wrapped Filters") - Adds the newly generated ITK-wrapped filter implementation.
 
 ## Oracle
 
@@ -112,7 +53,7 @@ Scope: one row represents one filter-controlled logical behavior or failure exit
 | 2 | Preflight | Dimension mismatch returns `-25600`. | `Dimension Mismatch Validation` uses a 1x1x1 array with a 1x1x2 geometry and asserts `-25600`. |
 | 3 | Preflight | Fill-character length other than one returns `-25601`. | `Fill Character Validation` uses an empty string and asserts `-25601`. |
 | 4 | Preflight | A one-character format, path, or ASCII control character returns `-25602`. | `Fill Character Validation` asserts `-25602` for `{`, `/`, and newline. |
-| 5 | Preflight | OOC input returns `ITK::Constants::k_OutOfCoreDataNotSupported`. | *Not directly tested; ITK tests run only with in-memory arrays.* |
+| 5 | Preflight | An input array not held in memory returns `ITK::Constants::k_OutOfCoreDataNotSupported`. | *Not directly tested; ITK tests run only with in-memory arrays.* |
 | 6 | Parameter validation | Unsupported element type is rejected by `ArraySelectionParameter`. | *Not directly tested; the selected array uses one of the ten accepted numeric element types in every execution test.* |
 | 7 | Parameter validation | Unsupported component shape is rejected by `ArraySelectionParameter`. | *Not directly tested; current tests use component shapes `{1}` and `{4}`.* |
 | 8 | Preflight | XY plane selects the Z slice count for the example output file. | `Write Stack` asserts the XY preview starts at the configured index offset. |

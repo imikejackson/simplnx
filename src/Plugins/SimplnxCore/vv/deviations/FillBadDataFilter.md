@@ -29,7 +29,7 @@ The legacy comparison is the **SmallIN100 in-unit-test check**: `FillBadData_Sma
 
 ### Architectural difference: 4-phase CCL vs. legacy in-memory
 
-SIMPLNX uses chunk-sequential CCL with Union-Find (Phases 1–3) to identify connected bad-data regions before applying the size threshold. Legacy DREAM3D 6.5.171 used a simpler in-memory approach. For in-core datasets the functional output is identical; the CCL architecture is a strategy for OOC correctness, not a behavioral change.
+SIMPLNX uses chunk-sequential CCL with Union-Find (Phases 1–3) to identify connected bad-data regions before applying the size threshold. Legacy DREAM3D 6.5.171 used a simpler in-memory approach. The functional output is identical; the CCL architecture is a strategy for correctness over chunked storage, not a behavioral change.
 
 **Evidence:** `FillBadData_SmallIN100` passes (SIMPLNX output matches the 6.5.x exemplar element-wise).
 

@@ -220,7 +220,6 @@ Per-pair `CAxisMisalignmentList` values are functionally identical across all th
 **Empirical conclusions about each deviation:**
 
 - **D1 confirmed**: bug fires on 6.5.171 producing exactly the predicted-buggy values; fixed in the patched local build of the legacy source AND in SIMPLNX. **Bonus observation**: F3's non-hex-only neighbor case produces `0.0` on 6.5.171 instead of `NaN` — see D1 entry's "Additional symptom" paragraph.
-- **D2 dormant**: F1's exact `10.0000` proves the SIMPLNX `AvgCAxisMisalignments` array IS zero-initialized by the current in-memory DataStore default. The latent bug doesn't fire on the current backend.
 - **D4 quantified (pre-fix) and then closed (post-fix)**: pre-fix drift was `~1e-6°` per-pair / `~2e-5°` per-feature avg. Existing doc note's `~0.0001°` estimate is ~100× too high. The Eigen + double precision conversion was surgically applied to a local build of the legacy source, following the `FindAvgCAxes` and `FindFeatureReferenceCAxisMisorientations` legacy-patch precedents. **Post-fix: the patched legacy build produces BIT-IDENTICAL output to SIMPLNX** — all 18 per-pair entries + 6 per-feature entries byte-compared via h5py and confirmed identical.
 - **D5 partially retracted**: empirical A/B confirmed SIMPLNX nxrunner DOES emit the algorithm-level "Non Hexagonal phases" warning at execute-time. The PR #1438 regression was specifically the *preflight-time* GUI banner, not the warning channel as originally claimed.
 - **D6 added 2026-06-04**: Hexagonal_Low support gap surfaced via source-inspection during the post-A/B precedent search. Not observable on the F#6 fixture (no Hex_Low features) but a real behavior gap on wurtzite-class data. **Fixed in the patched local build of the legacy source** bundled with D4 (the Eigen conversion patch also lifted the Hex_High-only gate to accept both Hex Laue classes — same gate location, single patch).
@@ -243,7 +242,7 @@ CAxisMisalignmentList byte-by-byte diff (flat 18 entries):
 ```
 
 This is the canonical "100% certainty" proof that:
-1. The only behavioral deviations between legacy and SIMPLNX for this filter are the four documented (D1, D2, D4, D6 — D5 retracted to UX-only).
+1. The only behavioral deviations between legacy and SIMPLNX for this filter are the three documented (D1, D4, D6 — D5 retracted to UX-only).
 2. After applying all four fixes to the local build of the legacy source (the D1 divisor fix and the D4+D6 Eigen/double/Hex_Low fix), the patched legacy build produces output identical to SIMPLNX at the bit level.
 3. No other latent algorithmic difference exists in this filter that the V&V cycle missed.
 

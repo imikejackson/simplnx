@@ -79,12 +79,6 @@ These are the Class 2 oracle expected values. SIMPLNX cluster counts and sizes s
 3. ✅ **LDF exemplar arrays promoted to regression fixtures** — no regeneration needed.
 4. **3D exemplar not resolved** — no external oracle available for the 3D dataset. Remains circular; correctness claim rests on SIMPLNX's own output only.
 
-## Second-engineer oracle review
-
-- **Reviewer:** *pending*
-- **Date:** *pending*
-- **Skip reason** (if skipped): *To be filled in — record reason if second engineer is not available.*
-
 ## Circular-oracle resolution (Phase 6, 2026-08-04)
 
 The circular-oracle situation identified in Phase 2 was resolved in Phase 6 reconciliation (2026-08-04):

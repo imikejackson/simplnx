@@ -122,8 +122,10 @@ IFilter::PreflightResult ComputeFeatureNeighborCAxisMisalignmentsFilter::preflig
   if(pFindAvgMisalsValue)
   {
     auto pAvgCAxisMisalignmentsArrayNameValue = filterArgs.value<std::string>(k_AvgCAxisMisalignmentsArrayName_Key);
-    auto createArrayAction =
-        std::make_unique<CreateArrayAction>(DataType::float32, featurePhases.getTupleShape(), std::vector<usize>{1}, pFeaturePhasesArrayPathValue.replaceName(pAvgCAxisMisalignmentsArrayNameValue));
+    // The algorithm accumulates into this array in place, so it must start at zero rather than
+    // relying on the default-initialization behavior of whichever DataStore backend is used.
+    auto createArrayAction = std::make_unique<CreateArrayAction>(DataType::float32, featurePhases.getTupleShape(), std::vector<usize>{1},
+                                                                 pFeaturePhasesArrayPathValue.replaceName(pAvgCAxisMisalignmentsArrayNameValue), "", "0");
     resultOutputActions.value().appendAction(std::move(createArrayAction));
   }
 
