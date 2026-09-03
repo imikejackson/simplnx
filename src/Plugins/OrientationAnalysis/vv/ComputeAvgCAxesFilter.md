@@ -6,9 +6,10 @@
 | SIMPLNX UUID               | `453cdb58-7bbb-4576-ad5e-f75a1c54d348`                |
 | SIMPLNX Human Name         | Compute Average C-Axis Orientations  |
 | DREAM3D 6.5.171 equivalent | `FindAvgCAxes` (SIMPL UUID `c5a9a96c-7570-5279-b383-cc25ebae0046`) — `Source/Plugins/OrientationAnalysis/OrientationAnalysisFilters/FindAvgCAxes.{h,cpp}` in DREAM3D 6.5.171 |
-| Verified commit            | *<filled at SBIR deliverable assembly>*               |
+| Verified commit            | `a307946e7` (v7.4.2 release)               |
 | Status | COMPLETE     |
 | Sign-off  | Michael Jackson &lt;mike.jackson@bluequartz.net&gt; — 2026-05-28        |
+| Second-engineer sign-off   | Nathan Young — 2026-06-11 (approving reviewer, PR #1631)              |
 
 ## At a glance
 
@@ -21,7 +22,7 @@
 | Exemplar archive       | **`7_2_AvgCAxis.tar.gz` retired** — confirmed legacy-by-reputation oracle: reference values produced by a "special build of DREAM3D 6.6.379 with micro-texture bug fixes," not by an independent oracle. Per policy line 33, not eligible as a correctness oracle. Replaced by `compute_avg_c_axis.tar.gz` (hand-built Class 1 dataset, this V&V cycle).              |
 | Legacy comparison      | **Complete (Run — SIMPLNX vs DREAM3D 6.5.171, post-normalize).** Two deviation classes, 4 feature-level differences vs 6.5.171: D1 (`counter==0` → NaN vs `(0,0,1)` rescue) at F0/F5/F6; D2 (precision-sensitive direction at antipodal-flip cancellation boundary + unit-vector vs unnormalized magnitude) at F7. Each root cause was proven by applying the corresponding surgical fixes to a local build of the legacy source, after which the legacy output became bit-identical to SIMPLNX across all 8 features. See `vv/comparisons/ComputeAvgCAxesFilter/results/three_way_comparison.txt`.                |
 | Bug flags              | None confirmed. PR #1438's silent semantic changes are deviation candidates, not bugs.|
-| V&V phase              | **Phases 1, 2, 3 (Port classification), 4, 5, 6, 7 (algorithm review + fix-up), 8 (test restructure), 9 (legacy comparison), 11 (filter doc review) — complete.** SIMPLNX bit-identically matches the Class 1 oracle on F0-F6 and the Class 4 unit-vector invariant on F7. Legacy A/B confirmed against DREAM3D 6.5.171 (`/Users/mjackson/Applications/DREAM3D.app/Contents/bin/PipelineRunner`); each root cause was proven by applying the corresponding surgical fixes to a local build of the legacy source, after which the legacy output became bit-identical to SIMPLNX across all 8 features. **Outstanding:** Phase 10 (re-tar archive), Phase 12 (archive bundle: `download_test_data` + `TestFileSentinel` defaults), Phase 13 (status promotion DRAFT → COMPLETE).|
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -113,10 +114,6 @@ Derivable properties asserted inline in test code (Phase 8 work):
 - **Class 4 (Invariant)**: same test, with the `magnitude == 1.0` assertion for F7 plus a general invariant `DYNAMIC_SECTION` asserting `||AvgCAxes[i]|| == 1.0` over all hex-valid features.
 - *(retained)* `test/ComputeAvgCAxesTest.cpp::"Invalid Filter Execution"` — all-non-hex error path (`-76402`) by mutating `crystalStructs[1] = 1` (Cubic_High).
 - *(retained)* `test/ComputeAvgCAxesTest.cpp::"SIMPL Backwards Compatibility"` — SIMPL 6.4 + 6.5 conversion paths via `DYNAMIC_SECTION`.
-
-### Second-engineer review
-
-**Pending**
 
 ## Code path coverage
 

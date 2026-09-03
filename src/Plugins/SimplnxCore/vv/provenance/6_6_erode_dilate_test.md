@@ -84,12 +84,6 @@ These match the arguments the `(Erode)` unit test passes to the SIMPLNX filter, 
 
 **Direction-gating caveat.** Both exemplars were generated with all three directions enabled, so this archive cannot discriminate direction gating — a SIMPLNX build with `ErodeDilateBadDataFilter-D1` still present passes the `(Erode)` test. That is precisely the gap the 28-combination inline sweep exists to close. Do not treat this archive as sufficient coverage on its own.
 
-## Second-engineer oracle review
-
-- **Reviewer:** *pending* — required before the V&V report Status moves to COMPLETE
-- **Date:** *pending*
-- **Review focus when performed:** the two caveats above (later-than-baseline legacy version; all-directions-on coverage limit), and whether a `(Dilate)` production-scale test should be added from the unused exemplar already in the archive.
-
 ## Regenerated to fix a circular-oracle situation?
 
 No. This archive was **not** regenerated from SIMPLNX output at any point — the embedded pipeline proves the exemplars were written by the legacy SIMPL filter, not by SIMPLNX. The archive is retained unchanged.

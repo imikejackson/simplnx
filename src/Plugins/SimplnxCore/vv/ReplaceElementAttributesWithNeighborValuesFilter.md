@@ -6,9 +6,10 @@
 | SIMPLNX UUID                | `65128c53-d3be-4a69-a559-32a48d603884`       |
 | SIMPLNX Human Name          | Replace Element Attributes with Neighbor (Threshold)                                             |
 | DREAM3D 6.5.171 equivalent  | `ReplaceElementAttributesWithNeighborValues` — SIMPL UUID `17410178-4e5f-58b9-900e-8194c69200ab` |
-| Verified commit             | *<filled at SBIR deliverable assembly>*      |
+| Verified commit             | `a307946e7` (v7.4.2 release)      |
 | Status                      | **COMPLETE**                                 |
-| Sign-off                    | Nathan Young, 07-21-2026                                    |
+| Sign-off                    | Nathan Young, 2026-07-21                                    |
+| Second-engineer sign-off | Matthew Marine — 2026-07-22 (approving reviewer, PR #1680) |
 
 ## At a glance
 
@@ -21,6 +22,7 @@
 | Exemplar archive      | `6_6_replace_element_attributes_with_neighbor.tar.gz` — unreferenced; consuming circular-oracle test removed. See `vv/provenance/ReplaceElementAttributesWithNeighborValues.md`. |
 | Legacy comparison     | **Complete (2026-07-21, re-run 2026-07-21 post-refactor).** Bit-identical on LessThan and GreaterThan vs 6.5.171; LessThan vs 6.5.172. No deviations. See `vv/deviations/ReplaceElementAttributesWithNeighborValuesFilter.md`. |
 | Bug flags             | None. |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -66,7 +68,7 @@ Multi-array copy verified via `Marker`: after replacement `markerStore[13] != 13
 
 `test/ReplaceElementAttributesWithNeighborValuesTest.cpp` — TEST_CASE `"Synthetic neighbor replacement"` — 4 SECTIONs with explicit `REQUIRE` checks. All pass.
 
-*Second-engineer review:* Skipped — no second engineer available at time of V&V.
+*Second-engineer review:* **Matthew Marine — 2026-07-22** (approving reviewer of PR #1680; the PR reviewer is the second engineer under project policy). *Supersedes an earlier note in this report that no second engineer was available at the time of the V&V cycle.*
 
 ## Code path coverage
 

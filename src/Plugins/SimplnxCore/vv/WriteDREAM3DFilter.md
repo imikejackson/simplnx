@@ -6,9 +6,10 @@
 | SIMPLNX UUID                | `b3a95784-2ced-41ec-8d3d-0242ac130003`                                     |
 | SIMPLNX Human Name          | Write DREAM3D-NX File |
 | DREAM3D 6.5.171 equivalent  | `DataContainerWriter` — SIMPL UUID `3fcd4c43-9d75-5b86-aad4-4441bc914f37`  |
-| Verified commit             | *<filled at SBIR deliverable assembly>*                                   |
+| Verified commit             | `a307946e7` (v7.4.2 release)                                   |
 | Status                      | COMPLETE — 2026-08-20 |
-| Sign-off                    | Matthew Marine (V&V author, PR #1683). Second engineer: Michael A. Jackson <mike.jackson@bluequartz.net>, 2026-08-20 (PR #1683 review). |
+| Sign-off | Matthew Marine (V&V author, PR #1683) |
+| Second-engineer sign-off | Michael A. Jackson <mike.jackson@bluequartz.net> — 2026-08-20 (approving reviewer, PR #1683) |
 
 ## At a glance
 
@@ -21,7 +22,7 @@
 | Exemplar archive       | **None.** Every test builds its `DataStructure` inline in C++ and round-trips it through `WriteFile`/`ReadFile` in the same run — no cached `.tar.gz` golden file is used or needed for a Class 1 oracle. |
 | Legacy comparison      | **Not run — and not applicable.** The two writers target deliberately different on-disk contracts, so a byte/dataset-level A/B against 6.5.171 `DataContainerWriter` output would be 100% noise by design, not signal. `ReadDREAM3DFilter` is the only tool in either codebase that understands both formats; fidelity is instead verified independently via round-trip Class 1 tests. |
 | Bug flags              | One, since resolved: `WriteXdmfNodeGeometry1D/2D/3D` (`Dream3dIO.cpp`) forwarded to the next-lower writer with `geomName` and `hdf5FilePath` transposed (both `std::string_view`, so it compiled silently), producing `.xdmf` node-attribute references that ParaView/VisIt could not resolve. Fixed alongside a content-level `.xdmf` oracle (`CheckXdmfFile`) that would have caught it. |
-| V&V phase              | Discovery, algorithm relationship, oracle design, code-path enumeration, test inventory, deviations, and the bug fixes found along the way — **complete**. Second-engineer review of the oracle design, the 4 uncovered defensive paths, and the `DynamicListArray`/`GridMontage` serialization boundaries **signed off by Michael A. Jackson, 2026-08-20** (PR #1683). No legacy A/B is applicable (see Legacy comparison). Montage support remains an open design question, explicitly out of scope for this cycle and recorded as a capability boundary rather than a defect. **Nothing outstanding.** |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -33,7 +34,7 @@
 
 `WriteDREAM3DFilter` keeps the SIMPL UUID mapping (`3fcd4c43-9d75-5b86-aad4-4441bc914f37` → `WriteDREAM3DFilter`, `SimplnxCoreLegacyUUIDMapping.hpp:170`) and the legacy `DataContainerWriter` role, but the algorithm (`Algorithms/WriteDREAM3D.cpp`, 82 lines) was designed from the start for the current v8 `DataStructure` HDF5 layout, `AtomicFile`-based atomic writes, and (as of PR #1606) optional gzip compression — none of which exist in the legacy 6.5.171 writer. This has never been a line-by-line port of the legacy C++; the file format itself is a clean-sheet design (`k_CurrentFileVersion = "8.0"` vs. legacy's `"7.0"`/`DataContainers` group tag, see `Dream3dIO.hpp:31`).
 
-*Evidence:* `parametersVersion()` is at 2 (compression parameters added after the filter's initial release); `git log --follow` on the algorithm/filter files shows the write path has been restructured multiple times since inception (out-of-core support #1253, atomic-file rework #900, algorithm-class extraction #1544) without ever tracking legacy DataContainerWriter's implementation.
+*Evidence:* `parametersVersion()` is at 2 (compression parameters added after the filter's initial release); `git log --follow` on the algorithm/filter files shows the write path has been restructured multiple times since inception (#1253, atomic-file rework #900, algorithm-class extraction #1544) without ever tracking legacy DataContainerWriter's implementation.
 
 *Port-time deltas (SIMPL → SIMPLNX argument mapping, `WriteDREAM3DFilter::FromSIMPLJson`):*
 
@@ -41,7 +42,7 @@
 2. SIMPL's "Write Time Series" parameter has no SIMPLNX equivalent (dropped) — legacy time-series writing is not part of this filter's scope in NX; not a regression since no NX pipeline concept maps to it.
 3. `use_compression` is force-overridden to `false` for any pipeline converted from SIMPL JSON (`WriteDREAM3DFilter.cpp:130`), even though SIMPLNX's own default is `true`. This is deliberate: SIMPL v6 pipelines never wrote compressed files, so a converted pipeline preserves the exact on-disk encoding it shipped with rather than silently changing file size/behavior on re-run.
 
-*Material PRs since baseline:* #1606 (added HDF5 compression parameters/behavior), #1544 (moved `executeImpl` logic into the `WriteDREAM3D` algorithm class, no behavior change), #1253 (out-of-core support).
+*Material PRs since baseline:* #1606 (added HDF5 compression parameters/behavior), #1544 (moved `executeImpl` logic into the `WriteDREAM3D` algorithm class, no behavior change), #1253.
 
 ## Oracle
 
@@ -132,7 +133,7 @@ Both are gaps in the shared HDF5 IO layer, not in `WriteDREAM3DFilter`'s own alg
 
 **Deliberately out of scope (3 of the file's 23 `TEST_CASE`s).** `DREAM3DFileTest.cpp` is shared between the read and write sides of DREAM3D file IO. These three exercise `ReadDREAM3DFilter` only and belong to its V&V, not this one: `DREAM3DFileTest: Existing Data Objects Test` (importing into a populated `DataStructure`), `DREAM3DFileTest: Path Import Policy Tests` (read-side path-collision policy), and `SimplnxCore::ReadDREAM3DFilter: SIMPL Backwards Compatibility` (read-side SIMPL argument conversion). They are named here rather than silently omitted so the exclusion can be audited.
 
-**Dual-build verification at sign-off:** the DREAM3D file IO tests pass **32/32 in both** the in-core (`NX-Com-Qt69-Vtk96-Rel`) and out-of-core (`NX-OOC-Qt69-Vtk95-Rel`) Release builds, at the rebased head. The full `SimplnxCore::` suite also passes 979/979 in-core.
+**Verification at sign-off:** the DREAM3D file IO tests pass **32/32** in the `NX-Com-Qt69-Vtk96-Rel` Release build, at the rebased head. The full `SimplnxCore::` suite also passes 979/979.
 
 ## Exemplar archive
 

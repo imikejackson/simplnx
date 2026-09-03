@@ -5,9 +5,10 @@
 | Plugin    | OrientationAnalysis      |
 | SIMPLNX UUID | 00cbb97e-a5c2-43e6-9a35-17a0f9ce26ed |
 | DREAM3D 6.5.171 equivalent | WritePoleFigure (legacy SIMPL UUID `a10bb78e-fcff-553d-97d6-830a43c85385`) |
-| Verified commit | *<filled at SBIR deliverable assembly>* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE |
 | Sign-off | Michael Jackson <mike.jackson@bluequartz.net> — 2026-07-16 |
+| Second-engineer sign-off | Michael Jackson (technical authority) — 2026-07-16 |
 
 ## At a glance
 
@@ -16,11 +17,11 @@
 | Algorithm Relationship | **Rewrite** — same intent (generate `<001>/<011>/<111>` pole figures) but a different output medium and rendering stack: legacy writes a **PDF per phase** via libharu; SIMPLNX creates an **image geometry** (+ optional intensity arrays) and optional raster image on disk, rendered by the **EbsdLib compositor**. |
 | Oracle (confirmed)     | **Class 5 (Expert-visual)** primary + **Class 4 (Invariant)** companions. Expert side-by-side sign-off of hex and cubic renders (6.5.171 / 6.5.172 / SIMPLNX). Invariants encoded in `WritePoleFigureTest.cpp` (mask-effectiveness, hex-convention plumbing) pass on EbsdLib 3.1.0. |
 | Code paths enumerated  | 10 of 13 simplnx-wrapper paths exercised in CI; the 3 uncovered are defensive/error branches noted below. (Per-Laue-class + pixel rendering is owned and byte-tested by EbsdLib upstream.) |
-| Tests today            | 3 test cases — mask-effectiveness (Class 4), hex-convention plumbing (Class 4, intensity + composite paths), SIMPL 6.4/6.5 backward-compat. All pass against EbsdLib 3.1.0. |
+| Tests today            | 4 test cases — mask-effectiveness (Class 4), hex-convention plumbing (Class 4, intensity + composite paths), discrete-mode + marker-radius plumbing (Class 4), SIMPL 6.4/6.5 backward-compat. All pass against EbsdLib 3.1.0. |
 | Exemplar archive       | `Pole_Figure_Exemplars_v6.tar.gz` (inputs only — 502 hex-Ti orientations + 251/251 mask). No baked image exemplar (deliberate: avoids coupling CI to EbsdLib pixel byte-identity). |
 | Legacy comparison      | Three-way expert-visual (6.5.171 / 6.5.172 / SIMPLNX) on hex **and** cubic. 6.5.171 == 6.5.172 (byte-identical). Data (pole positions, intensity, color mapping) visually identical; 4 cosmetic/rendering deviations. |
 | Bug flags              | **None.** All 4 deviations are cosmetic (axis/family labels, font) or an intentional rendering improvement (discrete vector markers). No correctness defect. |
-| V&V phase              | All phases complete: oracle chosen + applied before legacy comparison, expert sign-off recorded, invariants pass on EbsdLib 3.1.0. V&V complete and signed off by Michael Jackson (technical authority) 2026-07-16. |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 

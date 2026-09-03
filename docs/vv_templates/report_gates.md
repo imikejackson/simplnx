@@ -11,7 +11,8 @@ A section of `src/Plugins/<P>/vv/<FilterName>.md` is "done" when all its gates p
 - [ ] Plugin, SIMPLNX UUID, legacy DREAM3D equivalent (or "None") filled in
 - [ ] Status reflects current state: `DRAFT` | `READY FOR REVIEW` | `COMPLETE`
 - [ ] Verified-commit field present (filled in at SBIR deliverable assembly)
-- [ ] Sign-off line has named engineer(s) and date at sign-off
+- [ ] `Sign-off` row names the primary engineer (the PR author) with an ISO date
+- [ ] `Second-engineer sign-off` row names the reviewer of that PR with the PR merge date as an ISO date — never "skipped", "pending", or "not available" once the PR has merged
 
 ## At a glance
 
