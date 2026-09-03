@@ -137,7 +137,7 @@
           "version": 1
         },
         "misorientation_array_name": {
-          "value": "FaceMisorientationColors",
+          "value": "FaceMisorientation",
           "version": 1
         },
         "parameters_version": 2,

@@ -5,9 +5,10 @@
 | Plugin    | SimplnxCore      |
 | SIMPLNX UUID | `c666ee17-ca58-4969-80d0-819986c72485` |
 | DREAM3D 6.5.171 equivalent | `FindSizes` — UUID `656f144c-a120-5c3b-bee5-06deab438588` |
-| Verified commit | *pending* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE |
-| Sign-off | Nathan Young, June 10th, 2026. Second engineer: Michael A. Jackson <mike.jackson@bluequartz.net>, 2026-07-28. |
+| Sign-off | Nathan Young — 2026-06-10 |
+| Second-engineer sign-off | Michael A. Jackson <mike.jackson@bluequartz.net> — 2026-07-28 |
 
 ## At a glance
 
@@ -20,6 +21,7 @@
 | External archive | None |
 | Deviations | **2 active**, both A/B-verified 2026-06-27: `ComputeFeatureSizes-D1` (float64+Kahan vs naive summation → `Volumes`), `ComputeFeatureSizes-D2` (float64 `std::cbrt` vs float32 `powf` → `EquivalentDiameters`) — see deviations file |
 | Open bugs | **1 open, pending design decision** (`Bug-1`): the 2D area formula multiplies all 3 spacings (PR #1590 slab convention, consistent with `ImageGeom::findElementSizes`) and diverges from legacy 6.5.171 (2 non-flat spacings) when the flat dimension's spacing ≠ 1. A legacy-matching fix was applied then deliberately reverted pending a team decision on the NX-wide 2D convention (see PR #1638 discussion and the deviations file's OPEN entry). |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 

@@ -6,9 +6,10 @@
 | SIMPLNX UUID               | `9fe07e17-aef1-4bf1-834c-d3a73dafc27d` |
 | SIMPLNX Human Name         | Segment Features (C-Axis Misalignment) |
 | DREAM3D 6.5.171 equivalent | `CAxisSegmentFeatures` — `Source/Plugins/Reconstruction/ReconstructionFilters/CAxisSegmentFeatures.{h,cpp}` (SIMPL UUID `bff6be19-1219-5876-8838-1574ad29d965`) |
-| Verified commit            | *<filled at SBIR deliverable assembly>*|
+| Verified commit            | `a307946e7` (v7.4.2 release)|
 | Status | COMPLETE     |
-| Sign-off  | Michael A. Jackson <mike.jackson@bluequartz.net> — 2026-07-23. Second engineer: Matthew Marine, 2026-07-25 (PR #1685 review). |
+| Sign-off | Michael A. Jackson <mike.jackson@bluequartz.net> — 2026-07-23 |
+| Second-engineer sign-off | Matthew Marine — 2026-07-25 (approving reviewer, PR #1685) |
 
 ## At a glance
 
@@ -21,7 +22,7 @@
 | Exemplar archive       | **None — fixtures inlined in the test source.** The filter's consumption of `segment_features_test_data.tar.gz` (circular oracle) is retired; the archive remains for the EBSD segmentation tests.       |
 | Legacy comparison      | **Run** (2026-07-22, rerun with TC5_3D 2026-07-24, `vv/comparisons/CAxisSegmentFeaturesFilter/`) — all 5 shared-behavior fixtures (incl. a 3×2×2 masked fixture covering the y/z stride branches) match 6.5.171 at the segmentation-partition level with identical feature counts; bit-identical ids are unattainable because 6.5.171 always clock-randomizes FeatureIds (D2). |
 | Bug flags              | D1, D4, D5 — all SIMPLNX defects, all **resolved** and pinned by tests. No legacy bug flags.|
-| V&V phase              | Discovery, relationship, oracle, reconciliation, algorithm review, tests (dual-build), legacy comparison, deviations, provenance, docs — complete. Second-engineer review completed at PR per sign-off convention (Matthew Marine, 2026-07-25, PR #1685).|
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -116,7 +117,7 @@ Filter-level (preflight) paths — tolerance == 0 → `-655`, cell-array tuple m
 | `SIMPL Backwards Compatibility` | kept | DYNAMIC_SECTION over SIMPL 6.4 + 6.5 conversion fixtures; UUID + argument-key conversion only. |
 | *(retired)* `CAxisSegmentFeatures:Face` / `:All` / `:MaskFace` / `:MaskAll` | retired | Consumed the `segment_features_test_data.tar.gz` exemplar whose `CAxis_FeatureIds_*` arrays were generated from SIMPLNX output — a circular oracle (see provenance sidecar). Replaced by the Class 1 fixtures, which cover the same scheme × mask parameter cube with independent expected output. |
 
-All non-retired tests pass at the verified commit in **both** builds: in-core `NX-Com-Qt69-Vtk95-Rel` and OOC `simplnx-ooc-Rel` (20/20 each, 2026-07-24). The shared-driver fix (D1) was regression-checked against the full `EBSDSegmentFeatures` (8/8) and `ScalarSegmentFeatures` (5/5) suites in both builds, including per-sibling masked-voxel-0, all-cells-masked (`-87000`), and periodic-boundary-wrap regression pins.
+All non-retired tests pass at the verified commit (20/20, `NX-Com-Qt69-Vtk95-Rel`, 2026-07-24). The shared-driver fix (D1) was regression-checked against the full `EBSDSegmentFeatures` (8/8) and `ScalarSegmentFeatures` (5/5) suites, including per-sibling masked-voxel-0, all-cells-masked (`-87000`), and periodic-boundary-wrap regression pins.
 
 ## Exemplar archive
 

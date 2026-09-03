@@ -10,7 +10,7 @@ This **Filter** computes the average crystal orientation for each **Feature** (g
 
 The average orientation is used by many downstream filters (e.g., misorientation calculations, Schmid factor, GBCD) and is one of the fundamental statistics computed during microstructure characterization.
 
-Three averaging methods are available, and each can be independently enabled. Their results are stored in separate output arrays.
+Three averaging methods are available, and each can be independently enabled. Their results are stored in separate output arrays. The first method is the original DREAM3D Rodrigues average. The other two -- von Mises-Fisher and Watson -- are ports of the directional-statistics routines from the **EMsoft** package written by Dr. Marc De Graef's research group at Carnegie Mellon University. See *Origin of the vMF and Watson Methods* below.
 
 ### Method 1: Rodrigues Average (Original)
 
@@ -35,6 +35,8 @@ The von Mises-Fisher distribution is a probability distribution on the surface o
 
 The vMF probability density for a unit vector **x** given mean direction **mu** and concentration **kappa** is proportional to exp(kappa * mu^T * x). This makes it the spherical analogue of the Gaussian distribution on a flat space.
 
+A crystal orientation is only defined up to the symmetry operators of its Laue class, so the filter does not fit a plain vMF distribution. It fits the **modified (symmetry-group-invariant) von Mises-Fisher distribution**, in which the density is an equal-weight mixture of one vMF component per proper rotation operator of the phase's Laue class (24 components for cubic, 1 for triclinic). This is the formulation derived by Chen and co-workers [2] and implemented in EMsoft.
+
 The filter estimates the vMF parameters using an **Expectation-Maximization (EM)** algorithm. All element quaternions belonging to a feature are first reduced to the *Fundamental Zone* using the crystal symmetry operators. The EM procedure then iteratively refines the estimates of **mu** (the average orientation quaternion) and **kappa** (the concentration).
 
 **Outputs:** Average Quaternions, Average Euler Angles (Bunge convention Z-X-Z), Kappa Values
@@ -50,19 +52,27 @@ The Watson distribution is parameterized by:
 
 The Watson probability density for a unit vector **x** is proportional to exp(kappa * (mu^T * x)^2). The key difference from the von Mises-Fisher distribution is the squared dot product, which enforces the antipodal symmetry.
 
+As with the vMF method, the filter fits the **modified (symmetry-group-invariant) axial Watson distribution** -- an equal-weight mixture of one Watson component per proper rotation operator of the phase's Laue class -- rather than a plain Watson distribution [2].
+
 Like the vMF method, the filter estimates Watson parameters using an **Expectation-Maximization (EM)** algorithm operating on fundamental-zone-reduced quaternions.
 
 **Outputs:** Average Quaternions, Average Euler Angles (Bunge convention Z-X-Z), Kappa Values
+
+### Origin of the vMF and Watson Methods
+
+The von Mises-Fisher and Watson averaging methods are ports of the **directional statistics** routines from the [EMsoftOO package] (https://github.com/EMsoft-org/EMsoftOO/blob/develop/Source/EMsoftOOLib/mod_DIC.f90), written by **Dr. Marc De Graef's research group at Carnegie Mellon University**, with the original Expectation-Maximization implementation contributed by Yu-Hui Chen (University of Michigan). The statistical formulation is published in Chen *et al.* [1] [2].
+
+EMsoft is distributed under a BSD 3-Clause license, Copyright (c) 2014-2022 Marc De Graef Research Group / Carnegie Mellon University.
 
 ### Hard-Coded Algorithm Parameters
 
 The following parameters are currently hard-coded in the implementation and are not user-configurable:
 
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| **Random Seed** | 43514 | Seed for the random number generator used in the EM algorithm. Because this is fixed, the vMF and Watson results are deterministic across runs. |
-| **EM Iterations** | 5 | Number of Expectation-Maximization outer iterations. Controls how many times the full EM cycle is repeated. |
-| **Iterations** | 10 | Number of inner iterations per EM cycle. Controls the refinement within each EM step. |
+| Parameter | EMsoft name | Value | Description |
+|-----------|-------------|-------|-------------|
+| **Random Seed** | `seed` | 43514 | Seed for the pseudo-random number generator that draws the starting guess for **mu** at the beginning of each EM restart. Because the seed is fixed, the vMF and Watson results are deterministic and reproducible from run to run. |
+| **EM Restarts** | `Num_of_init` | 5 (dimensionless count) | Number of independent EM runs, each begun from a different random unit quaternion. Expectation-Maximization can converge to a local maximum of the likelihood, so the algorithm restarts several times and keeps the solution with the highest likelihood. |
+| **EM Iterations** | `Num_of_iterations` | 10 (dimensionless count) | Maximum number of Expectation-Maximization iterations performed within each restart. The loop exits early once the Q-function changes by less than 0.01 between successive iterations. |
 
 These values may be exposed as user-configurable parameters in a future release.
 
@@ -84,6 +94,15 @@ These values may be exposed as user-configurable parameters in a future release.
 
 % Auto generated parameter table will be inserted here
 
+## References
+
+[1] Y.H. Chen, S.U. Park, D. Wei, G. Newstadt, M.A. Jackson, J.P. Simmons, M. De Graef, and A.O. Hero. A Dictionary Approach to Electron Backscatter Diffraction Indexing. *Microscopy and Microanalysis*, 21(3), 739-752 (2015). DOI: [10.1017/S1431927615000756](https://doi.org/10.1017/S1431927615000756)
+
+[2] Y.H. Chen, D. Wei, G. Newstadt, M. De Graef, J.P. Simmons, and A.O. Hero. Parameter Estimation in Spherical Symmetry Groups. *IEEE Signal Processing Letters*, 22(8), 1152-1155 (2015). DOI: [10.1109/LSP.2014.2387206](https://doi.org/10.1109/LSP.2014.2387206)
+
+[3] EMsoft, Marc De Graef Research Group, Carnegie Mellon University. Module `dictmod` (`Source/EMsoftLib/dictmod.f90`). [https://github.com/EMsoft-org/EMsoft](https://github.com/EMsoft-org/EMsoft)
+
+[4] K.V. Mardia and P.E. Jupp. *Directional Statistics*. Wiley, Chichester (2000). Background reference for the von Mises-Fisher and Watson distributions.
 
 ## Example Pipelines
 

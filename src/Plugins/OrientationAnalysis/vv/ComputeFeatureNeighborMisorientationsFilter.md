@@ -6,9 +6,10 @@
 | SIMPLNX UUID               | `0b68fe25-b5ef-4805-ae32-20acb8d4e823`                |
 | SIMPLNX Human Name         | Compute Feature Neighbor Misorientations              |
 | DREAM3D 6.5.171 equivalent | `FindMisorientations` — `Source/Plugins/OrientationAnalysis/OrientationAnalysisFilters/FindMisorientations.{h,cpp}` (UUID `286dd493-4fea-54f4-b59e-459dd13bbe57`) |
-| Verified commit            | *<filled at SBIR deliverable assembly>*               |
+| Verified commit            | `a307946e7` (v7.4.2 release)               |
 | Status | COMPLETE     |
 | Sign-off                   | *Michael Jackson <mike.jackson@bluequartz.net> (V&V cycle completion + divisor bug fix, 2026-06-02)*                                             |
+| Second-engineer sign-off   | Nathan Young — 2026-06-11 (approving reviewer, PR #1631)                                                                                         |
 
 ## At a glance
 
@@ -21,7 +22,7 @@
 | Exemplar archive       | **None — inline-constructed in test source.** The pre-existing main exemplar TEST_CASE (consumed `6_6_stats_test_v2.tar.gz`) and the `[.][UNIMPLEMENTED][!mayfail]` `Misorientation Per Feature` stub TEST_CASE were **retired 2026-06-02** because (a) the exemplar arrays were a circular oracle (regenerated from pre-EbsdLib-2.4.1 SIMPLNX output) and (b) the UNIMPLEMENTED stub left `ComputeAvgMisors=true` with zero CI coverage, which is precisely why the divisor bug (D1) went undetected. The 4 hand-derived data fixtures cover all 5 algorithmic paths and replace both retired tests. |
 | Legacy comparison      | **Source-inspection comparison against DREAM3D 6.5.171** completed. Two deviations observed: **D1 (divisor bug)** — legacy `FindMisorientations.cpp` has the same `tempMisoList = featureNeighborList.size();` reassignment inside the inner j-loop; SIMPLNX corrected the bug during this V&V cycle; users will observe per-feature `AvgMisorientations` values shift on mixed-phase data when migrating from 6.5.171. **D2 (EbsdLib 2.4.1 CubicOps precision improvement)** — precision-class deviation analogous to ComputeFeatureReferenceMisorientations D1 and BadDataNeighborOrientationCheck non-deviation; non-observable on the data fixtures (no sym-op-aligned features), observable on real EBSD data at the per-feature average level.    |
 | Bug flags              | **One legacy bug, resolved in SIMPLNX** — D1, divisor reassigned inside inner j-loop. Confirmed in bug_triage.md and traced to algorithm.cpp:75 (pre-fix). Fixed 2026-06-02; verified by the `Mixed Phase Neighbors (exposes divisor bug)` test which FAILED on the pre-fix code and PASSES on the post-fix code.                                                    |
-| V&V phase              | **All V&V work complete per V2 policy.** Class 1 + Class 4 oracle confirmed against 5-test suite; divisor bug fixed; circular-oracle archive + UNIMPLEMENTED stub retired; legacy A/B by source inspection; user-facing doc updated. Three source-tree deliverables (this report + `vv/deviations/...` + `vv/provenance/...`) are in place. **V&V complete and signed off by Michael Jackson (technical authority), 2026-06-02.**                                                   |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 

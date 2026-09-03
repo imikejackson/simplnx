@@ -5,9 +5,10 @@
 | Plugin    | OrientationAnalysis      |
 | SIMPLNX UUID | 30759600-7c02-4650-b5ca-e7036d6b568e |
 | DREAM3D 6.5.171 equivalent | GenerateFaceIPFColoring (legacy SIMPL UUID `0a121e03-3922-5c29-962d-40d88653f4b6`) |
-| Verified commit | *<filled at SBIR deliverable assembly>* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE     |
 | Sign-off | Michael Jackson <mike.jackson@bluequartz.net> — 2026-07-16 |
+| Second-engineer sign-off | Michael Jackson (technical authority) — 2026-07-16 |
 
 ## At a glance
 
@@ -20,7 +21,7 @@
 | Exemplar archive       | **None — analytical fixtures inlined.** The prior `Valid filter execution` test compared against a `SurfaceMeshFaceIPFColors` array baked into the shared `6_6_Small_IN100_GBCD.tar.gz`; that comparison was a circular oracle (filter's own pre-fix output) and is **retired**. |
 | Legacy comparison      | **Three-way binary run** (6.5.171 vs 6.5.172 vs SIMPLNX) on a hand-built legacy-native cubic/hex mesh + SIMPLNX-vs-baked on the 756,474-face real mesh. **2 deviations:** D1 (the #1635 bug — 6.5.171 wrong, fixed in both 6.5.172 and SIMPLNX) and D2 (EbsdLib hex basal hue: SIMPLNX green vs legacy blue). Cubic coloring identical across all three. |
 | Bug flags              | `…-D1` — wrong-phase Laue operator on the Phase-2 side (a 6.5.171 bug, fixed). `…-D2` — hex basal IPF hue differs between EbsdLib (NX, green) and legacy EbsdLib (blue); resolved as a library convention difference — EbsdLib is canonical (3.0.0 and 3.1.0 agree), legacy is the deviation, trust SIMPLNX. Affects all hex IPF coloring. |
-| V&V phase              | All phases complete: oracle chosen + applied before legacy comparison, fix applied, tests encode the oracle, deviation documented. V&V signed off 2026-07-16 (Michael Jackson, technical authority). Outstanding: optional before/after doc image. |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 

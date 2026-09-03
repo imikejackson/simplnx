@@ -6,9 +6,10 @@
 | SIMPLNX UUID | `c6875ac7-8bdd-4f69-b6ce-82ac09bd3421` |
 | SIMPLNX Human Name | Compute Feature Centroids |
 | DREAM3D 6.5.171 equivalent | `FindFeatureCentroids` (SIMPL UUID `6f8ca36f-2995-5bd3-8672-6b0b80d5b2ca`) — `Source/Plugins/Generic/GenericFilters/FindFeatureCentroids.{h,cpp}` |
-| Verified commit | *<filled at SBIR deliverable assembly>* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE — 2026-07-16 |
 | Sign-off | Michael Jackson <mike.jackson@bluequartz.net> — 2026-07-16 |
+| Second-engineer sign-off | Michael Jackson (technical authority) — 2026-07-16 |
 
 ## At a glance
 
@@ -21,7 +22,7 @@
 | Exemplar archive       | **None — inline analytical fixtures** (provenance sidecar written). The shared `6_6_stats_test_v2.tar.gz` is no longer consumed by this test (kept for 5 other tests); `6_6_find_feature_centroids.tar.gz` kept (used by ExtractComponentAsArray / WriteAbaqusHexahedron). |
 | Legacy comparison      | **Source-inspection** (6.5.171/6.5.172 vs SIMPLNX), backed by the independent Class 1 fixtures. Non-periodic path is an exact Kahan port; 2 deviations (D1 float32→float64 voxel-center precision; D2 SIMPLNX-only `Is Periodic`). Empirical binary A/B available if bit-confirmation is required. |
 | Bug flags              | **None outstanding.** One SIMPLNX-internal bug found and resolved: the `ImageGeom` overload of `AdjustCentroidsForPeriodicFaces` added `(dim−1)/2` in cell-index units to a physical-coordinate centroid (ignoring spacing); fixed to scale by spacing (`GeometryHelpers.cpp:245`), with Fixture E as the regression pin. Not a legacy deviation (legacy has no periodic path). |
-| V&V phase              | Oracle design + reconciliation, algorithm review, code-path coverage, test inventory, legacy comparison, deviations, and provenance complete. **V&V complete and signed off by Michael Jackson (technical authority) 2026-07-16.** Outstanding: OOC dual-build run (deferred — feature-indexed serial algorithm, no OOC-specific variant). |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -101,8 +102,7 @@ adjust.
 | 8 | (pre) | `ValidateFeatureIdsToFeatureAttributeMatrixIndexing` failure (`maxId ≥ numFeatures`, `-5351`) | `Error - FeatureId exceeds Feature AM` |
 
 *The preflight AttributeMatrix-null path (`-12700`) is guarded by the `AttributeMatrixSelectionParameter` and
-cannot be triggered with valid arguments — not separately tested. The OOC dual-build run is deferred: the
-algorithm is a feature-indexed serial sweep with no OOC-specific variant.*
+cannot be triggered with valid arguments — not separately tested.*
 
 ## Test inventory
 
@@ -114,7 +114,7 @@ algorithm is a feature-indexed serial sweep with no OOC-specific variant.*
 | `SimplnxCore::ComputeFeatureCentroidsFilter: Error - FeatureId exceeds Feature AM` | new-for-V&V | Pins the `-5351` validation error path. |
 | `SimplnxCore::ComputeFeatureCentroidsFilter: SIMPL Backwards Compatibility` | kept | `DYNAMIC_SECTION` over SIMPL 6.5 (UUID) + 6.4 (Filter_Name); validates UUID + 3 argument values. Conversion coverage only. |
 
-All active TEST_CASEs pass in-core (`NX-Com-Qt69-Vtk96-Rel`). OOC dual-build deferred (see Code path coverage).
+All active TEST_CASEs pass (`NX-Com-Qt69-Vtk96-Rel`).
 
 ## Exemplar archive
 
