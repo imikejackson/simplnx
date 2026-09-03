@@ -5,9 +5,10 @@
 | Plugin    | OrientationAnalysis      |
 | SIMPLNX UUID | `b4681855-0a3d-4237-97f2-5aec509115c4` |
 | DREAM3D 6.5.171 equivalent | `FindSchmids` (SIMPL UUID `e67ca06a-176f-58fc-a676-d6ee5553511a`) - `Source/Plugins/OrientationAnalysis/OrientationAnalysisFilters/FindSchmids.{h,cpp}` |
-| Verified commit | *<filled at SBIR deliverable assembly>* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE     |
-| Sign-off  | *Michael Jackson <mike.jackson@bluequartz.net>*  |
+| Sign-off | *Michael Jackson <mike.jackson@bluequartz.net>* |
+| Second-engineer sign-off | Joey Kleingers <joey.kleingers@bluequartz.net> — 2026-08-27 |
 
 ## At a glance
 
@@ -20,7 +21,7 @@
 | Exemplar archive | **None for this filter.** The circular `6_6_stats_test_v2.tar.gz` comparison was retired. |
 | Legacy comparison | **Run — SIMPLNX vs DREAM3D 6.5.171** One shared six-Feature input was exercised through 10 original pipeline pairs plus 3 zero-vector validation pairs. The independent rerun confirmed **291/291 expected relationships**: auto-path floats matched the exact D1 bias factors, auto-path `SlipSystems` and `Poles` were bit-identical, override-path floats agreed within `1.2e-7` relative, and D5 was traced to equivalent symmetry tables with different ordering and tied maxima. 6 deviations: **D1** truncated cubic normalizers; **D2** legacy `-301` skipped-row sentinel; **D3** undefined library outputs; **D4** mode-dependent angle units, names, and error reporting; **D5** table-relative override index; **D6** malformed-input validation. See the deviations document for root-cause detail. |
 | Bug flags | **Four bugs resolved in SIMPLNX or EbsdLib:** `ComputeSchmidsFilter-D1` (truncated cubic normalizers), `ComputeSchmidsFilter-D2` (legacy `-301` skipped-row initialization), `ComputeSchmidsFilter-D3` (undefined orientation-library outputs), and `ComputeSchmidsFilter-D6` (missing malformed-input validation). |
-| V&V phase | **COMPLETE** |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 

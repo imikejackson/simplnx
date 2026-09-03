@@ -5,22 +5,23 @@
 | Plugin    | SimplnxCore      |
 | SIMPLNX UUID | `d6599986-1932-4bfc-993d-71eafefe6db0` |
 | DREAM3D 6.5.171 equivalent | `RegularizeZSpacing` — `Source/Plugins/Sampling/SamplingFilters/RegularizeZSpacing.{h,cpp}` (legacy UUID `bc4952fa-34ca-50bf-a1e9-2b9f7e5d47ce`) |
-| Verified commit | *<filled at SBIR deliverable assembly>* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE |
-| Sign-off | *Michael Jackson <mike.jackson@bluequartz.net> (port + V&V cycle, 2026-07-08); |
+| Sign-off | *Michael Jackson <mike.jackson@bluequartz.net> (port + V&V cycle, 2026-07-08)* |
+| Second-engineer sign-off | Jared Duffey — 2026-07-15 (approving reviewer, PR #1663) |
 
 ## At a glance
 
 | Aspect                 | Current state            |
 |------------------------|--------------------------|
 | Algorithm Relationship | **Port** of legacy `RegularizeZSpacing::execute()` — identical Z-plane mapping rule and `floor(extent/newZRes)` dim math (independently hand-traced, including the strict-`>` boundary and clamp cases). Five port-time deltas (bulk copy, new-geometry output mode, preflight validation, parallelization, cell-AM binding); none change output for valid input. |
-| Oracle (confirmed)     | **Class 1 (Analytical)** primary + **Class 4 (Invariant)** companion — closed-form indirection map `out[i] = in[map[i]]`. Element-wise Class 1 assertions in 2 fixtures (`Valid Execution (New Geometry)`, `Valid Execution (Spacing Exceeds Extent)`); Class 4 invariants across the valid fixtures. All pass in-core + OOC. |
+| Oracle (confirmed)     | **Class 1 (Analytical)** primary + **Class 4 (Invariant)** companion — closed-form indirection map `out[i] = in[map[i]]`. Element-wise Class 1 assertions in 2 fixtures (`Valid Execution (New Geometry)`, `Valid Execution (Spacing Exceeds Extent)`); Class 4 invariants across the valid fixtures. All pass. |
 | Code paths enumerated  | 12 of 14 exercised; the 2 uncovered are the redundant file-open guard and the cancel check (reasons below).                  |
 | Tests today            | 5 TEST_CASEs (2 Class-1 valid + 1 in-place valid + 1 invalid-parameters with 6 SECTIONs + 1 SIMPL backwards-compat with 6.5/6.4 fixtures); every documented preflight error code asserted explicitly. |
 | Exemplar archive       | **None** — inline analytical fixtures (no `download_test_data`; avoids a circular oracle per project policy).                 |
 | Legacy comparison      | **Run** vs DREAM3D 6.5.171 on a synthetic multi-type fixture (int32 + bool + 3-component float). Bit-identical: legacy == SIMPLNX == Class-1 oracle on every array and on geometry (dims/spacing/origin). |
 | Bug flags              | None.              |
-| V&V phase              | Oracle applied and reconciled; algorithm review + three independent adversarial reviews applied (fixes folded in); dual-build green; legacy A/B bit-identical with 0 deviations. **Outstanding:** second-engineer oracle review before COMPLETE. |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -34,7 +35,7 @@
 
 *Port-time deltas (none change output for valid input — confirmed bit-identical in the legacy A/B):*
 
-1. **Data copy**: legacy per-tuple `memcpy` via a rebuilt `newindicies` table → SIMPLNX bulk `AbstractDataStore::copyFrom` of one contiguous plane-slab per destination plane. Same bytes moved; more efficient and out-of-core friendly.
+1. **Data copy**: legacy per-tuple `memcpy` via a rebuilt `newindicies` table → SIMPLNX bulk `AbstractDataStore::copyFrom` of one contiguous plane-slab per destination plane. Same bytes moved, more efficiently.
 2. **Output mode**: legacy replaces the cell AttributeMatrix in place → SIMPLNX uses the modern new-geometry pattern (`CreateImageGeometryAction` + rename + deferred delete) with a "Perform In Place" toggle (default true). In-place mode is behaviorally equivalent to legacy.
 3. **Preflight validation added**: positive `new_z_spacing`; input file has ≥ `ZPoints + 1` parseable values; values monotonically non-decreasing; positive total Z extent; only DataArray members in the cell AM. These reject bad input that legacy silently consumed (short files reused the last-read value; non-monotonic files produced a garbage mapping; zero extent produced a clamped 1-plane output) but do not alter valid-input output. The `.txt` extension is a dialog hint only (`acceptAllExtensions`), so converted legacy pipelines referencing `.dat`/`.csv`/extensionless files still validate.
 4. **Parallelization**: per-array parallel task runner (one task per cell array, distinct stores) vs legacy serial loop. No output effect.
@@ -50,9 +51,9 @@
 
 *Applied (Class 4):* X and Y dimensions and spacing preserved, origin preserved, Z spacing equals `new_z_spacing`, `newZ == max(1, floor(lastZBound / newZRes))`, and loose (non-cell-AM) children are carried over intact. Asserted in the valid-execution fixtures.
 
-*Encoded:* `test/RegularizeZSpacingTest.cpp::SimplnxCore::RegularizeZSpacingFilter: Valid Execution (New Geometry)` (element-wise Class 1 + invariants), `...::Valid Execution (Spacing Exceeds Extent)` (clamp-path Class 1), `...::Valid Execution (In Place)` (in-place invariants) — all pass in-core (`NX-Com-Qt69-Vtk95-Rel`) and out-of-core (`NX-OOC-Qt69-Vtk95-Rel`).
+*Encoded:* `test/RegularizeZSpacingTest.cpp::SimplnxCore::RegularizeZSpacingFilter: Valid Execution (New Geometry)` (element-wise Class 1 + invariants), `...::Valid Execution (Spacing Exceeds Extent)` (clamp-path Class 1), `...::Valid Execution (In Place)` (in-place invariants) — all pass (`NX-Com-Qt69-Vtk95-Rel`).
 
-*Second-engineer review:* **Pending.** The oracle is a deterministic index remap (lowest-risk oracle class); review still recommended before promotion to COMPLETE.
+*Second-engineer review:* **Complete — Jared Duffey, 2026-07-15** (approving reviewer of PR #1663, which delivered this filter and its V&V; review submitted 2026-07-14, PR merged 2026-07-15). The oracle is a deterministic index remap — the lowest-risk oracle class.
 
 ## Code path coverage
 

@@ -65,7 +65,7 @@
               "TriangleDataContainer/Face Data/FaceNormals",
               "TriangleDataContainer/Face Data/FaceDihedralAngles",
               "TriangleDataContainer/Face Data/FaceIPFColors",
-              "TriangleDataContainer/Face Data/FaceMisorientationColors"
+              "TriangleDataContainer/Face Data/FaceMisorientation"
             ],
             "file_path": "Data/Output/SurfaceMesh/SmallIN100_MeshStats.dream3d",
             "path_import_policy": 1

@@ -6,9 +6,10 @@
 | SIMPLNX UUID                | `7f2f7378-580e-4337-8c04-a29e7883db0b`                                   |
 | SIMPLNX Human Name          | Erode/Dilate Bad Data                                                    |
 | DREAM3D 6.5.171 equivalent  | `ErodeDilateBadData` — SIMPL UUID `3adfe077-c3c9-5cd0-ad74-cf5f8ff3d254` |
-| Verified commit             | *<filled at SBIR deliverable assembly>*                                  |
+| Verified commit             | `a307946e7` (v7.4.2 release)                                  |
 | Status                     | COMPLETE                                 |
-| Sign-off                   | *Matthew Marine, 8/7/2026*  second engineer: *Michael Jackson &lt;mike.jackson@bluequartz.net&gt;, 08-17-2026* |
+| Sign-off                    | Matthew Marine — 2026-08-07                                              |
+| Second-engineer sign-off    | Michael Jackson &lt;mike.jackson@bluequartz.net&gt; — 2026-08-18 (approving reviewer, PR #1687) |
 
 ## At a glance
 
@@ -17,15 +18,15 @@
 | Algorithm Relationship | **Port** — legacy `ErodeDilateBadData.{h,cpp}` was diffed line-by-line against `Algorithms/ErodeDilateBadData.cpp` this pass. Neighbor offsets, boundary-validity checks, vote/tie-break order, and transfer conditions are structurally identical. One divergence, since resolved — see Resolved Defects. |
 | Oracle (confirmed)     | **Class 2 (Reference implementation).** The 28 expected `FeatureIds`/`Misc` arrays (7 direction combinations × 2 operations × 2 iteration counts) are genuine DREAM3D 6.5.171 output, matched element-wise against SIMPLNX and compiled into `ErodeDilateBadDataTest.cpp` as constants so the comparison re-runs in CI without the legacy binary. Confirmed — `(Erode) Expanded` and `(Dilate) Expanded` pass, 28/28 combinations. |
 | Code paths enumerated  | **10 of 11 exercised.** All 6 face directions (-Z/-Y/-X/+X/+Y/+Z) confirmed hit by instrumentation. Only gap: the `m_ShouldCancel` early-exit (Path 11) — no test injects a cancel signal. |
-| Tests today            | **7 TEST_CASEs, all pass in both in-core and OOC builds** (2283 assertions, identical in each): 1 production-scale exemplar-archive comparison + 2 `GENERATE` parameter sweeps (14 valid runs each over direction × iteration count) + 1 ignored-path test + 2 preflight-error tests + 1 SIMPL backwards-compat. |
+| Tests today            | **7 TEST_CASEs, all pass** (2283 assertions): 1 production-scale exemplar-archive comparison + 2 `GENERATE` parameter sweeps (14 valid runs each over direction × iteration count) + 1 ignored-path test + 2 preflight-error tests + 1 SIMPL backwards-compat. |
 | Exemplar archive       | `6_6_erode_dilate_test.tar.gz` — provides `Input Data` plus legacy-generated `Exemplar Bad Data Erode` / `Exemplar Bad Data Dilate` containers on a 189×201×20 Small IN100 slice. Consumed by the `(Erode)` test here and shared with `ErodeDilateMaskTest` and `ErodeDilateCoordinationNumberTest`. SHA512 verified against `test/CMakeLists.txt`. |
 | Legacy comparison      | **Run.** Two independent comparisons: (1) all 28 parameter combinations run through DREAM3D 6.5.171 `PipelineRunner` against an HDF5 twin of the inline fixture and diffed element-wise — **28/28 exact matches** on both `FeatureIds` and `Misc`; (2) the `(Erode)` test compares SIMPLNX against a legacy-generated exemplar at production scale (759,780 cells, 6 cell arrays). |
 | Bug flags              | `ErodeDilateBadDataFilter-D1` (X/Y/Z direction parameters had no effect) — **confirmed and resolved.** One additional hypothesis (Dilate tie-break order) was investigated, found to be a false lead, and reverted — see deviations doc. |
-| V&V phase              | Oracle chosen and confirmed; legacy comparison run; direction-masking bug fixed; zero-dimensions preflight path now covered. Outstanding before promotion to COMPLETE: second-engineer sign-off, the uncovered cancel path (Path 11), and formalizing the manual 28-combination A/B run as an automated archive-based test (see deviations doc). |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
-`ErodeDilateBadDataFilter` erodes or dilates voxels with `FeatureId == 0` ("bad data") in an `ImageGeometry`, optionally restricted to any non-empty combination of X, Y, and Z face directions. Verification is **Class 2**: the 28 expected output arrays compiled into `(Erode) Expanded` / `(Dilate) Expanded` are genuine DREAM3D 6.5.171 output for the same fixture, matched element-wise across every operation × direction × iteration combination, and the `(Erode)` test additionally compares against a legacy-generated exemplar archive at production scale. One SIMPLNX-side bug was found and resolved (`ErodeDilateBadDataFilter-D1` — the direction parameters had no effect at all); all 7 tests pass in both in-core and OOC builds with 2283 assertions.
+`ErodeDilateBadDataFilter` erodes or dilates voxels with `FeatureId == 0` ("bad data") in an `ImageGeometry`, optionally restricted to any non-empty combination of X, Y, and Z face directions. Verification is **Class 2**: the 28 expected output arrays compiled into `(Erode) Expanded` / `(Dilate) Expanded` are genuine DREAM3D 6.5.171 output for the same fixture, matched element-wise across every operation × direction × iteration combination, and the `(Erode)` test additionally compares against a legacy-generated exemplar archive at production scale. One SIMPLNX-side bug was found and resolved (`ErodeDilateBadDataFilter-D1` — the direction parameters had no effect at all); all 7 tests pass with 2283 assertions.
 
 ## Algorithm Relationship
 
@@ -79,7 +80,7 @@ A plausible-looking bug hypothesis (last-bad-neighbor-wins vs. first-bad-neighbo
 - `SimplnxCore::ErodeDilateBadDataFilter(Erode) Expanded` and `(Dilate) Expanded` — each `GENERATE`s `dirX,dirY,dirZ ∈ {true,false}` and `numIterations ∈ {1,2}`, reports the invalid all-directions-off combination with `SUCCEED`, and looks the expected arrays up in the 28-row `k_Exemplars` table. 14 valid parameterized runs each, both `FeatureIds` and `Misc` asserted, 1039 assertions each — all pass.
 - `SimplnxCore::ErodeDilateBadDataFilter(Erode)` — `UnitTest::CompareExemplarToGeneratedData` against `6_6_erode_dilate_bad_data.dream3d`, 55 assertions. Passes.
 
-*Second-engineer review:* **pending.** The previously open items — erode/dilate tie-break order, and whether direction combinations produce genuinely different output — were both resolved this pass by the legacy binary comparison above rather than by review alone. A named second-engineer sign-off on the oracle design is still required before Status can move to COMPLETE.
+*Second-engineer review:* **Complete — Michael Jackson <mike.jackson@bluequartz.net>, 2026-08-18** (approving reviewer of PR #1687; review submitted and PR merged 2026-08-18). The previously open items — erode/dilate tie-break order, and whether direction combinations produce genuinely different output — were both resolved this pass by the legacy binary comparison above rather than by review alone.
 
 ## Code path coverage
 
@@ -121,7 +122,7 @@ Confirmed correct and deliberately not counted as deviations:
 | `SimplnxCore::ErodeDilateBadDataFilter No Dimensions` | new-for-V&V | Preflight-error test: `ImageGeom` dimensions forced to `{0,0,0}`, directions all on, Dilate. Asserts `invalid()` and `errors()[0].code == -14602`; 7 assertions. Covers Path 10. Modified this pass: previously it also zeroed all direction flags, which tripped `-14601` first and left Path 10 unreached. |
 | `SimplnxCore::ErodeDilateBadDataFilter: SIMPL Backwards Compatibility` | kept | `DYNAMIC_SECTION` over `simpl_conversion/6_5/ErodeDilateBadDataFilter.json` (matched by `Filter_Uuid`) and `simpl_conversion/6_4/ErodeDilateBadDataFilter.json` (matched by `Filter_Name`; that fixture has no UUID field). Loads each legacy pipeline via `Pipeline::FromSIMPLFile`, confirms a single `PipelineFilter` with the right UUID, and checks the converted arguments: `Operation == k_Dilate`, `NumIterations == 5`, `XDirOn/YDirOn/ZDirOn == true`, geometry path `DataPath({"DataContainer"})`, feature-ids path `DataPath({"DataContainer","CellData","TestArray"})`; 27 assertions. `IgnoredDataArrayPaths` verified only by successful pipeline load, matching the pattern in `FillBadDataTest.cpp`. Not an oracle test. |
 
-All 7 tests pass in both the in-core build (`NX-Com-Qt69-Vtk96-Rel`) and the out-of-core build (`simplnx-ooc-Rel`), with identical assertion counts in each — 2283 total (55 + 1039 + 1039 + 91 + 25 + 7 + 27).
+All 7 tests pass in the `NX-Com-Qt69-Vtk96-Rel` build — 2283 assertions total (55 + 1039 + 1039 + 91 + 25 + 7 + 27).
 
 ## Exemplar archive
 

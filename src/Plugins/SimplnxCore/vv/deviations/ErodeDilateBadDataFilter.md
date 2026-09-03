@@ -32,7 +32,7 @@ The gap recorded in the previous revision of this file ("no legacy comparison ha
 
 - All 28 `k_ExemplarFeatureIds*` / `k_ExemplarData*` constants in `ErodeDilateBadDataTest.cpp` were regenerated from genuine DREAM3D 6.5.171 binary output. They are legacy output, not a hand derivation — a Class 2 oracle. (They were previously byte-identical across all 7 direction combinations for a given operation and iteration count, which is what masked the bug.)
 - 28/28 combinations (7 directions × 2 operations × 2 iteration counts) match legacy exactly, on both `FeatureIds` and the `Misc` tracer array — see the V&V report's Oracle section for the run details.
-- `(Erode) Expanded` / `(Dilate) Expanded` (28 parameterized runs total, 2078 assertions combined) pass in both in-core and OOC builds.
+- `(Erode) Expanded` / `(Dilate) Expanded` (28 parameterized runs total, 2078 assertions combined) pass.
 - Per-direction structural coverage confirmed by temporary hit-count instrumentation — see "Per-direction code-path coverage" below.
 
 **Affected users:** Anyone who ran `ErodeDilateBadData` on any released version up to and including 7.4.1 with fewer than all three directions enabled. Their output silently matched the all-directions-on result, eroding or dilating across axes they had explicitly disabled. Users who left all three directions on (the default) are **unaffected** — that path was always correct, and the archive-based `(Erode)` regression test passes on affected builds for exactly that reason.

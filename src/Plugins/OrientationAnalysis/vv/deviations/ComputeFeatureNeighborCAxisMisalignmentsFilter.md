@@ -61,43 +61,6 @@ The root cause was proven by applying the same fix (move the `hexneighborlistsiz
 
 ---
 
-## ComputeFeatureNeighborCAxisMisalignmentsFilter-D2
-
-| Field            | Value                                                                                                |
-|------------------|------------------------------------------------------------------------------------------------------|
-| **Deviation ID** | `ComputeFeatureNeighborCAxisMisalignmentsFilter-D2`                                                  |
-| **Filter UUID**  | `636ee030-9f07-4f16-a4f3-592eff8ef1ee`                                                               |
-| **Status**       | active (latent — empirically confirmed DORMANT on current SIMPLNX in-memory DataStore; may surface on future OOC backends) |
-
-**Symptom:** Latent. When `find_avg_misals=true`, the output `AvgCAxisMisalignments` array is allocated via `CreateArrayAction` in the filter's preflight WITHOUT an explicit `fillValue` argument. Inside the algorithm, the first per-feature hex-hex match write does:
-
-```cpp
-float32 value = avgCAxisMisalignmentPtr->getValue(featureIdx) + currentMisalignmentList[j];
-avgCAxisMisalignmentPtr->setValue(featureIdx, value);
-```
-
-which reads the array's pre-write value before adding the new contribution. If `CreateArrayAction` does not zero-initialize the array when `fillValue` is empty (the underlying behavior depends on the `DataStoreUtilities::CreateDataStore` implementation and the IOCollection's default-init contract), the accumulator starts from undefined or implementation-defined state, and the per-feature average is wrong by exactly that initial garbage value.
-
-**Root cause:** **Bug** (latent) in SIMPLNX. The filter's `preflightImpl` at lines 125-127 of `ComputeFeatureNeighborCAxisMisalignmentsFilter.cpp` constructs the `CreateArrayAction` without a fillValue:
-
-```cpp
-auto createArrayAction = std::make_unique<CreateArrayAction>(
-    DataType::float32,
-    featurePhases.getIDataStore()->getTupleShape(),
-    std::vector<usize>{1},
-    pAvgCAxisMisalignmentsPathValue);
-```
-
-The algorithm at line 142 assumes the array starts at zero (`getValue(featureIdx) + ...`). If `DataStoreUtilities::CreateDataStore<float32>` zero-initializes by default (which it currently does for the in-memory `DataStore<T>` constructor — `m_DataStore = std::vector<T>(numTuples * numComponents);` value-initializes), the bug is dormant. But this behavior is implementation-detail of the underlying DataStore type and is not enforced by the `CreateArrayAction` contract.
-
-This was not exercised by any V&V fixture because the realistic-microstructure fixture happens to have every feature with `find_avg_misals=true` and a non-zero expected average start with a hex-hex first-neighbor (F1=F2 hex-hex first, F2=F1 hex-hex first, F4=F1 hex-hex first, F5=F2 hex-hex first, F6=F3 NON-hex first but F6's expected avg is 5° from a single hex-hex contribution — so F6 reads its initial value before the first hex-hex write at j=1, exposing the read pattern but the actual default-init behavior in the in-memory build is zero so the test passes).
-
-**Affected users:** Anyone running this filter on SIMPLNX with `find_avg_misals=true` on a backend where `DataStoreUtilities::CreateDataStore<float32>` does not zero-initialize. Currently no shipping backend exhibits non-zero default-init, but future out-of-core DataStore implementations may. Latent → active reclassification recommended once an OOC DataStore lands.
-
-**Recommendation:** **Defensive fix** — pass `"0"` as the `fillValue` argument to `CreateArrayAction`, OR add an explicit `avgCAxisMisalignmentPtr->fill(0.0f)` at the top of `operator()()` when `FindAvgMisals` is true. Either change is a one-line edit. Confirm by inspection of `DataStoreUtilities::CreateDataStore`'s default-init behavior whether this is currently a real bug or a latent one; the V&V cycle did NOT make this change (out of scope for the divisor-bug-fix focus).
-
----
-
 ## ComputeFeatureNeighborCAxisMisalignmentsFilter-D4
 
 | Field            | Value                                                       |

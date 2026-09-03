@@ -6,22 +6,23 @@
 | SIMPLNX UUID | `64cb4f27-6e5e-4dd2-8a03-0c448cb8f5e6` |
 | SIMPLNX Human Name | Compute IPF Colors |
 | DREAM3D 6.5.171 equivalent | `GenerateIPFColors` (SIMPL UUID `a50e6532-8075-5de5-ab63-945feb0de7f7`) — `Source/Plugins/OrientationAnalysis/OrientationAnalysisFilters/GenerateIPFColors.{h,cpp}` |
-| Verified commit | *<filled at SBIR deliverable assembly>* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE     |
 | Sign-off | Michael Jackson <mike.jackson@bluequartz.net> — 2026-07-16 |
+| Second-engineer sign-off | Michael Jackson (technical authority) — 2026-07-16 |
 
 ## At a glance
 
 | Aspect                 | Current state            |
 |------------------------|--------------------------|
 | Algorithm Relationship | **Port** of DREAM3D 6.5.171 `GenerateIPFColors`. The per-cell loop is a line-for-line translation; deltas are the color library (OrientationLib → EbsdLib), a new `Color Key` choice (TSL/PUCM/Nolze-Hielscher; legacy was TSL-only), bool-or-uint8 mask (legacy bool-only), and added cancel checks. |
-| Oracle (confirmed)     | **Class 1 + 4** (orchestration: mask→black, invalid crystal structure→black, refDir normalization, phase-out-of-range→`-48000`, output invariants) with **Class 2** (each colored cell == a direct in-process EbsdLib `generateIPFColor` call) and **Class 3** (identity cubic viewed down [001] = red IPF corner). 8 tests in `test/ComputeIPFColorsTest.cpp`, all pass in-core and OOC. |
+| Oracle (confirmed)     | **Class 1 + 4** (orchestration: mask→black, invalid crystal structure→black, refDir normalization, phase-out-of-range→`-48000`, output invariants) with **Class 2** (each colored cell == a direct in-process EbsdLib `generateIPFColor` call) and **Class 3** (identity cubic viewed down [001] = red IPF corner). 8 tests in `test/ComputeIPFColorsTest.cpp`, all pass. |
 | Code paths enumerated  | 16 of 18 exercised. The 2 gaps are the mid-loop cancel branch and the unreachable `-23510` color-key default. |
 | Tests today            | 8 test cases: 1 main analytical oracle (4 SECTIONs), uint8-mask, no-mask, refDir-normalization, phase-out-of-range error, color-key wiring, preflight `-651`, SIMPL 6.4/6.5 backward-compat. |
 | Exemplar archive       | **None for this filter** — the oracle dataset is built inline in C++. The legacy-produced `so3_cubic_high_ipf_001.tar.gz` was **retired as a circular oracle** from this test (it is still downloaded for `CreateEnsembleInfoTest`, so the `download_test_data()` line remains). |
 | Legacy comparison      | **Run — SIMPLNX vs DREAM3D 6.5.171 (TSL).** SIMPLNX is byte-identical to the stored legacy `IPF Colors` (0/343,963); vs a fresh 6.5.171 run, 14/343,963 cells (0.004%) differ by exactly ±1/255 in one channel. One deviation: `ComputeIPFColorsFilter-D1` (precision + library, quantization jitter). |
 | Bug flags              | None. |
-| V&V phase              | Discovery, oracle design, oracle reconciliation (0 SIMPLNX bugs), algorithm review (2 warnings fixed: dead `orientationOps`, atomic phase-warning counter), dual-build, legacy comparison, and documentation complete. V&V complete and signed off by Michael Jackson (technical authority) 2026-07-16. |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -57,7 +58,7 @@ Per the "test the value-add, not upstream" principle: EbsdLib is the trusted ref
 
 *Toy data:* built inline in C++ (`BuildAnalyticalDataset`) — a 6-cell ImageGeom, ensemble `CrystalStructures = [999 Unknown, 1 Cubic_High, 0 Hexagonal_High]`, cells chosen to hit identity-cubic, arbitrary cubic, arbitrary hex (two Laue classes), a masked cell, and an invalid-crystal-structure cell.
 
-*Encoded:* `test/ComputeIPFColorsTest.cpp` — 8 `TEST_CASE`s, all pass in-core and OOC. The main `Class 1/2/3 Oracle (inline analytical dataset)` case carries the Class 2/3/1/4 assertions across four `SECTION`s.
+*Encoded:* `test/ComputeIPFColorsTest.cpp` — 8 `TEST_CASE`s, all pass. The main `Class 1/2/3 Oracle (inline analytical dataset)` case carries the Class 2/3/1/4 assertions across four `SECTION`s.
 
 *Second-engineer review:* **Signed off by Michael Jackson (technical authority), 2026-07-16.**
 

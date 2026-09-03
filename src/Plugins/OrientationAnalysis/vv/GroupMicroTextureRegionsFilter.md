@@ -5,9 +5,10 @@
 | Plugin    | OrientationAnalysis      |
 | SIMPLNX UUID | `3f695987-81b1-47c3-8cff-b49cfa219be0` |
 | DREAM3D 6.5.171 equivalent | `GroupMicroTextureRegions` (private filter; not registered for pipeline use) |
-| Verified commit | *<filled at SBIR deliverable assembly>* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE |
 | Sign-off | Michael Jackson <mike.jackson@bluequartz.net> — 2026-08-27 |
+| Second-engineer sign-off | Nathan Young — 2026-06-23 (approving reviewer, PR #1637). Metallurgical intent separately reviewed by Adam L. Pilchak, Pratt & Whitney, 2026-08-11. The completing changes were delivered by PR #1703 (merged 2026-08-28); **Joey Kleingers <joey.kleingers@bluequartz.net> is the assigned second-engineer reviewer for that PR — sign-off pending.** |
 
 ## At a glance
 
@@ -20,7 +21,7 @@
 | Exemplar archive | **None for this filter.** The oracle data is generated inline in the unit test. |
 | Legacy comparison | **Run — DREAM3D-NX versus DREAM.3D 6.6.382 (`107b8d51b`).** DREAM.3D 6.5.171 could not instantiate the filter because it was not registered. |
 | Bug flags | **None.** D6 is fixed in this branch. |
-| V&V phase | **COMPLETE.** Second-engineer review and sign-off remain. |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 

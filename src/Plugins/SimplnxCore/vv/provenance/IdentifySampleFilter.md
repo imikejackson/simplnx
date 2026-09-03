@@ -114,9 +114,3 @@ These are the only tests that exercise degenerate-dimension behavior and are the
 | `/Image Geometry/CellData/Mask` (after filter, whole/sliced archive tests) | Validated-circular: produced by SIMPLNX's own filter, human-reviewed against the documented feature table in `generated_data/ReadMe.md`. Not equivalent to a legacy reference. |
 | `/Image Geometry/CellData/Mask` (after filter, non-square 2D tests) | Class 1: coded directly in `expected[]` array. |
 
-## Second-engineer oracle review
-
-- **Reviewer:** *Pending*
-  - *Confirm the feature-table-to-output mapping in `generated_data/ReadMe.md` is plausible for at least the `whole_xy_fill` and `sliced_xy_fill` cases (the two that exercise both the hole-fill BFS and the `checked`-reset regression guard).*
-  - *Review the non-square 2D fixture layout for plausibility — the 12-element pattern is small enough to verify by hand in ~5 minutes.*
-- **Date:** *YYYY-MM-DD (pending)*

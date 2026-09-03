@@ -5,9 +5,10 @@
 | Plugin    | OrientationAnalysis      |
 | SIMPLNX UUID | `a51c257a-ddc1-499a-9b21-f2d25a19d098` |
 | DREAM3D 6.5.171 equivalent | `FindCAxisLocations` (SIMPL UUID `68ae7b7e-b9f7-5799-9f82-ce21d0ccd55e`) - `Source/Plugins/OrientationAnalysis/OrientationAnalysisFilters/FindCAxisLocations.{h,cpp}` |
-| Verified commit | *<filled at SBIR deliverable assembly>* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE     |
-| Sign-off | Jared Duffey, 07-31-2026 |
+| Sign-off | Jared Duffey — 2026-07-31 |
+| Second-engineer sign-off | Michael Jackson — 2026-08-10 (approving reviewer, PR #1679; Nathan Young also approved) |
 
 ## At a glance
 
@@ -20,6 +21,7 @@
 | Exemplar archive       | None - removed test using circular oracle data from `caxis_data.tar.gz` |
 | Legacy comparison      | Run 2026-07-31 against DREAM3D 6.5.171 using the 15 inline Class 1 fixtures and a shared serialized input. All 45 output float32 values were bit-identical, and the comparison artifacts were uploaded to OneDrive on 2026-07-31. |
 | Bug flags              | None |
+| V&V phase | **COMPLETE.** |
 
 For worked instances see `src/Plugins/OrientationAnalysis/vv/BadDataNeighborOrientationCheckFilter.md` and `src/Plugins/OrientationAnalysis/vv/ComputeAvgCAxesFilter.md` (on `topic/vv/compute_avg_caxis`).
 
@@ -59,8 +61,6 @@ There were no deviations that affect the output found for hexagonal materials.
 *Applied:* Handed derived output of C-axis locations from quaternions. The expected outputs agree between DREAM3DNX, DREAM3D 6.5.171, and manual calculations (`v_passive ​= Rᵀv` with z component forced to positive). Includes 15 different orientations about x, y, and z at different angles. Using the previous formula, the exact form results were produced and compared against DREAM3D output.
 
 *Encoded:* *`test/ComputeCAxisLocationsTest.cpp::"OrientationAnalysis::ComputeCAxisLocationsFilter: Class 1 Oracle"` - 15 fixtures, all pass.*
-
-*Second-engineer review:* *Pending*
 
 ## Code path coverage
 

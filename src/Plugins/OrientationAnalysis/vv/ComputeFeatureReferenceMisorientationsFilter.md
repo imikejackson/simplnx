@@ -6,9 +6,10 @@
 | SIMPLNX UUID               | `24b54daf-3bf5-4331-93f6-03a49f719bf1`  |
 | SIMPLNX Human Name         | Compute Feature Reference Misorientations                |
 | DREAM3D 6.5.171 equivalent | `FindFeatureReferenceMisorientations` — `Source/Plugins/OrientationAnalysis/OrientationAnalysisFilters/FindFeatureReferenceMisorientations.{h,cpp}` (UUID `428e1f5b-e6d8-5e8b-ad68-56ff14ee0e8c`) |
-| Verified commit            | *<filled at SBIR deliverable assembly>* |
+| Verified commit            | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE     |
-| Sign-off  | *Michael Jackson <mike.jackson@bluequartz.net> (V&V cycle completion, 2026-06-01) — algorithm originally translated to SIMPLNX by Nathan Young (PR history)*   |
+| Sign-off  | *Michael Jackson <mike.jackson@bluequartz.net>  |
+| Second-engineer sign-off   | Nathan Young — 2026-06-03 (approving reviewer, PR #1629)   |
 
 ## At a glance
 
@@ -21,7 +22,7 @@
 | Exemplar archive       | **None — inline-constructed in test source.** The pre-existing `compute_feature_reference_misorientation.tar.gz` archive (Small-IN100-based regression-against-exemplar) was **retired 2026-06-01** because its exemplar arrays were a circular oracle (regenerated from pre-EbsdLib-2.4.1 SIMPLNX output). The 6 hand-derived data fixtures cover all 8 algorithmic paths and replace the regression-against-archive coverage.            |
 | Legacy comparison      | **Source-inspection comparison against DREAM3D 6.5.171** completed. Algorithm structurally identical to legacy modulo port-time deltas. **No algorithmic deviations** observed (no behavioral bugs in either implementation). One precision-class non-deviation documented: the EbsdLib 2.4.1 `CubicOps::calculateMisorientationInternal` precision improvement (already characterized in `BadDataNeighborOrientationCheckFilter`'s V&V cycle) propagates into per-feature averages for sym-op-aligned grain boundaries — non-observable on data fixtures. |
 | Bug flags              | None.         |
-| V&V phase              | **All V&V work complete per V2 policy.** Class 1 + Class 4 oracle confirmed against 8-test suite; circular-oracle archive retired; legacy A/B by source inspection; algorithm review applied; user-facing doc updated. Three source-tree deliverables (this report + `vv/deviations/...` + `vv/provenance/...`) are in place. **V&V complete and signed off by Michael Jackson (technical authority), 2026-06-01.**      |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 

@@ -67,6 +67,10 @@ The verified state is pinned by **(commit hash, archive SHA512)**. The commit ca
 5. Work each section in any order. A section is "done" when all its gates pass.
 6. When all gates green, set `Status: READY FOR REVIEW`, push a `vv/<FilterName>` branch with a commit following [`commit_template.md`](./commit_template.md).
 7. After sign-off, set `Status: COMPLETE`. Verified commit hash is filled in at SBIR deliverable assembly.
+   The **primary engineer is the PR author** and the **second engineer is the PR reviewer**; the second-engineer
+   sign-off date is the date the PR was merged. Both are recorded as their own rows in the report's header table
+   (`Sign-off` and `Second-engineer sign-off`), which is the machine-readable record the SBIR CLIN deliverables
+   extract from.
 
 ## Status tracking across filters
 

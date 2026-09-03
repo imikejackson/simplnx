@@ -5,9 +5,10 @@
 | Plugin    | OrientationAnalysis      |
 | SIMPLNX UUID | 4625c192-7e46-4333-a294-67a2eb64cb37 |
 | DREAM3D 6.5.171 equivalent | NeighborOrientationCorrelation (SIMPL UUID 6427cd5e-0ad2-5a24-8847-29f8e0720f4f) |
-| Verified commit | *<filled at SBIR deliverable assembly>* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE |
 | Sign-off | Michael Jackson <mike.jackson@bluequartz.net> — 2026-07-16 |
+| Second-engineer sign-off | Michael Jackson (technical authority) — 2026-07-16 |
 
 ## At a glance
 
@@ -20,7 +21,7 @@
 | Exemplar archive       | **None — fully retired.** All oracle data is inline (programmatic toy fixtures); the Small IN100 test uses archive-free invariant checks. The v1 archive was retired because its comparison was hollow from its 2022-07-24 introduction (`d199bc749`; archive SHA unchanged since first registration `e34baf1f2`, 2022-12-02), and a regenerated exemplar would be a circular oracle — so no replacement archive exists. |
 | Legacy comparison      | **Run — SIMPLNX vs DREAM3D 6.5.171**, fixtures + production scale. Fixtures: 6.5.171 differs on exactly the 5 of 12 whose outcome depends on a defect (D1–D3); the 7 fully-tied fixtures are identical because SIMPLNX's argmax resolves ties to the same last-in-scan-order neighbor 6.5.171 picked. Production (Small IN100, 4.44M cells, Level 2): 14.29% of cells differ, decomposed per deviation entry. Each root cause proven by applying the surgical fix to a local build of the legacy source — then bit-identical to SIMPLNX on all 12 fixtures **and all 4,444,713 production cells** (which also bounds D4 precision at zero observed). |
 | Bug flags              | D1 (legacy stale-w), D2 (double level decrement, was also in SIMPLNX — fixed), D3 (last-wins selection, was also in SIMPLNX — fixed). D4 is precision, not a bug. Plus: hollow exemplar comparison in the v1 test (fixed). |
-| V&V phase              | All phases complete; V&V signed off 2026-07-16 (Michael Jackson, technical authority). Outstanding: fresh before/after doc screenshots (existing images predate the fixes). |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -54,7 +55,7 @@ Neighbor Orientation Correlation replaces low-confidence EBSD cells with the att
 
 *Applied:* A NumPy reference implementation of the intended algorithm (`reference_noc.py`, NumPy 2.4.2, pinned in the provenance sidecar) computes expected outputs for 12 synthetic fixtures. The intended selection rule is an argmax over neighbor similarity counts with **last-of-ties** resolution (`>=` with a count > 0 guard), deliberately tie-compatible with 6.5.171. All fixture orientations are co-axial rotations about +Z with deltas ≤ 45° (cubic) / ≤ 30° (hex), where every misorientation-fold convention reduces to `|Δθ|` — so each single-pass fixture is *also* hand-derivable (Class 1; `check_derivations.py`, 35 assertions). Quirk toggles in the same script exactly reproduce stock 6.5.171 behavior, pinning each deviation's root cause. Class 4 invariants: high-CI cells never modified (I1), ignored arrays untouched (I2), transfer only copies existing tuples (I3), Level ≥ 6 is a no-op (I4).
 
-*Encoded:* `test/NeighborOrientationCorrelationTest.cpp::Oracle F01..F12` (12 TEST_CASEs) + `::Oracle F13` (NeighborList/String cell-array transfer — verified by construction, not by the reference implementation) + `::Class 4 - Level >= 6 is a no-op (I4)` + `::Preflight - Level validation` — all pass in in-core and OOC builds. Derivations embedded as comments beside each fixture.
+*Encoded:* `test/NeighborOrientationCorrelationTest.cpp::Oracle F01..F12` (12 TEST_CASEs) + `::Oracle F13` (NeighborList/String cell-array transfer — verified by construction, not by the reference implementation) + `::Class 4 - Level >= 6 is a no-op (I4)` + `::Preflight - Level validation` — all pass. Derivations embedded as comments beside each fixture.
 
 *Second-engineer review:* **Signed off by Michael Jackson (technical authority), 2026-07-16.**
 
@@ -123,7 +124,7 @@ and the production-scale invariant verification (`Small IN100 Pipeline`, 4.44M c
 | `Oracle F12 - anisotropic dims` | new-for-V&V | 4×5×3 (nx≠ny≠nz) so stride/axis-swap bugs cannot hide behind dimension symmetry; secondary D3 pin (last-of-maxes beats a later count-1 pair). |
 | `Class 4 - Level >= 6 is a no-op (I4)` | new-for-V&V | Default parameter value performs zero passes (now also surfaced as preflight warning `-580095`). |
 
-All 18 pass at the verified commit in both in-core (`simplnx-Rel`) and OOC (`simplnx-ooc-Rel`) builds.
+All 18 pass at the verified commit (`simplnx-Rel`).
 
 ## Exemplar archive
 

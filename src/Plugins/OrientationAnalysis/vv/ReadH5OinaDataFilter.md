@@ -5,9 +5,10 @@
 | Plugin    | OrientationAnalysis      |
 | SIMPLNX UUID | `fad3d47f-f1e1-4429-bc65-5e021be62ba0` |
 | DREAM.3D 6.5.171 equivalent | **None.** |
-| Verified commit | *<filled at SBIR deliverable assembly>* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE |
-| Sign-off | *Michael Jackson <mike.jackson@bluequartz.net>*  2026-08-24 |
+| Sign-off | *Michael Jackson <mike.jackson@bluequartz.net>* — 2026-08-24 |
+| Second-engineer sign-off | Joey Kleingers <joey.kleingers@bluequartz.net> — 2026-08-27 |
 
 ## At a glance
 
@@ -20,7 +21,7 @@
 | Exemplar archive | **`H5Oina_Test_Data.tar.gz` retained as input only.** The vendor `.h5oina` file is used. The generated `.dream3d` output was retired as a circular oracle. |
 | Legacy comparison | **Not applicable.** DREAM.3D 6.5.171 has no H5OINA importer. The independent h5py readback replaces the legacy comparison. |
 | Bug flags | **Thirteen bugs resolved:** `ReadH5OinaDataFilter-D1` through `ReadH5OinaDataFilter-D13`. The affected released versions are DREAM3D-NX 7.0.0 through 7.4.1. |
-| V&V phase | **COMPLETE** |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -45,7 +46,7 @@
 
 *Encoded:* `test/ReadH5OinaDataTest.cpp` contains 20 test cases. The archived `h5oina_oracle.py` script reproduces its Class 1 values and the vendor-file readback.
 
-*Second-engineer review:* Pending PR review.
+*Second-engineer review:* **Complete — Joey Kleingers <joey.kleingers@bluequartz.net>, 2026-08-27.** The V&V was delivered by PR #1728 (merged 2026-08-27); the second-engineer review was conducted outside the GitHub review record, so the sign-off date is taken as the PR merge date under the project policy.
 
 ## Bugs found and fixed
 

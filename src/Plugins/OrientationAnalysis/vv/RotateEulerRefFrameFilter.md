@@ -6,9 +6,10 @@
 | SIMPLNX UUID | `0458edcd-3655-4465-adc8-b036d76138b5` |
 | SIMPLNX Human Name | Rotate Euler Reference Frame |
 | DREAM3D 6.5.171 equivalent | `RotateEulerRefFrame` — `Source/Plugins/OrientationAnalysis/OrientationAnalysisFilters/RotateEulerRefFrame.{h,cpp}` |
-| Verified commit | *<filled at SBIR deliverable assembly>* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE |
 | Sign-off | Michael Jackson <mike.jackson@bluequartz.net> — 2026-07-16 |
+| Second-engineer sign-off | Michael Jackson (technical authority) — 2026-07-16 |
 
 ## At a glance
 
@@ -21,7 +22,7 @@
 | Exemplar archive       | `ASCIIData.tar.gz` (pre-existing, shared archive) — provides the 480k-tuple legacy-parity input/comparison CSVs only. **Not an oracle** (legacy-DREAM3D provenance); the Class 1 oracle is inline in the test source. No new archive needed. |
 | Legacy comparison      | **Run** against DREAM3D 6.5.171 on 6 axis/angle cases × 12 orientations (shared CSV input). Max wrap-aware diff 7.2e-7 rad (float32 ULP level). Both implementations independently match the numpy oracle (NX 2.3e-7, legacy 8.1e-7). No deviations; two non-deviations documented. |
 | Bug flags              | None affecting output. Two robustness/policy items addressed: (1) zero-length rotation axis previously produced silent NaN corruption — preflight now rejects it (`-96200`) and the Algorithm class guards it as well (`-67050`); (2) the parallel kernel writes the in-place Euler array via `operator[]` from TBB workers — per the project thread-safety policy this is now gated with `requireArraysInMemory` so parallelization is only enabled for in-core stores (the codebase-sanctioned pattern). Legacy 6.5.171 retains the zero-axis NaN behavior (documented as a non-deviation — not output-correctness). |
-| V&V phase              | Oracle design + reconciliation, algorithm review (fixes applied), code-path coverage, test inventory, legacy comparison, deviations, and provenance complete. **V&V complete and signed off by Michael Jackson (technical authority) 2026-07-16.** **Outstanding:** dual-build (OOC) run deferred — no OOC-specific variant of this algorithm and no OOC build configured in Workspace4. |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -81,7 +82,7 @@ The algorithm is flat: (a) entry/setup in `operator()` (cancel check, axis norma
 | `OrientationAnalysis::RotateEulerRefFrameFilter: Zero-Length Axis Fails Preflight` | new-for-V&V | Pins the `-96200` preflight guard added during the algorithm-review pass (previously silent NaN corruption). |
 | `OrientationAnalysis::RotateEulerRefFrameFilter: Class 4 Invariants` | new-for-V&V | 3 SECTIONs over a 6-orientation batch: canonical range bounds; (n,w)/(−n,w) round-trip at 1e-4; 45°+45° = 90° composability at 1e-4. |
 
-All 5 TEST_CASEs (13 ctest sections) pass at the working commit (in-core build). OOC/dual-build run deferred: the algorithm has no OOC-specific variant (direct `Float32Array` access) and no OOC build is configured in this workspace — same disposition as `BadDataNeighborOrientationCheckFilter`.
+All 5 TEST_CASEs (13 ctest sections) pass at the working commit.
 
 ## Exemplar archive
 

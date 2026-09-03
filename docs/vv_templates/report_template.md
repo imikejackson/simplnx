@@ -9,7 +9,8 @@
 | DREAM3D 6.5.171 equivalent | <LegacyName> *or* None (new filter) |
 | Verified commit | *<filled at SBIR deliverable assembly>* |
 | Status | DRAFT |
-| Sign-off | *<engineer(s), date>* |
+| Sign-off | *<primary engineer — the PR author — YYYY-MM-DD>* |
+| Second-engineer sign-off | *<second engineer — the PR reviewer — YYYY-MM-DD (approving reviewer, PR #NNNN)>* |
 
 ## At a glance
 
@@ -25,6 +26,23 @@ A scannable dashboard for reviewers. Each row is one sentence to one short parag
 | Legacy comparison      | *Run / Not run — one-sentence headline (bit-identical, N deviations). Always framed as SIMPLNX vs DREAM3D 6.5.171; root-cause proof via a patched local build of the legacy source is described without naming a legacy version or commit.* |
 | Bug flags| *None / list of deviation IDs flagged as suspected bugs.*            |
 | V&V phase| *Which phases of the V&V workflow are complete; what is outstanding before status promotion.*    |
+
+### Sign-off fields
+
+The two sign-off rows above are **required** and are the machine-readable record of the review chain — the SBIR
+CLIN deliverables extract them from here, so do not move them into body prose or merge them into one row.
+
+- **Sign-off** — the primary engineer: the author of the PR that delivered the V&V.
+- **Second-engineer sign-off** — the secondary engineer: the *reviewer* of that PR. The sign-off date is the
+  date the PR was merged.
+- Use ISO dates (`YYYY-MM-DD`) in both rows.
+- Where a filter's V&V was reopened and re-delivered by a later PR, that later PR governs both rows; note the
+  superseded sign-off rather than deleting it.
+- A second-engineer review is **never** recorded as "skipped", "pending", or "not available" once the PR has
+  merged — the PR reviewer *is* the second engineer. If the GitHub review record is empty, the review may still
+  have happened outside GitHub; ask before concluding one did not occur.
+- If a dedicated *oracle-design* review was judged unnecessary, keep that rationale in the Oracle section, but
+  still name the PR reviewer in the header row.
 
 For worked instances see `src/Plugins/OrientationAnalysis/vv/BadDataNeighborOrientationCheckFilter.md` and `src/Plugins/OrientationAnalysis/vv/ComputeAvgCAxesFilter.md` (on `topic/vv/compute_avg_caxis`).
 

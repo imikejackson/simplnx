@@ -6,9 +6,10 @@
 | SIMPLNX UUID               | `7177e88c-c3ab-4169-abe9-1fdaff20e598`                              |
 | SIMPLNX Human Name         | Compute Feature Neighbors                                           |
 | DREAM3D 6.5.171 equivalent | `FindNeighbors` (SIMPL UUID `97cf66f8-7a9b-5ec2-83eb-f8c4c8a17bac`) — `Source/Plugins/Statistics/StatisticsFilters/FindNeighbors.{h,cpp}` |
-| Verified commit            | *<filled at SBIR deliverable assembly>*                             |
+| Verified commit            | `a307946e7` (v7.4.2 release)                             |
 | Status                     | COMPLETE          |
-| Sign-off                   | Nathan Young, 06-23-2026                                               |
+| Sign-off                   | Nathan Young, 2026-06-23                                               |
+| Second-engineer sign-off | Nathan Young — 2026-06-23 (approving reviewer, PR #1631) |
 
 ## At a glance
 
@@ -21,7 +22,7 @@
 | Exemplar archive       | `6_6_stats_test_v2.tar.gz` — shared SmallIn100 input used for legacy comparison only; no oracle outputs (inline expected values used for all structured tests). SSA arrays in the archive reflect the buggy 6.5.171 output and are explicitly skipped in the legacy comparison test. |
 | Legacy comparison      | **Run** on the SmallIn100 fixture (`6_6_stats_test_v2.tar.gz`): NumNeighbors, NeighborList, SurfaceFeatures bit-identical (3D dataset). **Plus a targeted A/B (2026-06-29)** on degenerate/anisotropic inputs through stock 6.5.171 and SIMPLNX that **proves both D1 and D2** via a surgically patched local build of the legacy source: D1 SSA `[8,8]`→`[24,24]`==NX (anisotropic), D2 SurfaceFeatures `[0,1,1]`→`[0,1,0]`==NX (EmptyY). The legacy-source patches reproduce SIMPLNX exactly; NumNeighbors/NeighborList/BoundaryCells byte-identical across all three. See deviations file. |
 | Bug flags              | **D1** — SharedSurfaceAreaList uses wrong area formula for non-Z-normal faces in 6.5.171. **D2** — SurfaceFeatures incorrectly marks all features as surface for 1D images and 2D EmptyY/EmptyX images in 6.5.171.                               |
-| V&V phase              | Structured tests (Class 1 oracle) complete and passing. Legacy source reviewed (`FindNeighbors.cpp`); D1 and D2 documented with source line references. **V&V complete and signed off by Nathan Young, 2026-06-23.**                                                  |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 

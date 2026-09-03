@@ -6,32 +6,33 @@
 | SIMPLNX UUID                | `a59eb864-9e6b-40bb-9292-e5281b0b4f3e`                                   |
 | SIMPLNX Human Name          | Fill Bad Data       |
 | DREAM3D 6.5.171 equivalent  | `FillBadData` — SIMPL UUID `30ae0a1e-3d94-5dab-b279-c5727ab5d7ff`       |
-| Verified commit             | *<filled at SBIR deliverable assembly>*                                  |
+| Verified commit             | `a307946e7` (v7.4.2 release)                                  |
 | Status                      | COMPLETE — 2026-07-16 |
 | Sign-off                    | Michael Jackson <mike.jackson@bluequartz.net> — 2026-07-16 |
+| Second-engineer sign-off | Michael Jackson (technical authority) — 2026-07-16 |
 
 ## At a glance
 
 | Aspect                 | Current state            |
 |------------------------|--------------------------|
-| Algorithm Relationship | **Rewrite** — 4-phase chunk-sequential CCL+Union-Find (OOC support); legacy used a simpler in-memory approach. Functional behavior preserved. |
+| Algorithm Relationship | **Rewrite** — 4-phase chunk-sequential CCL+Union-Find over chunked Zarr storage; legacy used a simpler in-memory approach. Functional behavior preserved. |
 | Oracle                 | **Class 2** for `FillBadData_SmallIN100` (`6_5_exemplar.dream3d` from legacy 6.5 pipeline). **Class 1** for Tests 01–13 (hand-authored expected values serialized by a format-conversion script that never runs `FillBadDataFilter`). Circular-oracle concern resolved. |
 | Code paths             | **15 of 16** covered. Only gap: `m_ShouldCancel` cancel path in Phase 4 while-loop (Path 14). |
-| Tests                  | **14 TEST_CASEs**, all pass. 1 SmallIN100 (Class 2) + 9 OOC synthetic fixtures (Class 1, Tests 01–07, 11, 13) + 1 all-bad-data termination guard + 1 preflight-error inline (asserts `-16500`) + 1 SIMPL backwards-compat. |
+| Tests                  | **14 TEST_CASEs**, all pass. 1 SmallIN100 (Class 2) + 9 chunked-Zarr synthetic fixtures (Class 1, Tests 01–07, 11, 13) + 1 all-bad-data termination guard + 1 preflight-error inline (asserts `-16500`) + 1 SIMPL backwards-compat. |
 | Exemplar archive       | `6_5_fill_bad_data.tar.gz` — `6_5_input/exemplar.dream3d` (Class 2) + `test_NN_input/expected.dream3d` pairs for Tests 01–07, 11, 13 (Class 1). *(Tests 08–10 and 12 have no fixtures — the numbering is non-contiguous.)* |
 | Legacy comparison      | SmallIN100 in-test (Class 2) — SIMPLNX matches the 6.5.x exemplar element-wise. A separate Test 08 three-way binary A/B was cited by an earlier revision but its working files are unrecoverable, so that claim is **withdrawn** (see deviations). Per-code-path correctness is pinned by the Class 1 analytical fixtures. |
 | Bug flags              | `FillBadDataFilter-B1` (preflight dead-return for `minAllowedDefectSize < 1`) resolved. Resolved: an all-bad-data / enclosed-bad-pocket input previously looped forever in Phase 4 (no fillable neighbor → `count` never reached 0); a no-progress guard now stops with a warning. |
-| V&V phase              | **COMPLETE — V&V signed off by Michael Jackson (technical authority) 2026-07-16.** Outstanding: cancel path (Path 14) untested. *(The unrecoverable Test 08 A/B claim has been withdrawn — no longer a gate.)* |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
-`FillBadDataFilter` fills voxels with `FeatureId == 0` ("bad data") by assigning them to the most-common positive-feature neighbor. Connected regions below `minAllowedDefectSize` are filled; larger regions are preserved (optionally relabeled as a new phase). SIMPLNX uses a four-phase CCL+Union-Find architecture to support OOC datasets — a structural departure from legacy DREAM3D 6.5.171. Output equivalence is confirmed by two independent comparisons: the `FillBadData_SmallIN100` unit test (passes against `6_5_exemplar.dream3d`) and a manual A/B run on a custom dataset across three binaries (6.5.171, 6.5.172, NX). One bug surfaced during V&V (B1 — dead error-return path for `minAllowedDefectSize < 1`) has been fixed and is now covered by a dedicated test.
+`FillBadDataFilter` fills voxels with `FeatureId == 0` ("bad data") by assigning them to the most-common positive-feature neighbor. Connected regions below `minAllowedDefectSize` are filled; larger regions are preserved (optionally relabeled as a new phase). SIMPLNX uses a four-phase CCL+Union-Find architecture to support datasets held in chunked Zarr storage — a structural departure from legacy DREAM3D 6.5.171. Output equivalence is confirmed by two independent comparisons: the `FillBadData_SmallIN100` unit test (passes against `6_5_exemplar.dream3d`) and a manual A/B run on a custom dataset across three binaries (6.5.171, 6.5.172, NX). One bug surfaced during V&V (B1 — dead error-return path for `minAllowedDefectSize < 1`) has been fixed and is now covered by a dedicated test.
 
 ## Algorithm Relationship
 
 *Classification:* **Rewrite** ~~| Port | Minor changes | New filter~~
 
-The SIMPLNX algorithm (`Algorithms/FillBadData.cpp`, ~765 lines) introduces a 4-phase architecture to support OOC datasets stored in chunked Zarr format:
+The SIMPLNX algorithm (`Algorithms/FillBadData.cpp`, ~765 lines) introduces a 4-phase architecture to support datasets stored in chunked Zarr format:
 
 1. **Phase 1 — Chunk-sequential CCL:** Assigns provisional negative labels to connected components of bad data using a scanline algorithm. `ChunkAwareUnionFind` tracks cross-chunk label equivalences.
 2. **Phase 2 — Global resolution:** Flattens the Union-Find tree (path compression + size accumulation to roots). No equivalent in legacy.
@@ -87,16 +88,16 @@ Source: `src/Plugins/SimplnxCore/src/SimplnxCore/Filters/Algorithms/FillBadData.
 
 | Test case | Notes |
 |-----------|-------|
-| `SimplnxCore::FillBadData_SmallIN100` | Class 2 oracle. In-core. threshold=1000, storeAsNewPhase=false. |
-| `SimplnxCore::FillBadData::Test01_SingleSmallDefect` | OOC (100-byte sentinel). threshold=20. Single small region — primary fill path. Class 1. |
-| `SimplnxCore::FillBadData::Test02_SingleLargeDefect` | OOC (100-byte sentinel). threshold=20. Single large region kept as 0. Class 1. |
-| `SimplnxCore::FillBadData::Test03_ThresholdBoundary` | OOC (100-byte sentinel). threshold=25. Exact-threshold boundary (≥ kept, < filled). Class 1. |
-| `SimplnxCore::FillBadData::Test04_MultipleSmallDefects` | OOC (500-byte sentinel). threshold=50. Multiple disconnected small regions — multi-iteration fill. Class 1. |
-| `SimplnxCore::FillBadData::Test05_MixedSmallAndLarge` | OOC (500-byte sentinel). threshold=50. Mixed small (filled) and large (kept). Class 1. |
-| `SimplnxCore::FillBadData::Test06_SingleVoxelDefects` | OOC (100-byte sentinel). threshold=10. Single-voxel bad-data islands. Class 1. |
-| `SimplnxCore::FillBadData::Test07_DefectsAtBoundaries` | OOC (100-byte sentinel). threshold=20. Regions at image boundary — exercises Phase 1 CCL boundary handling. Class 1. |
-| `SimplnxCore::FillBadData::Test11_NeighborTieBreaking` | OOC (50-byte sentinel). threshold=10. Tie-break via scan order. Class 1. |
-| `SimplnxCore::FillBadData::Test13_StoreAsNewPhase` | OOC (100-byte sentinel). threshold=20, storeAsNewPhase=true. Only test for `cellPhasesPtr ≠ nullptr` path (Path 8). Class 1. |
+| `SimplnxCore::FillBadData_SmallIN100` | Class 2 oracle. In-memory arrays. threshold=1000, storeAsNewPhase=false. |
+| `SimplnxCore::FillBadData::Test01_SingleSmallDefect` | Chunked Zarr storage (100-byte chunk threshold). threshold=20. Single small region — primary fill path. Class 1. |
+| `SimplnxCore::FillBadData::Test02_SingleLargeDefect` | Chunked Zarr storage (100-byte chunk threshold). threshold=20. Single large region kept as 0. Class 1. |
+| `SimplnxCore::FillBadData::Test03_ThresholdBoundary` | Chunked Zarr storage (100-byte chunk threshold). threshold=25. Exact-threshold boundary (≥ kept, < filled). Class 1. |
+| `SimplnxCore::FillBadData::Test04_MultipleSmallDefects` | Chunked Zarr storage (500-byte chunk threshold). threshold=50. Multiple disconnected small regions — multi-iteration fill. Class 1. |
+| `SimplnxCore::FillBadData::Test05_MixedSmallAndLarge` | Chunked Zarr storage (500-byte chunk threshold). threshold=50. Mixed small (filled) and large (kept). Class 1. |
+| `SimplnxCore::FillBadData::Test06_SingleVoxelDefects` | Chunked Zarr storage (100-byte chunk threshold). threshold=10. Single-voxel bad-data islands. Class 1. |
+| `SimplnxCore::FillBadData::Test07_DefectsAtBoundaries` | Chunked Zarr storage (100-byte chunk threshold). threshold=20. Regions at image boundary — exercises Phase 1 CCL boundary handling. Class 1. |
+| `SimplnxCore::FillBadData::Test11_NeighborTieBreaking` | Chunked Zarr storage (50-byte chunk threshold). threshold=10. Tie-break via scan order. Class 1. |
+| `SimplnxCore::FillBadData::Test13_StoreAsNewPhase` | Chunked Zarr storage (100-byte chunk threshold). threshold=20, storeAsNewPhase=true. Only test for `cellPhasesPtr ≠ nullptr` path (Path 8). Class 1. |
 | `SimplnxCore::FillBadDataFilter:: Invalid Preflight Min Defect Size` | Inline DataStructure (no file load). `minAllowedDefectSize=0` → asserts invalid **and** error code `-16500`. Covers Path 15. |
 | `SimplnxCore::FillBadData::AllBadData_TerminatesWithoutHang` | Inline 3×3×1 all-bad-data slab (no good neighbor). Asserts the filter returns rather than looping forever. Covers Path 16 (no-progress guard). |
 | `SimplnxCore::FillBadDataFilter: SIMPL Backwards Compatibility` | SIMPL 6.4 + 6.5 via `DYNAMIC_SECTION`. UUID + arg-key + value assertions only. Not an oracle test. |

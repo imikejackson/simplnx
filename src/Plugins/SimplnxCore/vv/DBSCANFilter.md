@@ -6,9 +6,10 @@
 | SIMPLNX UUID               | `763dad44-fad7-4606-808f-617867257b98`                                                    |
 | SIMPLNX Human Name         | DBSCAN                                                                                    |
 | DREAM3D 6.5.172 equivalent | `DBSCAN` (SIMPL UUID `c2d4f1e8-2b04-5d82-b90f-2191e8f4262e`) — legacy UUID mapped in `SimplnxCoreLegacyUUIDMapping.hpp` |
-| Verified commit            | *<filled at SBIR deliverable assembly>*                                                   |
+| Verified commit            | `a307946e7` (v7.4.2 release)                                                   |
 | Status                     | COMPLETE                                 |
-| Sign-off                   | *Nathan Young, 8/7/2026*  second engineer: *Michael Jackson &lt;mike.jackson@bluequartz.net&gt;, 08-28-2026* |
+| Sign-off                   | Nathan Young — 2026-08-07                                              |
+| Second-engineer sign-off   | Michael Jackson &lt;mike.jackson@bluequartz.net&gt; — 2026-08-28 (approving reviewer, PR #1702) |
 
 ## At a glance
 
@@ -21,7 +22,7 @@
 | Exemplar archive       | **`dbscan_test.tar.gz` — promoted to regression fixtures (Phase 6/10).** Originally circular oracle; independently verified via Class 2 sklearn oracle (Phase 6). LDF arrays now pin verified-correct SIMPLNX output. See provenance sidecar. |
 | Legacy comparison      | **Complete (Phase 9, 2026-08-05).** DREAM3D 6.5.172 run via `dbscan_vv/phase9_ab_test.py`. Results in `dbscan_vv/phase9_comparison_results.json`. 4/6 datasets: exact three-way match (legacy = sklearn = SIMPLNX). 2 deviations (ansio, varied): legacy matches sklearn cluster count (6 and 11 respectively); SIMPLNX finds fewer clusters (3 for both) — confirms DBSCAN-D1. Minor implementation differences between legacy and sklearn for sparse datasets (±1–3 boundary points, same cluster count) are within tolerance and do not affect deviation classification. |
 | Bug flags              | ✅ Circular oracle resolved (Phase 6) — `dbscan_test.tar.gz` LDF arrays promoted to regression fixtures; Class 2 sklearn oracle confirms correctness. 2 expected GDCF deviations (ansio, varied) documented as DBSCAN-D1. **1 SIMPLNX bug found and fixed during V&V:** `ParseOrder::Random` fed the user-supplied seed to the shuffle instead of the documented time-based seed, making "Random" a silent duplicate of "Seeded Random" (see Phase 7). **1 robustness defect found and fixed:** an all-false mask left the grid bounds NaN and those NaNs were cast to `usize` while computing grid dimensions (undefined behavior). |
-| V&V phase              | Phases 1–13 complete. Pending second-engineer oracle sign-off before COMPLETE status.                                                                                                                                                                                      |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -70,7 +71,7 @@ Both implemented in `DBSCANTest.cpp`.
 
 *Encoded:* **Complete (Phase 8, 2026-08-05).** Class 4 invariants in `CheckClusterInvariants()` hooked into all 2D test helpers. Class 1 F1/F2 added as dedicated TEST_CASEs. 3D test lacks `CheckClusterInvariants` (no mask; AM tuple check present inline).
 
-*Second-engineer review:* *Pending — see Phase 4 and Phase 13.*
+*Second-engineer review:* **Complete — Michael Jackson <mike.jackson@bluequartz.net>, 2026-08-28** (approving reviewer of PR #1702; `CHANGES_REQUESTED` 2026-08-18, approved and merged 2026-08-28).
 
 ## Code path coverage
 
@@ -178,7 +179,7 @@ Direct per-point label comparison is NOT appropriate for the Class 2 oracle due 
 
 **Class 1 for error paths**: A tiny hand-derived fixture (≤ 5 points, 2D) is still needed to verify the no-clusters warning path (path #5 in the code path table) and the mask-exclusion path (path #4), because sklearn's DBSCAN cannot exercise those SIMPLNX-specific behaviors.
 
-**Second-engineer review**: *Pending — record name + date here when completed.*
+**Second-engineer review**: **Michael Jackson <mike.jackson@bluequartz.net> — 2026-08-28** (approving reviewer of PR #1702).
 
 ---
 
@@ -436,8 +437,6 @@ No SBIR submission packaging required at this stage. Artifacts are on-disk in th
 
 ## Phase 13 — Update tracking artifacts
 
-**Status: Complete (2026-08-05).**
+**Status: COMPLETE.**
 
-All phases (1–12) complete. Status line is currently `IN-REVIEW` (updated by Nathan Young, 8/7/2026). Final status to be updated to `COMPLETE` after second-engineer oracle review and sign-off.
-
-**Open item before COMPLETE**: Second-engineer oracle review (Phase 4 — skipped, see provenance sidecar). Once a second engineer reviews the oracle design and signs off, update the Status line to `COMPLETE` and fill in the Sign-off field in the document header.
+All phases (1–12) complete. Signed off by Nathan Young (2026-08-07) and second engineer Michael Jackson (2026-08-28).

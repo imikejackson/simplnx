@@ -5,9 +5,10 @@
 | Plugin    | SimplnxCore      |
 | SIMPLNX UUID | `da5bb20e-4a8e-49d9-9434-fbab7bc434fc` |
 | DREAM3D 6.5.171 equivalent | `FindFeaturePhases` (SIMPL UUID `6334ce16-cea5-5643-83b5-9573805873fa`) |
-| Verified commit | *pending* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE |
-| Sign-off | Nathan Young - 7/15/2026 |
+| Sign-off | Nathan Young — 2026-07-15 |
+| Second-engineer sign-off | Michael Jackson &lt;mike.jackson@bluequartz.net&gt; — 2026-08-12 (approving reviewer, PR #1672) |
 
 ## At a glance
 
@@ -17,7 +18,7 @@
 | Oracle | **Class 1 + 4 (Analytical + Invariant)** — encoded. 10 inline TEST_CASEs cover all paths except cancel-signal injection. |
 | Tests | 10 inline TEST_CASEs (Cases 1–10). `SIMPL Backwards Compatibility` retained. Old `(Valid Parameters)` circular-oracle test **retired**. |
 | Legacy comparison | **Complete** (2026-07-10, 3 cases). `featurePhases[1..N]` bit-identical. D1 confirmed by Case C. See `vv/deviations/`. |
-| Open items | (Non-blocking) Second Engineer Review |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 

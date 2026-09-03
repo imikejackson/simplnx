@@ -6,9 +6,10 @@
 | SIMPLNX UUID                | `4c8c976a-993d-438b-bd8e-99f71114b9a1`          |
 | SIMPLNX Human Name          | Create Element Array from Feature Array         |
 | DREAM3D 6.5.171 equivalent  | `CopyFeatureArrayToElementArray` (SIMPLib CoreFilters) — SIMPL UUID `99836b75-144b-5126-b261-b411133b5e8a` |
-| Verified commit             | *<filled at SBIR deliverable assembly>*         |
+| Verified commit             | `a307946e7` (v7.4.2 release)         |
 | Status                      | COMPLETE |
-| Sign-off                    | Michael A. Jackson <mike.jackson@bluequartz.net> (V&V author). Second engineer: Nathan Young, 2026-07-28 (PR #1689 review). |
+| Sign-off | Michael A. Jackson <mike.jackson@bluequartz.net> (V&V author) |
+| Second-engineer sign-off | Nathan Young — 2026-07-28 (approving reviewer, PR #1689) |
 
 ## At a glance
 
@@ -16,12 +17,12 @@
 |------------------------|--------------------------|
 | Algorithm Relationship | **Minor changes** — same indirection-copy kernel as SIMPL `CopyFeatureArrayToElementArray`; NX deliberately adds multi-array selection, suffix-based output naming, TBB parallelization, and different feature-count validation semantics. |
 | Oracle (confirmed)    | **Class 1 (Analytical)** — pure indirection lookup `out[i*C+c] = feature[featureIds[i]*C+c]`; hand-derived expected values on a 4×3×1 fixture (float32/1-comp, int32/3-comp, bool). **Class 4 (Invariant)** companion — piecewise constancy within each feature. Encoded as `CopyFeatureArrayToElementArrayTest.cpp::"Analytical Oracle (Class 1)"`; all pass. |
-| Code paths enumerated | 13 of 14 exercised; the uncovered path is the cancel check (excluded by engineer instruction — requires cancel-signal injection). Path 14 (virtual-store kernel fallback) is only partially covered pending the OOC-backend gap noted in *Tests today*. |
-| Tests today           | 21 ctest entries (12 test cases, one a 10-type `TEMPLATE_LIST`): 1 analytical-oracle, 7 error/negative, 1 degenerate no-op, 1 deviation-pin, 10 type-dispatch instantiations, 1 SIMPL backwards-compat (2 `DYNAMIC_SECTION`s). All pass in both `simplnx-Rel` and `simplnx-ooc-Rel`, 2026-07-23. **OOC caveat:** the `simplnx-ooc-Rel` build sets `SIMPLNX_FORCE_OUT_OF_CORE_DATA=ON` but registers no OOC backend (`SIMPLNX_EXTRA_PLUGINS=FileStore` with an empty `SIMPLNX_FileStore_SOURCE_DIR`), so `useOocData()` is false and those runs execute in-core; that pass certifies compile + run under the OOC configuration, **not** OOC data-path behavior. Applies to every filter tested from this build dir. |
+| Code paths enumerated | 13 of 14 exercised; the uncovered path is the cancel check (excluded by engineer instruction — requires cancel-signal injection). Path 14 (virtual-store kernel fallback) is only partially covered — see the note in the code-path table. |
+| Tests today           | 21 ctest entries (12 test cases, one a 10-type `TEMPLATE_LIST`): 1 analytical-oracle, 7 error/negative, 1 degenerate no-op, 1 deviation-pin, 10 type-dispatch instantiations, 1 SIMPL backwards-compat (2 `DYNAMIC_SECTION`s). All pass in `simplnx-Rel`, 2026-07-23. |
 | Exemplar archive      | None — all fixtures are in-memory `AnalyticalFixtures` built in test code; no `download_test_data()` archive required. |
 | Legacy comparison     | **Run 2026-07-23** (re-run after the kernel fast-path change). Bit-identical numeric output on the main fixture (float32, int32×3, bool). 3 deviations, all naming/validation semantics: D1 (output naming for converted pipelines), D2 (over-provisioned feature array accepted in NX, error -5555 in legacy), D3 (negative ids: silent out-of-bounds garbage in legacy, hard error -5355 in NX). |
 | Bug flags             | `CopyFeatureArrayToElementArrayFilter-D3` — legacy 6.5.171 silently produces undefined values for negative feature ids (unchecked out-of-bounds read). SIMPLNX behavior is correct. |
-| V&V phase             | Discovery, algorithm relationship, oracle design + reconciliation, algorithm review (fixes applied and re-verified), unit tests, legacy comparison, deviations, documentation — **complete**. Second-engineer review of the oracle design and this report **signed off by Nathan Young, 2026-07-28** (PR #1689). The OOC-build backend gap noted in *Tests today* needs a build-infrastructure decision and is tracked outside this report. |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -39,7 +40,7 @@
 2. **Output naming** — legacy takes an explicit created-array *name*; NX builds the name as `<sourceArrayName><suffix>`. Same numeric output, different output DataPath for converted pipelines (see Deviations D1).
 3. **Feature-count validation relaxed** — legacy `execute()` errors (-5555) BOTH when `maxFeatureId >= numFeatures` AND when the feature array is over-provisioned (`maxFeatureId != numFeatures-1`). NX (`ValidateFeatureIdsToFeatureAttributeMatrixIndexing`, `ignoreNegativeValues=false`) errors only when `maxFeatureId >= numFeatures` (-5351); an over-sized feature array is accepted (see Deviations D2).
 4. **Negative feature ids** — legacy performs an unchecked negative index into the feature array (undefined behavior / garbage read); NX errors with -5355 (see Deviations D3).
-5. **Parallelization and kernel form** — legacy is a serial per-tuple `memcpy`; NX runs `ParallelDataAlgorithm` over cell tuples with two kernel forms: a raw-pointer `std::copy_n` path taken when all three stores are concrete in-core `DataStore<T>` (each thread writes a disjoint index range of a plain buffer), and a virtual `AbstractDataStore` per-component fallback for any other store type — including out-of-core, where `IParallelAlgorithm`/`requireArraysInMemory()` runs the range serially. Writes are element-wise independent with no accumulation, so neither form has an order-of-operations effect on output.
+5. **Parallelization and kernel form** — legacy is a serial per-tuple `memcpy`; NX runs `ParallelDataAlgorithm` over cell tuples with two kernel forms: a raw-pointer `std::copy_n` path taken when all three stores are concrete in-memory `DataStore<T>` (each thread writes a disjoint index range of a plain buffer), and a virtual `AbstractDataStore` per-component fallback for any other store type, where `IParallelAlgorithm`/`requireArraysInMemory()` runs the range serially. Writes are element-wise independent with no accumulation, so neither form has an order-of-operations effect on output.
 6. **Type dispatch** — legacy if/else `CanDynamicCast` chain over 11 types (bool + 8 int + 2 float); NX `ExecuteParallelFunction` with `ArrayUseAllTypes` over the same 11 types. No behavioral difference.
 7. **Tuple-count precheck (new in NX)** — preflight requires all selected feature arrays to share a tuple count (error -3020). Legacy has no equivalent because it only ever operates on one array.
 
@@ -83,7 +84,7 @@ Logical phases: (a) parameter/preflight validation + output-array creation, (b) 
 | 11 | (b) Execute   | cancel check (per-array loop + inside both kernel paths)                                  | *Not directly tested. Excluded by engineer instruction — requires cancel-signal injection.* |
 | 12 | (c) Kernel    | 11-way type dispatch (bool + 8 int + 2 float)                                             | TEMPLATE_LIST `Valid filter execution` (10 numeric); `Analytical Oracle (Class 1)` (bool, float32, int32) |
 | 13 | (c) Kernel    | raw-pointer fast path (all three stores are in-core `DataStore<T>`) + multi-component copy (`C > 1`) | `Analytical Oracle (Class 1)` (in-core build) — RGB 3-comp; all in-core tests take this path |
-| 14 | (c) Kernel    | virtual `AbstractDataStore` fallback (non-`DataStore<T>` stores, e.g. out-of-core)        | *Partially covered.* The fallback is the same per-component indirection copy as the fast path and is compiled and instantiated by every test, but no test currently supplies a non-`DataStore<T>` store — that requires a build with an OOC backend registered (see the OOC caveat in At a glance). |
+| 14 | (c) Kernel    | virtual `AbstractDataStore` fallback (non-`DataStore<T>` stores)        | *Partially covered.* The fallback is the same per-component indirection copy as the fast path and is compiled and instantiated by every test, but no test currently supplies a non-`DataStore<T>` store. |
 
 ## Test inventory
 
@@ -103,7 +104,7 @@ Logical phases: (a) parameter/preflight validation + output-array creation, (b) 
 | `SIMPL Backwards Compatibility` (2 DYNAMIC_SECTIONs) | kept (modified) | UUID + argument conversion round-trip for 6.4 and 6.5 fixtures; now also asserts the converted multi-path selection value (was previously unasserted). |
 | `Parameter Check` | retired | Its empty-selection assertion supplied an empty FeatureIds path, which failed *parameter* validation before `preflightImpl()` ran, so the filter's own empty-selection guard was never reached. Replaced by `Preflight Error - Empty selection (filter guard)`. |
 
-All 21 ctest entries pass in both `simplnx-Rel` (in-core) and `simplnx-ooc-Rel` builds, 2026-07-23. Per the OOC caveat in *At a glance → Tests today*, the `simplnx-ooc-Rel` pass certifies compile + run under the OOC configuration, not OOC data-path behavior.
+All 21 ctest entries pass in `simplnx-Rel`, 2026-07-23.
 
 ## Exemplar archive
 

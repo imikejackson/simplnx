@@ -6,9 +6,10 @@
 | SIMPLNX UUID | `5b062816-79ac-47ce-93cb-e7966896bcbd` |
 | SIMPLNX Human Name | Read EDAX EBSD Data (.ang) |
 | DREAM3D 6.5.171 equivalent | `ReadAngData` (SIMPL UUID `b8e128a8-c2a3-5e6c-a7ad-e4fb864e5d40`) — `Source/Plugins/OrientationAnalysis/OrientationAnalysisFilters/ReadAngData.{h,cpp}` |
-| Verified commit | *<filled at SBIR deliverable assembly>* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE |
 | Sign-off | Michael Jackson <mike.jackson@bluequartz.net> — 2026-07-07 |
+| Second-engineer sign-off | Jared Duffey — 2026-07-23 (approving reviewer, PR #1657) |
 
 ## At a glance
 
@@ -21,7 +22,7 @@
 | Exemplar archive       | **None — retired `read_ang_test.tar.gz`** (circular oracle: the exemplar `.dream3d` was generated from this filter's own output). `download_test_data()` entry removed from `test/CMakeLists.txt`; retirement documented in `vv/provenance/read_ang_test.md`. |
 | Legacy comparison      | **Run (2026-07-07) vs the official DREAM3D 6.5.171 release.** Three fixtures: hand-authored toy, Small IN100 `Slice_1.ang` (189×201 production scan), non-contiguous-phase toy. On the two supported-format fixtures **all numeric outputs are bit-identical** (cell arrays, ensemble arrays, geometry). Differences: MaterialName trailing space (D1) and the non-contiguous-phase fixture, where **6.5.171 segfaults** (D3). |
 | Bug flags              | One **legacy** bug, empirically confirmed: `ReadAngDataFilter-D3` (6.5.171 out-of-bounds ensemble write → SIGSEGV on non-contiguous phase indices; SIMPLNX resolved and pinned by test). **No SIMPLNX bugs** — the same latent OOB existed in the NX port and was found by the algorithm review and fixed before the comparison. |
-| V&V phase              | Discovery, oracle, reconciliation, algorithm review (fixes applied), tests, legacy comparison, deviations, provenance, docs — **complete**. In-core build/tests pass (`simplnx-rel`); OOC build skipped (no OOC build configured in this workspace, per maintainer precedent). Outstanding: sign-off. |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -65,7 +66,7 @@ A hand-authored toy `.ang` (3 cols × 2 rows, XSTEP 0.25 / YSTEP 0.5, Cubic Nick
 
 All 7 pass in the in-core `simplnx-rel` build. Reconciliation found zero SIMPLNX-vs-oracle discrepancies.
 
-*Second-engineer review:* skipped — documented reason: the filter's value-add is pure data plumbing with no numerical algorithm content; every oracle value is mechanically derivable from the fixture text (grid math, verbatim copies, a documented enum mapping), leaving no design freedom for the author-bias failure mode the review guards against. See `vv/provenance/read_ang_test.md`.
+*Second-engineer review:* **Jared Duffey — 2026-07-23** (approving reviewer of PR #1657; the PR reviewer is the second engineer under project policy). A *dedicated* oracle-design review was recorded at the time as unnecessary, for the reason kept here: the filter's value-add is pure data plumbing with no numerical algorithm content; every oracle value is mechanically derivable from the fixture text (grid math, verbatim copies, a documented enum mapping), leaving no design freedom for the author-bias failure mode the review guards against. See `vv/provenance/read_ang_test.md`.
 
 ## Algorithm review
 

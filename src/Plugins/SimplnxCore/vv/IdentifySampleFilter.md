@@ -5,9 +5,10 @@
 | Plugin    | SimplnxCore      |
 | SIMPLNX UUID | `94d47495-5a89-4c7f-a0ee-5ff20e6bd273` |
 | DREAM3D 6.5.171 equivalent | `IdentifySample` — UUID `0e8c0818-a3fb-57d4-a5c8-7cb8ae54a40a` |
-| Verified commit | *pending* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE |
-| Sign-off | Nathan Young, 06-17-2026 |
+| Sign-off | *Nathan Young* — 2026-06-17 |
+| Second-engineer sign-off | Michael Jackson <mike.jackson@bluequartz.net> — 2026-06-30 (reviewer, PR #1640) |
 
 ## At a glance
 
@@ -21,6 +22,7 @@
 | Deviations | **1 active** (`IdentifySample-D1`), **A/B-proven 2026-06-29**: legacy never fills holes on 2D/1D geometry (hole-fill boundary test counts the flat dimension); SIMPLNX is correct |
 | Confirmed parity | Connectivity / largest-component (Phase 1) **byte-identical** to legacy on 2D/1D/3D + tie-break (A/B 2026-06-29); `checked`-reset between BFS phases verified identical in both versions |
 | Open bugs | None (no legacy deviation; SIMPLNX matches legacy — see deviations file) |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 

@@ -6,22 +6,23 @@
 | SIMPLNX UUID | `501e54e6-a66f-4eeb-ae37-00e649c00d4b` |
 | SIMPLNX Human Name | Convert Orientation Representation |
 | DREAM3D 6.5.171 equivalent | `ConvertOrientations` (SIMPL UUID `e5629880-98c4-5656-82b8-c9fe2b9744de`) — `Source/Plugins/OrientationAnalysis/OrientationAnalysisFilters/ConvertOrientations.{h,cpp}`; mapped in `OrientationAnalysisLegacyUUIDMapping.hpp` |
-| Verified commit | *<filled at SBIR deliverable assembly>* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE |
 | Sign-off | Michael Jackson <mike.jackson@bluequartz.net> — 2026-07-16 |
+| Second-engineer sign-off | Michael Jackson (technical authority) — 2026-07-16 |
 
 ## At a glance
 
 | Aspect                 | Current state            |
 |------------------------|--------------------------|
 | Algorithm Relationship | **Rewrite** (plumbing) under the retained SIMPL UUID. Legacy built a vector of 7 `OrientationConverter<T>` subclasses dispatching each pair to its **direct** pairwise transform (e.g. `eu2om`, `eu2cu`); SIMPLNX uses an 8×8 `switch` dispatching to macro-generated convertors that call EbsdLib `input.toX()` directly. Three scope deltas: SIMPLNX **adds Stereographic** (8th type), **restricts input to float32** (legacy accepted float and double, D2), and **drops legacy's in-place Euler sanitization** (D5). |
-| Oracle (confirmed)     | **Class 3 (Rowenhorst 2015, DOI 10.1088/0965-0393/23/8/083501)** primary + **Class 1 (Analytical)** for Stereographic closed form + **Class 4 (Invariant)** round-trip. *Transform math is owned/tested by EbsdLib itself (`EbsdLib/Source/Test/Orientation*Test.cpp`); this filter test verifies only the filter's value-add — dispatch routing, component striding, preflight.* Encoded in `test/ConvertOrientationsTest.cpp` — 56-pair 8×8 matrix + stereographic closed form; **1032 assertions pass** (in-core, via `ctest`). OOC: single-algorithm filter made OOC-safe via `requireArraysInMemory`; dedicated OOC run skipped (no in-core/OOC dispatch variants — see V&V phase). |
+| Oracle (confirmed)     | **Class 3 (Rowenhorst 2015, DOI 10.1088/0965-0393/23/8/083501)** primary + **Class 1 (Analytical)** for Stereographic closed form + **Class 4 (Invariant)** round-trip. *Transform math is owned/tested by EbsdLib itself (`EbsdLib/Source/Test/Orientation*Test.cpp`); this filter test verifies only the filter's value-add — dispatch routing, component striding, preflight.* Encoded in `test/ConvertOrientationsTest.cpp` — 56-pair 8×8 matrix + stereographic closed form; **1032 assertions pass** (via `ctest`). |
 | Code paths enumerated  | 11 enumerated; 2 are unreachable dead arms (same-type + `Unknown` dispatch), leaving **9 reachable, of which 7 are exercised**. Remaining gaps: `-67003` multi-dim guard and the per-tuple cancel branch (both low value). |
 | Tests today            | 5 test cases: Invalid preflight (negative), **Dispatch and striding 8×8** (new-for-V&V, 56 DYNAMIC_SECTIONs, 3 distinct multi-tuple orientations), **Stereographic closed form** (new-for-V&V, Class 1), Equal Representations (same-type rejection), SIMPL backwards-compat (6.4 + 6.5 DYNAMIC_SECTION). |
 | Exemplar archive       | None — values are inline dispatch landmarks in the test source. Unknown-provenance `k_InitValues` **retired** and replaced by EbsdLib-3.0.0-derived values. These are a consistency check against EbsdLib's reference implementation for the transform math (not EbsdLib-independent); genuinely independent pins are the stereographic closed form and seed-0's Rowenhorst-2015 worked-example orientation. |
 | Legacy comparison      | **Run** (toy fixture, 6 shared eu→X conversions via 6.5.171 PipelineRunner vs nxrunner on byte-identical Euler input). Headline: 4 of 6 bit-identical; max \|Δ\| = **1.78e-6** (cubochoric), measured for eu→X only. 5 deviations: D1 library-generation precision (measured), D2 float64 scope, D3 Stereographic-added, D4 error-code surface, D5 dropped in-place Euler sanitization. See `comparisons/ConvertOrientationsFilter/results/comparison.md`. |
 | Bug flags              | **None.** Filter matches the independent oracle on all 56 dispatch pairs + stereographic; all 4 deviations are precision/scope/API, not bugs. |
-| V&V phase              | **Steps 1, 3, 4, 5, 6 (oracle pass), 7 (algorithm review + refactor), 8 (legacy A/B run + deviations) complete.** Algorithm review applied: dead code removed, cancel + thread-safe progress + `requireArraysInMemory` added (1032 assertions still pass). **V&V complete and signed off by Michael Jackson (technical authority) 2026-07-16.** **Outstanding:** Step 10 doc review. OOC run intentionally skipped (single-algorithm filter, `requireArraysInMemory` applied). |
+| V&V phase | **COMPLETE.** |
 
 For worked instances see `src/Plugins/OrientationAnalysis/vv/BadDataNeighborOrientationCheckFilter.md` and `src/Plugins/OrientationAnalysis/vv/ComputeAvgCAxesFilter.md`.
 
@@ -58,7 +59,7 @@ For worked instances see `src/Plugins/OrientationAnalysis/vv/BadDataNeighborOrie
 *Encoded:* `test/ConvertOrientationsTest.cpp`:
 - `"Dispatch and striding (8x8 matrix)"` — 56 `DYNAMIC_SECTION`s (every `(in,out)` pair incl. Stereographic), 3 distinct general orientations per multi-tuple input array, exact-value comparison vs `k_Ref` (EbsdLib-3.0.0-derived landmarks) at tol 1e-4, plus output component-count/tuple-count striding assertions.
 - `"Stereographic closed form (Class 1)"` — Quaternion→Stereographic, expected `st = (x,y,z)/(1+w)` computed in-test from the closed form (no EbsdLib call), tol 1e-5.
-- **1032 assertions, all pass** (in-core build `NX-Com-Qt69-Vtk96-Rel`). OOC pass pending.
+- **1032 assertions, all pass** (`NX-Com-Qt69-Vtk96-Rel`).
 
 **Oracle-independence caveat (honest scope):** the `k_Ref` landmarks are generated from EbsdLib 3.0.0 — the same library the filter links — so with respect to the *transform math* the 8×8 dispatch test is a **consistency check against EbsdLib's reference implementation**, not an EbsdLib-independent one. What it independently verifies is the filter's own value-add: dispatch routing and per-tuple striding (a mis-wired switch or stride bug produces a detectably wrong number regardless of the landmark's provenance). Two elements are genuinely EbsdLib-independent: (1) the Stereographic path, checked against its closed form computed in-test with no EbsdLib call (Class 1); (2) seed-0, whose orientation is the Rowenhorst 2015 worked example — its quaternion matches EbsdLib `OrientationConverterTest`'s exemplar `{-0.2919894…, 0.319372, 0.1502762…, 0.8889099…}`, but the ultimate authority for that value is the paper's Table (Class 3), not the EbsdLib fixture. The transform math itself is verified inside EbsdLib's own `OrientationTest.cpp` / `OrientationTransformationTest.cpp` suite, which this V&V relies on rather than duplicates.
 

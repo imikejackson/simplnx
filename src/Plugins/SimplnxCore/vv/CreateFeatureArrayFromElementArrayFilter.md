@@ -6,9 +6,10 @@
 | SIMPLNX Human Name | Create Feature Array from Element Array |
 | SIMPLNX UUID | `50e1be47-b027-4f40-8f70-1283682ee3e7` |
 | DREAM3D 6.5.171 equivalent | `CreateFeatureArrayFromElementArray` (SIMPL UUID `94438019-21bb-5b61-a7c3-66974b9a34dc`) |
-| Verified commit | *<filled at SBIR deliverable assembly>* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE |
-| Sign-off | *Nathan Young, 07-28-2026* — second engineer: *Michael Jackson &lt;mike.jackson@bluequartz.net&gt;, 08-07-2026* |
+| Sign-off | Nathan Young — 2026-07-28 |
+| Second-engineer sign-off | Michael Jackson &lt;mike.jackson@bluequartz.net&gt; — 2026-08-07 |
 
 ## At a glance
 
@@ -21,7 +22,7 @@
 | Exemplar archive | `6_5_test_data_1_v2.tar.gz` (SHA512 `585b51b…`) — shared input archive. Pre-existing `CellFeatureData` arrays within the dream3d are legacy-generated; serve only as regression baselines. No oracle-specific archive needed for Class 1 (oracle is inline assertions). |
 | Legacy comparison | **Complete (2026-07-23) — one deviation identified, no migration impact.** Empirical A/B comparison on synthetic 8×1×1 fixtures: bit-identical. Static source analysis identified D1 (AM under-sized: SIMPL errors -5555; SIMPLNX resizes and succeeds). D1 is unreachable from any SIMPL pipeline that ran successfully, so output is bit-identical for the entire valid SIMPL migration space. See `vv/deviations/CreateFeatureArrayFromElementArrayFilter.md`. |
 | Bug flags | **Three defects resolved:** (1) UB on empty featureIds: `std::minmax_element` on empty range is UB; fixed by empty-array guard → error -81882. (2) UB on negative featureIds: old `maxValue < 0` guard missed mixed-sign inputs; negative featureIdx in copy loop converts to `usize(UINT64_MAX)` → OOB write; fixed by `minValue < 0` guard → error -81880. (3) Unchecked tuple-count precondition: cell array and featureIds tuple counts were never compared; OOB featureIds access when counts differ; fixed by preflight check → error -81883. |
-| V&V phase | **Complete.** Oracle designed (Class 1 + Class 4) and implemented; code-path analysis complete; Algorithm Relationship classified (Port); AnalyticalFixtures tests implemented (AF-1 through AF-9); legacy A/B comparison run (2026-07-23, bit-identical on full valid SIMPL migration space); one deviation (D1, SIMPLNX improvement) identified and documented. |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -106,7 +107,7 @@ Expected output (uint8, 3 tuples): `[[0,0,0], [10,20,30], [40,50,60]]`. Expected
 
 *Encoded:* Implemented — `AnalyticalFixtures` TEST_CASEs in `test/CreateFeatureArrayFromElementArrayTest.cpp` (AF-1 through AF-9). `getNumberOfTuples`, `getDataType`, `getNumberOfComponents` asserted in the Validation block of AF-1/AF-2/AF-3/AF-6; `warnings().size()` asserted in the Execution block immediately after `filter.execute()`; execute error code invariants asserted in AF-4, AF-5, AF-7, and AF-8; preflight error code invariant asserted in AF-9.
 
-*Second-engineer review:* **Michael Jackson &lt;mike.jackson@bluequartz.net&gt;, 08-07-2026** — reviewed at PR #1695. Scope: the Class 1 hand derivations for AF-1/AF-2/AF-3/AF-6 against the closed form `output[featureId * C + comp] = input[cellIdx * C + comp]` (last-writer) at lines 25–56 of `Algorithms/CreateFeatureArrayFromElementArray.cpp`; the Class 4 invariant set; and the error-code mapping for AF-4/AF-5/AF-7/AF-8/AF-9 against the guards in the algorithm (-81880 `minValue < 0`, -81881 shrink protection, -81882 empty featureIds) and in `preflightImpl` (-81883 tuple-count mismatch). No oracle-design defects found; the derivations are independent of the SIMPLNX implementation and the fixture set covers the consistent, inconsistent, multi-component, resize-gap, and every error boundary.
+*Second-engineer review:* **Michael Jackson &lt;mike.jackson@bluequartz.net&gt;, 2026-08-07** — reviewed at PR #1695. Scope: the Class 1 hand derivations for AF-1/AF-2/AF-3/AF-6 against the closed form `output[featureId * C + comp] = input[cellIdx * C + comp]` (last-writer) at lines 25–56 of `Algorithms/CreateFeatureArrayFromElementArray.cpp`; the Class 4 invariant set; and the error-code mapping for AF-4/AF-5/AF-7/AF-8/AF-9 against the guards in the algorithm (-81880 `minValue < 0`, -81881 shrink protection, -81882 empty featureIds) and in `preflightImpl` (-81883 tuple-count mismatch). No oracle-design defects found; the derivations are independent of the SIMPLNX implementation and the fixture set covers the consistent, inconsistent, multi-component, resize-gap, and every error boundary.
 
 ## Code path coverage
 

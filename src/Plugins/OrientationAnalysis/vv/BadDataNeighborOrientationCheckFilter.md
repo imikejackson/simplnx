@@ -6,9 +6,10 @@
 | SIMPLNX UUID               | `3f342977-aea1-49e1-a9c2-f73760eba0d3`    |
 | SIMPLNX Human Name         | Neighbor Orientation Comparison (Bad Data)|
 | DREAM3D 6.5.171 equivalent | `BadDataNeighborOrientationCheck` — `Source/Plugins/OrientationAnalysis/OrientationAnalysisFilters/BadDataNeighborOrientationCheck.{h,cpp}`   |
-| Verified commit            | *<filled at SBIR deliverable assembly>*   |
+| Verified commit            | `a307946e7` (v7.4.2 release)   |
 | Status | COMPLETE     |
 | Sign-off  | *Nathan Young (algorithm rewrite + initial dataset, PR #1499, 2026-02-02) — Michael Jackson <mike.jackson@bluequartz.net> (V&V cycle completion, 2026-06-01)*  |
+| Second-engineer sign-off | Nathan Young — 2026-06-11 (approving reviewer, PR #1631) |
 
 ## At a glance
 
@@ -21,7 +22,7 @@
 | Exemplar archive       | `7_bad_data_neighbor_orientation_check.tar.gz` — **INPUT** `.dream3d` files only (one per case). Expected outputs are inline `expectedMask` literals in the test source. Class 1 oracle source-of-truth (`test_design.md`) bundled in the local archive copy.    |
 | Legacy comparison      | **Run** against DREAM3D 6.5.171 on all 27 algorithmic fixtures. 12 of 27 bit-identical; 15 of 27 differ with 288 mask bytes total, 100% direction 1→0 (SIMPLNX flips correctly, 6.5.171 misses). All observed diffs trace to D1.|
 | Bug flags              | Two legacy defects, both fixed in the SIMPLNX rewrite and documented as deviations: **D1** (convergence-loop bound off-by-one, observable in 15 of 27 fixtures) and **D2** (stale-`w` variable across mixed-phase neighbors, latent but code-evident).            |
-| V&V phase              | **All V&V work complete per V2 policy.** Class 1 + Class 4 oracle confirmed against 31-test suite; SIMPLNX float-π precision fix verified; legacy A/B comparison against DREAM3D 6.5.171 anchored to D1 + D2 + 3 non-deviations; provenance sidecar + user-facing doc review applied. Three source-tree deliverables (this report + `vv/deviations/...` + `vv/provenance/...`) are in place. **V&V complete and signed off by Michael Jackson (technical authority), 2026-06-01.**         |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -91,7 +92,7 @@ A third invariant (**Idempotence**: running the filter on its own output produce
 
 ### Second-engineer review
 
-- MAJ reviewed all topics and agrees with their assesment. 
+- **Nathan Young — 2026-06-11** (approving reviewer of PR #1631). Michael Jackson also reviewed all topics and agrees with their assessment. 
 - *The Class 1 hand-derivations in `test_design.md` for plausibility (the 27 cases are small enough to walk through in ~1 hour).*
 - *The Class 4 invariant set for completeness — are there other properties this algorithm must satisfy?*
 - *The Phase 9 deviation narrative (D1 loop bound + D2 stale `w`) and the determination that the EbsdLib 2.4.1 CubicOps precision improvement is non-observable in this filter's test data.*
@@ -127,7 +128,7 @@ The algorithm has two passes: (a) initial face-neighbor count over all voxels, a
 | `OrientationAnalysis::BadDataNeighborOrientationCheckFilter: 2D Image Fixture (3x3x1)`  | new-for-V&V | Added 2026-05-29. Inline-constructed 3×3×1 image; exercises PR #1590's 2D-aware `computeValidFaceNeighbors`. Does not consume the exemplar archive.       |
 | `OrientationAnalysis::BadDataNeighborOrientationCheckFilter: SIMPL Backwards Compatibility`              | retained    | Added by PR #1588. `DYNAMIC_SECTION` over SIMPL 6.4 + 6.5 conversion fixtures (`test/simpl_conversion/6_*/BadDataNeighborOrientationCheckFilter.json`); validates UUID + argument-key + parameter-value decoding.            |
 
-All 31 TEST_CASEs (49 ctest entries) pass at the verified commit. Dual-build (in-core + OOC) verification deferred — this filter does not have an OOC algorithm variant (direct `Float32Array` / `UInt8Array` access; no `IDataStore` out-of-core path).
+All 31 TEST_CASEs (49 ctest entries) pass at the verified commit.
 
 ## Exemplar archive
 

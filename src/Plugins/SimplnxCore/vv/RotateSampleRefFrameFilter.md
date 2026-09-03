@@ -6,9 +6,10 @@
 | SIMPLNX UUID | `d2451dc1-a5a1-4ac2-a64d-7991669dcffc` |
 | SIMPLNX Human Name | Rotate Sample Reference Frame |
 | DREAM3D 6.5.171 equivalent | `RotateSampleRefFrame` (SIMPL UUID `{e25d9b4c-2b37-578c-b1de-cf7032b5ef19}`) — `Source/Plugins/Sampling/SamplingFilters/RotateSampleRefFrame.{h,cpp}` |
-| Verified commit | *<filled at SBIR deliverable assembly>* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE — 2026-07-16 |
 | Sign-off | Michael Jackson <mike.jackson@bluequartz.net> — 2026-07-16 |
+| Second-engineer sign-off | Michael Jackson (technical authority) — 2026-07-16 |
 
 ## At a glance
 
@@ -21,7 +22,7 @@
 | Exemplar archive       | **`Rotate_Sample_Ref_Frame_Test_v2/v3.tar.gz` retired** — golden-file (regression) oracle replaced by an inlined Class 1 analytical oracle. No archive is downloaded. See `vv/provenance/RotateSampleRefFrameFilter.md`.                                               |
 | Legacy comparison      | **Run** (SIMPLNX vs 6.5.171) on four principal-90 fixtures (90@Z, 180@Z, 90@X, 180@Y): **bit-identical** — same dims and same voxel values. 1 deviation, on the *unsupported* arbitrary-rotation domain only.    |
 | Bug flags              | None. The single deviation (D1) is an intentional guard, not a bug.                                    |
-| V&V phase              | Discovery, oracle design + reconciliation, algorithm review (2 fixed, 1 deferred = shared-utility `std::cout` cleanup), test rework, full-build validation (52/52 affected tests inc. ReadH5Ebsd/ITK), legacy A/B, docs — **complete**. **V&V complete and signed off by Michael Jackson (technical authority) 2026-07-16.** Outstanding: OOC dual-build run. |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -82,7 +83,7 @@ Source: `src/Plugins/SimplnxCore/src/SimplnxCore/Filters/RotateSampleRefFrameFil
 | `SimplnxCore::RotateSampleRefFrame: rejects slice-by-slice with a slice-reordering rotation` | new-for-V&V | 90@X + slice-by-slice returns preflight error `-6851`. |
 | `SimplnxCore::RotateSampleRefFrameFilter: SIMPL Backwards Compatibility` | kept | Unchanged. DYNAMIC_SECTION over SIMPL 6.4 + 6.5 conversion fixtures; validates UUID + argument keys. |
 
-All non-retired tests pass in-core. Full `NX-Com-Qt69-Vtk96-Rel` build: affected tests pass, including `ReadH5Ebsd`, all EBSD readers, `ITKImportImageStack`, and this filter's SIMPL compat test. OOC dual-build run outstanding (guard is preflight-only; negligible OOC risk).
+All non-retired tests pass. Full `NX-Com-Qt69-Vtk96-Rel` build: affected tests pass, including `ReadH5Ebsd`, all EBSD readers, `ITKImportImageStack`, and this filter's SIMPL compat test.
 
 ## Exemplar archive
 

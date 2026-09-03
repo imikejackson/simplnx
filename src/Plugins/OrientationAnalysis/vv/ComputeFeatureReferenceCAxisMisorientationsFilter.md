@@ -5,9 +5,10 @@
 | Plugin    | OrientationAnalysis      |
 | SIMPLNX UUID | `16c487d2-8f99-4fb5-a4df-d3f70a8e6b25` |
 | DREAM3D 6.5.171 equivalent | `FindFeatureReferenceCAxisMisorientations` (SIMPL UUID `1a0848da-2edd-52c0-b111-62a4dc6d2886`) — `DREAM3D/Source/Plugins/OrientationAnalysis/OrientationAnalysisFilters/FindFeatureReferenceCAxisMisorientations.cpp` |
-| Verified commit | *<filled at SBIR deliverable assembly>* |
+| Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE     |
 | Sign-off | *Michael Jackson <mike.jackson@bluequartz.net> — 2026-06-11* |
+| Second-engineer sign-off | Nathan Young — 2026-06-23 (approving reviewer, PR #1636) |
 
 ## At a glance
 
@@ -20,7 +21,7 @@
 | Exemplar archive       | **None — inlined.** Pre-V&V `Valid Filter Execution` exemplar consumer retired 2026-06-10 as a circular oracle. `caxis_data.tar.gz` archive download retained in `test/CMakeLists.txt` (shared with `ComputeCAxisLocationsTest`). Provenance sidecar at `vv/provenance/ComputeFeatureReferenceCAxisMisorientationsFilter.md`. |
 | Legacy comparison      | **Run — SIMPLNX vs DREAM3D 6.5.171** on the Realistic Microstructure fixture, 2026-06-10. Two documented deviations vs 6.5.171 (D1 + D4); each root cause was proven by applying the corresponding surgical fixes (Eigen + isHex skip; double-precision stddev accumulation) to a local build of the legacy source, after which the legacy output became byte-for-byte identical to SIMPLNX across all 3 output arrays. |
 | Bug flags              | None in SIMPLNX. **D1 is a legacy bug in 6.5.171** (non-hex cells fall through the validity gate and produce garbage c-axis projections + non-NaN per-feature avg for all-non-hex features). SIMPLNX has the fix since PR #1438. |
-| V&V phase              | **COMPLETE.** Class 1 + Class 4 oracles confirmed against 6-test suite; circular-oracle consumer retired; three-way empirical A/B against legacy completed. Three source-tree deliverables (this report + `vv/deviations/...` + `vv/provenance/...`) in place. |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -76,7 +77,7 @@ All `REQUIRE(actual == Approx(expected).margin(1e-3f))` assertions pass; `std::i
 
 ### Second-engineer review
 
-*Skipped — reason:* The closed-form derivation reuses the math already reviewed and signed off during the sibling `ComputeFeatureNeighborCAxisMisalignmentsFilter` V&V cycle (F#6, branch `vv/compute_feature_neighbor_caxis_misalignments`), which used the same pure-Φ Bunge rotation argument with the same `|ΔΦ|` reduction. The Class 4 invariants are standard for a per-feature aggregation. External cross-validation will be obtained via the empirical A/B against the legacy 6.5.171 binary (with root causes proven via a surgically patched local build of the legacy source) — diff-explanation only, not oracle. Per V&V policy line 33, legacy is never a correctness oracle.
+**Nathan Young — 2026-06-23** (approving reviewer of PR #1636; the PR reviewer is the second engineer under project policy). A *dedicated* oracle-design review was recorded at the time as unnecessary, for the reason kept here: The closed-form derivation reuses the math already reviewed and signed off during the sibling `ComputeFeatureNeighborCAxisMisalignmentsFilter` V&V cycle (F#6, branch `vv/compute_feature_neighbor_caxis_misalignments`), which used the same pure-Φ Bunge rotation argument with the same `|ΔΦ|` reduction. The Class 4 invariants are standard for a per-feature aggregation. External cross-validation will be obtained via the empirical A/B against the legacy 6.5.171 binary (with root causes proven via a surgically patched local build of the legacy source) — diff-explanation only, not oracle. Per V&V policy line 33, legacy is never a correctness oracle.
 
 ## Code path coverage
 

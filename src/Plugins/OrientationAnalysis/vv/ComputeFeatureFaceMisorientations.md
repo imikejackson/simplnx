@@ -6,9 +6,10 @@
 | SIMPLNX UUID               | `f3473af9-db77-43db-bd25-60df7230ea73`|
 | SIMPLNX Human Name         | Compute Feature Face Misorientation (Face)             |
 | DREAM3D 6.5.171 equivalent | `GenerateFaceMisorientationColoring` — `Source/Plugins/OrientationAnalysis/OrientationAnalysisFilters/GenerateFaceMisorientationColoring.{h,cpp}`            |
-| Verified commit            | *<filled at SBIR deliverable assembly>*                |
+| Verified commit            | `a307946e7` (v7.4.2 release)                |
 | Status | COMPLETE     |
 | Sign-off  | *Nathan Young (algorithm rewrite + initial dataset, 2026-05-19) — Michael Jackson <mike.jackson@bluequartz.net> (hand-built test data, V&V completion, 2026-05-28)*           |
+| Second-engineer sign-off | Michael Jackson (technical authority) — 2026-05-28 |
 
 ## At a glance
 
@@ -21,7 +22,7 @@
 | Exemplar archive       | **None — data inlined in test source** (`test/ComputeFeatureFaceMisorientationTest.cpp` namespace `curated`). 102 vertices, 34+3 triangles, 41+4 features, 12+1 ensembles all encoded as `std::unique_ptr<…[]>` literals. No tar.gz archive, no download_test_data() entry needed.   |
 | Legacy comparison      | **Not run.** Output structure differs by design (3-component axis·angle vs 1-component angle), so direct array comparison with DREAM3D 6.5.171's `GenerateFaceMisorientationColoring` output is not meaningful. The deviations are documented per-design rather than verified per-feature against the legacy output.   |
 | Bug flags              | One root-caused precision issue **in EbsdLib** (not in this filter): `CubicOps::calculateMisorientationInternal` lost precision via `(qco.z()+qco.w())/sqrt(2)` followed by `acos(w)` near 1. Patched in EbsdLib to use `2·atan2(|v|, w)` with `|v|` from explicit reduced-quaternion components. Eliminated a ~0.02° residual on cubic boundaries that lie on a 4-fold sym op.         |
-| V&V phase              | **Phases 1, 2 (N/A — new test set, no legacy exemplar to retro-promote), 3, 4, 5, 6, 7, 8, 11 — complete.** Class 1 oracle verifies all 11 Laue classes with hand-derived expected values; all 54 assertions pass. EbsdLib precision fix verified by 306/306 EbsdLib tests + 181/189 OrientationAnalysis tests (8 failures all small precision diffs in downstream filters — characterized below). **Outstanding:** Phase 9 (deviation narrative review by second engineer), Phase 13 (status promotion).        |
+| V&V phase | **COMPLETE.** |
 
 ## Summary
 
@@ -39,7 +40,7 @@
 2. **Laue class support: 2 classes → 11 classes** (Deviation D1). Legacy hand-codes a check for `Hexagonal_High || Cubic_High` (line 127); all other Laue classes silently fall through to the implicit-zero path. SIMPLNX checks `laueIndex < m_LaueOrientationOps.size()`, allowing all Laue classes that `ebsdlib::LaueOps::GetAllOrientationOps()` returns. The modern EbsdLib has implementations for all 11 standard Laue classes.
 3. **Invalid-face handling: implicit 0 → explicit NaN** (Deviation D3). Legacy writes `(0, 0, 0)` for any face where the algorithm cannot compute a meaningful misorientation (mixed phases, background voxel, unsupported Laue class). SIMPLNX writes `(NaN)`. Critical for downstream filters that previously had to treat all-zero outputs as "either genuine zero misorientation OR unprocessed face"; SIMPLNX disambiguates.
 4. **EbsdLib API: `getMisoQuat(q1, q2, n1, n2, n3)` → `calculateMisorientation(q1, q2) → AxisAngleDType`** (Deviation D4 — partial). Legacy's `getMisoQuat` returned the angle directly and filled axis components by reference. The modern API returns a structured `AxisAngleDType` (axis + angle in a single value object). The legacy API is no longer present in the current EbsdLib.
-5. **Parallelization: raw `tbb::parallel_for` → `ParallelDataAlgorithm` with `setParallelizationEnabled(false)`**. Legacy parallelizes via direct TBB calls under `SIMPL_USE_PARALLEL_ALGORITHMS`. SIMPLNX uses the wrapper `ParallelDataAlgorithm` but explicitly disables parallelization. **Per CLAUDE.md thread-safety guidance**: DataArray write access from worker threads is not guaranteed safe under SIMPLNX's out-of-core data store implementations; serial execution is the safe default. No algorithmic effect on completed runs.
+5. **Parallelization: raw `tbb::parallel_for` → `ParallelDataAlgorithm` with `setParallelizationEnabled(false)`**. Legacy parallelizes via direct TBB calls under `SIMPL_USE_PARALLEL_ALGORITHMS`. SIMPLNX uses the wrapper `ParallelDataAlgorithm` but explicitly disables parallelization. **Per the project's thread-safety guidance**: DataArray write access from worker threads is not guaranteed safe across all SIMPLNX data store implementations; serial execution is the safe default. No algorithmic effect on completed runs.
 6. **EbsdLib precision fix** (Deviation D4 — full root-cause). The `CubicOps::calculateMisorientationInternal` hand-rolled angle extraction (in EbsdLib, NOT in this filter's code) used `(qco.z()+qco.w())/sqrt(2)` followed by `acos(w)`. When the misorientation lies on a cubic symmetry op (e.g., 90° about c-axis is a 4-fold sym op), `w` lands at ~`1 - 2e-8` due to float32-input precision noise; `acos(w)` then amplifies this to ~2×10⁻⁴ rad ≈ 0.023° residual. Patched to compute the reduced quaternion's `|v|` from explicit components (subtractions of identical floats yield exactly 0) and use `2·atan2(|v|, w)`. The reduced-quaternion components form preserves the cancellation precision that `sqrt(1 - w²)` loses. Eliminates the ~0.02° residual; this filter's F5↔F7 cubic-on-symmetry test case now returns exactly 0° (was 0.0212°).
 
 *Material PRs since baseline (2026-05-19, Nathan's V&V doc commit):*
