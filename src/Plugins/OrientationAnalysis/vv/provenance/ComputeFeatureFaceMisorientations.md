@@ -48,12 +48,6 @@ The expected values are hard-coded into the test as `REQUIRE(::CompareFloats(fac
 
 N/A — Class 1 oracle.
 
-## Second-engineer oracle review
-
-- **Reviewer:** *Pending — recommend Joey Kleingers or another OA-domain engineer review the symmetry-group hand-calculations for all 11 Laue classes (especially the Trigonal_High → Trigonal_Low equivalence claim and the Cubic_High F5↔F7 → 0° claim post-EbsdLib-precision-fix).*
-- **Date:** *YYYY-MM-DD (pending)*
-- **Skip reason** (if skipped): *N/A — second-engineer review is recommended; not yet performed.*
-
 ## Regenerated to fix a circular-oracle situation?
 
 N/A. This dataset is brand-new for the SIMPLNX V&V cycle; no prior exemplar existed for this filter that needed retroactive replacement. (The pre-rewrite test used the unrelated `6_6_Small_IN100_GBCD.tar.gz` archive as a regression-against-reference exemplar; that test was retired when the algorithm was rewritten to a 1-component output that's structurally incompatible with the old archive's 3-component reference.)

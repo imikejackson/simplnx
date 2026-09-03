@@ -202,13 +202,6 @@ specification, the derivation script and every pinned literal were written and r
 first run of the suite against the batch-base code is the RED baseline in `red_baseline.log`.
 No expected value in the test file was taken from observed output.
 
-## Second-engineer oracle review
-
-Outstanding — to be recorded at PR review. The oracle design is fully auditable from the
-committed test source: the fixture specification, the derivation of every pinned literal and
-the reason each discriminating φ2 value was chosen are all stated in comments beside the
-values.
-
 ## Archive disposition
 
 `H5Oina_Test_Data.tar.gz` stays in the GitHub

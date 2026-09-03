@@ -90,14 +90,6 @@ N/A — Class 1 and Class 4 oracles only. No reference-library invocation, no pa
 
 ---
 
-## Second-engineer oracle review
-
-- **Reviewer:** *Skipped*
-- **Date:** N/A
-- **Skip reason:** The Class 1 derivation is set-union sums + ratio division on a 5-feature hand-built fixture (high-school arithmetic). External cross-validation was obtained via the independently-authored legacy `FindGroupingDensity` implementation (`tuks188/DREAM3D` `feature/770_Grouping_Density`, rebuilt locally against the legacy DREAM3D 6.5 source): the A/B comparison produced **bit-identical** agreement across all 4 `(NC, CF)` configurations and both output arrays (`results/ab_comparison_report.txt`). Any oracle-derivation error would have surfaced as a deviation. Formal second-engineer review of a 5-feature analytical oracle was not justified given this cross-check.
-
----
-
 ## Regenerated to fix a circular-oracle situation?
 
 **Yes — v2 supersedes v1 to remove a circular-oracle concern.**

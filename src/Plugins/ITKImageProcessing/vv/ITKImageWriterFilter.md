@@ -41,6 +41,8 @@ ITKImageWriterFilter exports ImageGeom cell data as an ITK image or a 2D image s
 
 **Second-engineer review:** **Signed off by Michael A. Jackson, 2026-08-07.** The V&V work was authored by Jared Duffey (PR #1693), so the second-engineer review is independent of the author.
 
+*Second-engineer review:* **Michael A. Jackson <mike.jackson@bluequartz.net> — 2026-08-07** (reviewer of the delivering PR; the PR reviewer is the second engineer under project policy).
+
 ## Code path coverage
 
 28 of 48 scoped logical paths exercised. Source: `src/Plugins/ITKImageProcessing/src/ITKImageProcessing/Filters/ITKImageWriterFilter.cpp` (518 lines).

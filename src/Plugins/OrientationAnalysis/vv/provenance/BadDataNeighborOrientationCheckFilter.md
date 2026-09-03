@@ -68,14 +68,6 @@ N/A. This filter delegates misorientation math to `ebsdlib::LaueOps::calculateMi
 
 **EbsdLib version pin:** EbsdLib 2.4.1 (commit `5c8c993` on `/Users/mjackson/Workspace9/EbsdLib`). Recorded here for traceability since SIMPLNX's misorientation results are coupled to this pin.
 
-## Second-engineer oracle review
-
-- **Reviewer:** *Pending — recommend Joey Kleingers or another OA-domain engineer review:*
-  - *The Class 1 hand-derivations in `test_design.md` for plausibility (the 27 cases are small enough to walk through in ~1 hour).*
-  - *The Class 4 invariant set for completeness — are there other properties this algorithm must satisfy?*
-  - *The Phase 9 deviation narrative (D1 loop bound + D2 stale `w`) and the determination that the EbsdLib 2.4.1 CubicOps precision improvement is non-observable in this filter's test data.*
-- **Date:** *YYYY-MM-DD (pending)*
-
 ## Regenerated to fix a circular-oracle situation?
 
 **Partially yes** — but the situation was resolved by fixing SIMPLNX, not by regenerating the archive.

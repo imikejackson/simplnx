@@ -57,7 +57,7 @@ SIMPL UUID mapping is preserved via `SimplnxCoreLegacyUUIDMapping.hpp` and SIMPL
 - Class 1: `"SimplnxCore::FillBadData::Test01"` through `Test13` — `UnitTest::CompareExemplarToGeneratedData` against `test_NN_expected.dream3d`. Pass.
 - SIMPL compat: `"SimplnxCore::FillBadDataFilter: SIMPL Backwards Compatibility"` — UUID + arg-key + value assertions only. Not an oracle test.
 
-*Second-engineer review:* **Signed off by Michael Jackson (technical authority), 2026-07-16.**
+*Second-engineer review:* **Signed off by Michael Jackson (technical authority), 2026-07-16.** Review focus: the hand-authored derivations for Test 11 (tie-breaking scan order) and Test 13 (StoreAsNewPhase phase assignment).
 
 ## Code path coverage
 
