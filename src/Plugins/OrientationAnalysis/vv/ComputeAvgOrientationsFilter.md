@@ -74,7 +74,7 @@ Line-by-line review performed via the `review-algorithm` skill on the already-or
 
 ## Oracle
 
-*Status: confirmed. Boundary with EbsdLib confirmed; second-engineer oracle review signed off by Michael Jackson (technical authority) 2026-07-16 (see provenance sidecar).*
+*Status: confirmed. Boundary with EbsdLib confirmed; second-engineer oracle review signed off by Michael Jackson (technical authority) 2026-07-16.*
 
 *Class:* **1 (Analytical) + 4 (Invariant)** for Rodrigues; **2 (Reference — EbsdLib, trusted & not re-tested) + 4 (Invariant)** for vMF/Watson.
 

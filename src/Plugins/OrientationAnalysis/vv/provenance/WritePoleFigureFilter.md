@@ -40,12 +40,6 @@ There is no gold-standard array in the archive. Correctness of the rendered pole
 - **Acceptance criteria / finding:** the pole-figure **data** (pole positions, intensity distribution, color-intensity mapping) is visually identical across all three versions for both crystal systems. The only differences are the four documented, non-defect deviations (`WritePoleFigureFilter-D1..D4`: axis-label text, font, symmetry-equivalent family labels, and the intentional discrete vector-marker rendering). No correctness defect observed.
 - **Class-5 justification:** legacy DREAM3D emits pole figures only as rasterized PDFs (no numeric ground truth), and per-Laue-class pixel rendering is owned/byte-tested by EbsdLib upstream, so no Class 1–3 oracle fully specifies the rendered image. The analytically-checkable wiring (mask, hex convention) is pinned by Class 4 invariants.
 
-## Second-engineer oracle review
-
-- **Reviewer:** Michael Jackson (technical authority)
-- **Date:** 2026-07-16
-- **Note:** Signed off — the four documented differences are confirmed the complete set and all non-defect.
-
 ## Regenerated to fix a circular-oracle situation?
 
 No. The archive is inputs-only and pre-existing; no baked filter output is used as an oracle, so there is no circular-oracle situation to remediate. The legacy comparison input was authored independently — minted by `build_legacy_input.py` (image geometry + `MaterialName` StringDataArray, SIMPL v7.0 layout) from the same 502 orientations — not derived from any filter output.

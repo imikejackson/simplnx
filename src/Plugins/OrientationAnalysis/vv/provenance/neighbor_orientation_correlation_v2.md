@@ -51,8 +51,3 @@ that bar:
 | **SHA512** | `1596d028af1e885005eda9d07e118fc4a03afb4cf30064095052805ea0c098759e4968ceac2f82ac58eae1c9c92a367eae93b4bcd332cebf1622d06ea968e9e7` |
 | **Used by tests** | none (retired) |
 | **Generated / retired by** | Michael Jackson, 2026-07-06 |
-
-## Second-engineer oracle review
-
-- **Reviewer:** Michael Jackson (technical authority)
-- **Date:** 2026-07-16

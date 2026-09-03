@@ -47,12 +47,6 @@ The archive contains two groups with different oracle classifications:
 | `DataContainer/CellData/*` — `FillBadData_SmallIN100` | **Class 2** — DREAM3D 6.5.x `FillBadData` pipeline on Small IN100 |
 | `DataContainer/CellData/*` — Tests 01–07, 11, 13 | **Class 1** — hand-authored `test_NN_expected_featureids.txt`, serialized by `generate_dream3d_files.py` |
 
-## Second-engineer review
-
-- **Reviewer:** Michael Jackson (technical authority)
-- **Date:** 2026-07-16
-- **Review focus:** the hand-authored derivations for Test 11 (tie-breaking scan order) and Test 13 (StoreAsNewPhase phase assignment).
-
 ## Regeneration note
 
 No regeneration was required. The `test_NN_expected.dream3d` files were never circular oracles — `generate_dream3d_files.py` is a format converter that does not run `FillBadDataFilter`. The original archive is retained unchanged.

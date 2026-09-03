@@ -79,10 +79,3 @@ The circular nature of these tests is mitigated for this specific filter because
 *No archive regeneration is required.* The existing regression tests use the shared input archive as input data only; the oracle output lives in the test source as inline assertions.
 
 ---
-
-## Second-engineer oracle review
-
-- **Reviewer:** Michael Jackson &lt;mike.jackson@bluequartz.net&gt;
-- **Review date:** 2026-08-07 (at PR #1695 review)
-- **Scope:** The Class 1 hand derivations for AF-1/AF-2/AF-3/AF-6 were checked against the closed form `output[featureId * C + comp] = input[lastCellIdxForFeature * C + comp]` at lines 25–56 of `Algorithms/CreateFeatureArrayFromElementArray.cpp`, and the Class 4 error-path oracles (AF-4/AF-5/AF-7/AF-8/AF-9) were checked against the guards they claim to exercise: -81880 (`minValue < 0`), -81881 (shrink protection), -81882 (empty featureIds), and -81883 (preflight tuple-count mismatch in `CreateFeatureArrayFromElementArrayFilter::preflightImpl`).
-- **Result:** No oracle-design defects found. The derivations are independent of the SIMPLNX implementation, and the fixture set covers the consistent, inconsistent, multi-component, resize-gap, and error-boundary cases. Sign-off granted.

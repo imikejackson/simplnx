@@ -45,6 +45,8 @@
 
 Full provenance detail, including the feature-layout table and the resolved "checked-reset" question, in `vv/provenance/IdentifySampleFilter.md`.
 
+*Second-engineer review:* **Michael Jackson <mike.jackson@bluequartz.net> — 2026-06-30** (reviewer of PR #1640; review state was `CHANGES_REQUESTED` with no subsequent formal approval — acceptance evidenced by his merge of the PR).
+
 ## Code path coverage
 
 14 of 17 paths exercised. Source: `Algorithms/IdentifySample.cpp`.

@@ -117,12 +117,6 @@ The expected values are hard-coded into the test as `REQUIRE(Approx(misorientati
 
 N/A — Class 1 and Class 4 oracles only. No reference-library invocation, no paper-figure reproduction, no expert-visual sign-off needed.
 
-## Second-engineer oracle review
-
-- **Reviewer:** *Pending — recommend Joey Kleingers or another OA-domain engineer review the divisor-bug analysis, specifically the claim that the bug fires only when the last-iterated neighbor is a phase match, and confirm the `7.5°` expected value derivation for Fixtures 2 and 3.*
-- **Date:** *YYYY-MM-DD (pending)*
-- **Skip reason** (if skipped): *N/A — second-engineer review is recommended; not yet performed.*
-
 ## Regenerated to fix a circular-oracle situation?
 
 N/A — the inlined hand-built fixture is brand-new for this V&V cycle. The pre-V&V test (now retired) consumed the shared `6_6_stats_test_v2.tar.gz` archive as a regression-against-reference exemplar. That archive was a circular oracle (its `AvgMisorientations` values were produced by the same pre-fix algorithm with the same divisor bug, so the exemplar would only have validated reproduction of the buggy output). The retired test additionally had an `[.][UNIMPLEMENTED][!mayfail]` stub for the `ComputeAvgMisors=true` path that prevented any CI coverage of the buggy code path.

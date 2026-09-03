@@ -62,11 +62,19 @@ Example:
 - **Signed-off outputs:** *`notes/expert_signoff/*.png`*
 - **Class-5-only justification:** *Why no Class 1–4 oracle was feasible for this filter.*
 
-## Second-engineer oracle review
+<!--
+  This sidecar records DATA LINEAGE only: archive identity, who generated it, when, with what recipe,
+  which arrays are the canonical oracle output, and any circular-oracle disposition.
 
-- **Reviewer:** *<name>* OR *skipped*
-- **Date:** *YYYY-MM-DD*
-- **Skip reason** (if skipped): *<reason — typically "no second engineer realistically available">*
+  Do NOT record review or sign-off information here. Both review records live in the main V&V report:
+    * `Second-engineer sign-off` row in the header table  -> who reviewed the PR
+    * `## Oracle` section, "Second-engineer review:" line  -> who checked the oracle derivations
+  Duplicating them here caused the two copies to drift. Reviewer identity is not lineage.
+
+  The one exception on record is an EXTERNAL DOMAIN-EXPERT review of an oracle's technical intent
+  (e.g. `provenance/GroupMicroTextureRegionsFilter.md`). That is provenance of the oracle's design and
+  belongs here, under a heading that does not use the words "second engineer".
+-->
 
 ## Regenerated to fix a circular-oracle situation?
 

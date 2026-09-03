@@ -182,12 +182,6 @@ The expected values are hard-coded into each TEST_CASE as `REQUIRE(... == Approx
 
 N/A — Class 1 and Class 4 oracles only. No reference-library invocation, no paper-figure reproduction, no expert-visual sign-off needed.
 
-## Second-engineer oracle review
-
-- **Reviewer:** *Pending — recommend Joey Kleingers or another OA-domain engineer review (a) the realistic-microstructure F2/F5/F6 per-feature expected averages, (b) the closed-form derivation that pure Bunge ZXZ `(0, Φ, 0)` tilts the c-axis by exactly Φ degrees, and (c) the cell-by-cell face-adjacency derivation that produced the per-feature NeighborList entries.*
-- **Date:** *YYYY-MM-DD (pending)*
-- **Skip reason** (if skipped): *N/A — second-engineer review is recommended; not yet performed.*
-
 ## Empirical A/B validation (2026-06-04)
 
 After the V&V cycle's source-inspection comparison + analytical Class 1 fixtures, an **empirical A/B comparison** was performed against three binaries to validate every deviation claim end-to-end. Workspace at `/Users/mjackson/Desktop/F6_AB_Test/`:
