@@ -74,14 +74,6 @@ This filter does not implement that paper's algorithms; it consumes them via Ebs
 
 N/A.
 
-## Second-engineer oracle review
-
-- **Reviewer:** *Pending — recommend Joey Kleingers or another OA-domain engineer review:*
-  - *The Class 1 hand-derivations in the per-fixture summary table for plausibility (the 7 fixtures are small enough to walk through in ~30 minutes).*
-  - *The Class 4 invariant set for completeness — are there other properties this algorithm must satisfy?*
-  - *The decision to retire the `compute_feature_reference_misorientation.tar.gz` archive (Small-IN100 exemplar regression test) in favor of inline data fixtures.*
-- **Date:** *YYYY-MM-DD (pending)*
-
 ## Archive retirement
 
 ### Retired archive: `compute_feature_reference_misorientation.tar.gz`

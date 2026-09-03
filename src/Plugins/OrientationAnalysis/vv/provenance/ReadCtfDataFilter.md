@@ -32,10 +32,6 @@ See the report's Oracle section: `src/Plugins/OrientationAnalysis/vv/ReadCtfData
 
 The archive's production scan (`Cugrid_after 2nd_15kv_2kx_2.ctf`) remains valuable as an **A/B comparison fixture** (not an oracle); it is used in the OneDrive-archived comparison working folder, not by any unit test.
 
-## Second-engineer oracle review
-
-Skipped — documented reason (same rationale as `read_ang_test.md`): the filter's value-add is deterministic data plumbing (grid math from header values, verbatim column copies, a documented HKL Laue-group enum mapping, and two elementwise angle transforms whose expected values are mechanically derivable IEEE-754 roundings). There is no design freedom for the author-bias failure mode the review guards against; the fixture and every derivation are visible in the test source for any reviewer to audit at sign-off.
-
 ## Circular-oracle note
 
 This retirement **removes** a legacy-generated oracle. The replacement was derived by hand (and independently with NumPy for the two angle transforms) from the fixture text before any DREAM3D run — verified order: oracle encoded and reconciled first (2026-07-24, zero discrepancies), then the 6.5.171 comparison (2026-07-24; bit-identical numerics except the documented unindexed-point deviations D1/D2).

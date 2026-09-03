@@ -52,7 +52,7 @@
 
 *Encoded:* `test/RotateEulerRefFrameTest.cpp::"OrientationAnalysis::RotateEulerRefFrameFilter: Class 1 Analytical Fixtures"` — 8 fixtures (`AnalyticalFixtures::k_Fixtures`), tolerance 1e-5 rad, all pass. Invariants: `...::"OrientationAnalysis::RotateEulerRefFrameFilter: Class 4 Invariants"` — 3 sections (range bounds, (n,w)/(−n,w) round-trip, 45°+45°=90° composability) over a 6-orientation batch, all pass.
 
-*Second-engineer review:* **Signed off by Michael Jackson (technical authority), 2026-07-16.**
+*Second-engineer review:* **Signed off by Michael Jackson (technical authority), 2026-07-16.** Review focus covered: (a) the F1–F7 hand derivations; (b) the sign convention — a +w reference-frame rotation about Z *subtracts* w from phi1 (`phi1' = phi1 − w`), which the first-principles derivation establishes and both implementations exhibit; (c) the Class 4 invariant set is complete for this algorithm.
 
 ## Code path coverage
 

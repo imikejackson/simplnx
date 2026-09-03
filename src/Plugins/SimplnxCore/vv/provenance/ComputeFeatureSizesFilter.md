@@ -257,12 +257,6 @@ Given that volume of a circle can be derived by `Volume = 4/3 * pi * r^3`, we ca
 
 N/A
 
-## Second-engineer oracle review
-
-- **Reviewer:** *<name>* OR *skipped*
-- **Date:** *YYYY-MM-DD*
-- **Skip reason** (if skipped): *<reason — typically "no second engineer realistically available">*
-
 ## Regenerated to fix a circular-oracle situation?
 
 N/A
@@ -323,12 +317,6 @@ Given that area of a circle can be derived by `Area = pi * radius^2`, we can iso
 ## Oracle provenance (Classes 2, 3, 5 only)
 
 N/A
-
-## Second-engineer oracle review
-
-- **Reviewer:** *<name>* OR *skipped*
-- **Date:** *YYYY-MM-DD*
-- **Skip reason** (if skipped): *<reason — typically "no second engineer realistically available">*
 
 ## Regenerated to fix a circular-oracle situation?
 
@@ -414,12 +402,6 @@ Given that volume of a circle can be derived by `Volume = 4/3 * pi * r^3`, we ca
 ## Oracle provenance (Classes 2, 3, 5 only)
 
 N/A
-
-## Second-engineer oracle review
-
-- **Reviewer:** *<name>* OR *skipped*
-- **Date:** *YYYY-MM-DD*
-- **Skip reason** (if skipped): *<reason — typically "no second engineer realistically available">*
 
 ## Regenerated to fix a circular-oracle situation?
 

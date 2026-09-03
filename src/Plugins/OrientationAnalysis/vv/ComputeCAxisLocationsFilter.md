@@ -62,6 +62,8 @@ There were no deviations that affect the output found for hexagonal materials.
 
 *Encoded:* *`test/ComputeCAxisLocationsTest.cpp::"OrientationAnalysis::ComputeCAxisLocationsFilter: Class 1 Oracle"` - 15 fixtures, all pass.*
 
+*Second-engineer review:* **Michael Jackson — 2026-08-10** (approving reviewer of PR #1679; Nathan Young also approved).
+
 ## Code path coverage
 
 *7 of 8 paths exercised. The non-covered path is the cancellation branch which is not currently able to be tested for all filters*

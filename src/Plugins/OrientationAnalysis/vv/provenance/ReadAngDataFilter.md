@@ -27,10 +27,6 @@ The oracle is now **inline in `test/ReadAngDataTest.cpp`** (no archive at all):
 
 See the report's Oracle section: `src/Plugins/OrientationAnalysis/vv/ReadAngDataFilter.md`.
 
-## Second-engineer oracle review
-
-Skipped — documented reason: the filter's value-add is deterministic data plumbing (grid math from header values, verbatim column copies, a documented TSL-symmetry enum mapping, string trim). Every expected value is mechanically derivable from the fixture text with no design freedom, so the author-bias failure mode the second-engineer review guards against has no room to operate. The oracle fixture and derivations are fully visible in one screen of test source for any reviewer to audit at sign-off.
-
 ## Circular-oracle note
 
 This retirement **removes** a circular oracle. The replacement was derived by hand from the fixture text before any DREAM3D (legacy or NX) run — verified order: oracle first (2026-07-06), SIMPLNX reconciliation (zero discrepancies), then the 6.5.171 comparison (2026-07-07, bit-identical numerics).

@@ -98,6 +98,8 @@ Class 4 invariants asserted alongside the Class 1 values:
 - `"OrientationAnalysis::ComputeSchmidsFilter: override slip system path"`
 - `"OrientationAnalysis::ComputeSchmidsFilter: options, skip path and phase guards"`
 
+*Second-engineer review:* **Joey Kleingers <joey.kleingers@bluequartz.net> — 2026-08-27** (second engineer for PR #1728/#1723; the review was conducted outside the GitHub review record, so the date is the PR merge date under project policy).
+
 ## Bugs found and fixed
 
 This branch fixes all defects in this table. The fixes will be in the DREAM3D-NX release after v7.4.1.

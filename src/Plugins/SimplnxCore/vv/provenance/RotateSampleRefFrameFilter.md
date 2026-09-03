@@ -34,11 +34,6 @@ The DREAM3D 6.5.171 comparison used a shared input minted with the `legacy_dream
 
 These A/B artifacts are working files, not a test-consumed archive; they are kept in the source tree for reproducibility only.
 
-## Second-engineer oracle review
-
-- **Reviewer:** Michael Jackson (technical authority)
-- **Date:** 2026-07-16
-
 ## Regenerated to fix a circular-oracle situation?
 
 Yes — this replaces the retired `Rotate_Sample_Ref_Frame_Test_v2/v3.tar.gz` golden-file archives with an independently-derived Class 1 analytical oracle. The new oracle is *not* derived from SIMPLNX (or legacy) output; it is hand-derived from the definition of a principal-90 reference-frame rotation.

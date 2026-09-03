@@ -63,12 +63,3 @@ diff 7.2e-7 rad).
 > **uploaded to the OneDrive verification archive** on 2026-07-08, so the legacy A/B is reproducible
 > and reviewable from the archive. The F8 oracle value and the 6-case comparison were additionally
 > reproduced via scipy during review.
-
-## Second-engineer oracle review
-
-- **Reviewer:** Michael Jackson (technical authority)
-- **Date:** 2026-07-16
-- **Note:** Signed off. Review focus covered: (a) the F1–F7 hand derivations; (b) the
-  sign convention — a +w reference-frame rotation about Z *subtracts* w from phi1
-  (`phi1' = phi1 − w`), which the first-principles derivation establishes and both implementations
-  exhibit; (c) the Class 4 invariant set is complete for this algorithm.

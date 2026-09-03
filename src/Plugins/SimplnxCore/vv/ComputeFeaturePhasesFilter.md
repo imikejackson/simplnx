@@ -59,6 +59,8 @@ The algorithm is a simple indirection: `featurePhases[featureIds[i]] = cellPhase
 
 **Encoded:** 10 inline TEST_CASEs in `test/ComputeFeaturePhasesFilterTest.cpp`. See `vv/provenance/` for fixture derivations.
 
+*Second-engineer review:* **Michael Jackson <mike.jackson@bluequartz.net> — 2026-08-12** (approving reviewer of PR #1672). A *dedicated* oracle-design review was recorded at the time as unnecessary, for the reason kept here: cases 1–4, 9 and 10 are single-pass indirections over ≤ 32 cells with small integer phase values, and cases 5–8 are hard-coded error codes.
+
 ## Code path coverage
 
 Source: `src/Plugins/SimplnxCore/src/SimplnxCore/Filters/Algorithms/ComputeFeaturePhases.cpp`

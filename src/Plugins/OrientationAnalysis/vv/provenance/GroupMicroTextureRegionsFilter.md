@@ -65,7 +65,12 @@ The V&V branch retires the unused `/ImageGeometry/MicroTextureFeatureData/Active
 
 N/A — Class 1 (Analytical) + Class 4 (Invariant) oracle. Both lower-drift classes have their derivation embedded in the test source (the `QuatFromPhiDeg` comment for the c-axis math; the per-test comment block at the top of each TEST_CASE for the expected groupings and the invariants).
 
-## Second-engineer oracle review
+## External domain-expert oracle review
+
+> **Scope note.** This is the record of an *external domain-expert* review of the oracle's metallurgical
+> intent, not the project's second-engineer sign-off. The reviewer recorded that he did not review software
+> implementation, source code, numerical accuracy, or test code. The second-engineer sign-off for this filter
+> is recorded in `vv/GroupMicroTextureRegionsFilter.md` and is the authoritative record of that gate.
 
 - **Reviewer:** **Adam L. Pilchak, Pratt & Whitney** — external domain expert. Review request `group_microtexture_regions_review_ALP.pdf` sent 2026-08-11, signed and returned 2026-08-11. Scope was explicitly *metallurgical intent only*; the reviewer records that he "did not review software implementation, source code, numerical accuracy, or test code."
 
@@ -96,7 +101,7 @@ N/A — Class 1 (Analytical) + Class 4 (Invariant) oracle. Both lower-drift clas
 
   **Still open:**
   (b) Whether the invariant list in `RandomizeParentIds invariants` is exhaustive — that no observable behaviour of the shuffle is left unasserted. *This is a software-test question and is explicitly outside the scope of the Pilchak review; it still needs a BlueQuartz second engineer.*
-- **Date:** 2026-08-11 (metallurgical oracle review, A. Pilchak); software-side second-engineer review still pending.
+- **Date:** 2026-08-11 (metallurgical oracle review, A. Pilchak). For the software-side second-engineer sign-off see the `Second-engineer sign-off` row in `vv/GroupMicroTextureRegionsFilter.md`.
 - **Skip reason** (if skipped): *N/A.*
 
 ## Regenerated to fix a circular-oracle situation?

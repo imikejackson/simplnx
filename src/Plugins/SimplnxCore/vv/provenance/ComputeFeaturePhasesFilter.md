@@ -67,8 +67,3 @@ All oracle assertions are embedded directly in `test/ComputeFeaturePhasesFilterT
 | `featurePhases[f] ∈ {phases of cells with featureId == f}` for `f > 0` | 4 — Invariant | Single-pass indirection |
 
 ---
-
-## Second-engineer oracle review
-
-- **Status:** Not yet conducted.
-- **Rationale for skipping if necessary:** Cases 1–4, 9, and 10 are single-pass indirections over ≤ 32 cells with small integer phase values; Cases 5–8 are hard-coded error codes. Derivation is reproducible from the algorithm source in under 5 minutes.
