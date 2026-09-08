@@ -15,13 +15,13 @@
 using namespace nx::core;
 
 // -----------------------------------------------------------------------------
-AlignSectionsMutualInformation::AlignSectionsMutualInformation(DataStructure& dataStructure, const IFilter::MessageHandler& mesgHandler, const std::atomic_bool& shouldCancel,
+AlignSectionsMutualInformation::AlignSectionsMutualInformation(DataStructure& dataStructure, const IFilter::MessageHandler& messageHandler, const std::atomic_bool& shouldCancel,
                                                                AlignSectionsMutualInformationInputValues* inputValues)
-: AlignSections(dataStructure, shouldCancel, mesgHandler)
+: AlignSections(dataStructure, shouldCancel, messageHandler)
 , m_DataStructure(dataStructure)
 , m_InputValues(inputValues)
 , m_ShouldCancel(shouldCancel)
-, m_MessageHandler(mesgHandler)
+, m_MessageHandler(messageHandler)
 {
 }
 
@@ -68,15 +68,19 @@ Result<> AlignSectionsMutualInformation::findShifts(std::vector<int64>& xShifts,
       static_cast<int64>(udims[2]),
   };
 
-  std::vector<int32> miFeatureIds(totalPoints, 0);
-  std::vector<int32> featureCounts(dims[2], 0);
+  std::vector<int32> sliceFeatureIds(totalPoints, 0);
+  std::vector<int32> sliceFeatureCounts(dims[2], 0);
 
   std::vector<std::vector<float32>> mutualInfo12;
   std::vector<float32> mutualInfo1;
   std::vector<float32> mutualInfo2;
 
   // Segment each slice
-  formFeaturesSections(miFeatureIds, featureCounts);
+  Result<> formFeaturesResult = formFeaturesSections(sliceFeatureIds, sliceFeatureCounts);
+  if(formFeaturesResult.invalid())
+  {
+    return formFeaturesResult;
+  }
 
   std::vector<std::vector<float32>> misorientations(dims[0]);
   for(int64 i = 0; i < dims[0]; i++)
@@ -99,8 +103,8 @@ Result<> AlignSectionsMutualInformation::findShifts(std::vector<int64>& xShifts,
 
       float32 minDisorientation = std::numeric_limits<float32>::max();
       int64 slice = (dims[2] - 1) - iter;
-      int32 featureCount1 = featureCounts[slice];
-      int32 featureCount2 = featureCounts[slice + 1];
+      int32 featureCount1 = sliceFeatureCounts[slice];
+      int32 featureCount2 = sliceFeatureCounts[slice + 1];
       mutualInfo12 = std::vector<std::vector<float32>>(featureCount1, std::vector<float32>(featureCount2, 0.0f));
       mutualInfo1 = std::vector<float32>(featureCount1, 0.0f);
       mutualInfo2 = std::vector<float32>(featureCount2, 0.0f);
@@ -136,8 +140,8 @@ Result<> AlignSectionsMutualInformation::findShifts(std::vector<int64>& xShifts,
                   {
                     int64 refPosition = ((slice + 1) * dims[0] * dims[1]) + (dim1Index * dims[0]) + dim0Index;
                     int64 curPosition = (slice * dims[0] * dims[1]) + ((dim1Index + j + oldYShift) * dims[0]) + (dim0Index + k + oldXShift);
-                    int32 refGNum = miFeatureIds[refPosition];
-                    int32 curGNum = miFeatureIds[curPosition];
+                    int32 refGNum = sliceFeatureIds[refPosition];
+                    int32 curGNum = sliceFeatureIds[curPosition];
                     if(curGNum >= 0 && refGNum >= 0)
                     {
                       mutualInfo12[curGNum][refGNum]++;
@@ -221,8 +225,8 @@ Result<> AlignSectionsMutualInformation::findShifts(std::vector<int64>& xShifts,
 
       float32 minDisorientation = std::numeric_limits<float32>::max();
       int64 slice = (dims[2] - 1) - iter;
-      int32 featureCount1 = featureCounts[slice];
-      int32 featureCount2 = featureCounts[slice + 1];
+      int32 featureCount1 = sliceFeatureCounts[slice];
+      int32 featureCount2 = sliceFeatureCounts[slice + 1];
       mutualInfo12 = std::vector<std::vector<float32>>(featureCount1, std::vector<float32>(featureCount2, 0.0f));
       mutualInfo1 = std::vector<float32>(featureCount1, 0.0f);
       mutualInfo2 = std::vector<float32>(featureCount2, 0.0f);
@@ -258,8 +262,8 @@ Result<> AlignSectionsMutualInformation::findShifts(std::vector<int64>& xShifts,
                   {
                     int64 refPosition = ((slice + 1) * dims[0] * dims[1]) + (dim1Index * dims[0]) + dim0Index;
                     int64 curPosition = (slice * dims[0] * dims[1]) + ((dim1Index + j + oldYShift) * dims[0]) + (dim0Index + k + oldXShift);
-                    int32 refGNum = miFeatureIds[refPosition];
-                    int32 curGNum = miFeatureIds[curPosition];
+                    int32 refGNum = sliceFeatureIds[refPosition];
+                    int32 curGNum = sliceFeatureIds[curPosition];
                     if(curGNum >= 0 && refGNum >= 0)
                     {
                       mutualInfo12[curGNum][refGNum]++;
@@ -331,121 +335,148 @@ Result<> AlignSectionsMutualInformation::findShifts(std::vector<int64>& xShifts,
 }
 
 // -----------------------------------------------------------------------------
-void AlignSectionsMutualInformation::formFeaturesSections(std::vector<int32>& miFeatureIds, std::vector<int32>& featureCounts)
+Result<> AlignSectionsMutualInformation::formFeaturesSections(std::vector<int32>& sliceFeatureIds, std::vector<int32>& sliceFeatureCounts)
 {
   const auto& imageGeom = m_DataStructure.getDataRefAs<ImageGeom>(m_InputValues->ImageGeometryPath);
 
-  SizeVec3 udims = imageGeom.getDimensions();
-  int64 dims[3] = {
-      static_cast<int64>(udims[0]),
-      static_cast<int64>(udims[1]),
-      static_cast<int64>(udims[2]),
+  const SizeVec3 gridDimensions = imageGeom.getDimensions();
+  const std::array<int64, 3> dimensions = {
+      static_cast<int64>(gridDimensions[0]),
+      static_cast<int64>(gridDimensions[1]),
+      static_cast<int64>(gridDimensions[2]),
   };
 
-  auto orientationOps = ebsdlib::LaueOps::GetAllOrientationOps();
+  const auto orientationOps = ebsdlib::LaueOps::GetAllOrientationOps();
 
-  auto& quats = m_DataStructure.getDataRefAs<Float32Array>(m_InputValues->QuatsArrayPath);
-  auto& m_CellPhases = m_DataStructure.getDataRefAs<Int32Array>(m_InputValues->CellPhasesArrayPath);
-  auto& m_CrystalStructures = m_DataStructure.getDataRefAs<UInt32Array>(m_InputValues->CrystalStructuresArrayPath);
+  const auto& quatsArrayRef = m_DataStructure.getDataRefAs<Float32Array>(m_InputValues->QuatsArrayPath);
+  const auto& cellPhasesArrayRef = m_DataStructure.getDataRefAs<Int32Array>(m_InputValues->CellPhasesArrayPath);
+  const auto& crystalStructuresArrayRef = m_DataStructure.getDataRefAs<UInt32Array>(m_InputValues->CrystalStructuresArrayPath);
+  const usize numCrystalStructures = crystalStructuresArrayRef.getNumberOfTuples();
 
-  size_t initialVoxelsListSize = 1000;
+  constexpr usize initialVoxelListSize = 1000;
 
-  float misorientationTolerance = m_InputValues->MisorientationTolerance * nx::core::Constants::k_PiOver180F;
+  const float32 misorientationTolerance = m_InputValues->MisorientationTolerance * nx::core::Constants::k_PiOver180F;
 
-  featureCounts.resize(dims[2]);
+  sliceFeatureCounts.resize(dimensions[2]);
 
-  std::vector<int64_t> voxelList(initialVoxelsListSize, -1);
-  int64_t neighborPoints[4] = {-dims[0], -1, 1, dims[0]};
+  std::vector<int64> voxelList(initialVoxelListSize, -1);
+  const std::array<int64, 4> neighborOffsets = {-dimensions[0], -1, 1, dimensions[0]};
 
-  for(int64_t slice = 0; slice < dims[2]; slice++)
+  for(int64 sliceIdx = 0; sliceIdx < dimensions[2]; sliceIdx++)
   {
-    m_MessageHandler(IFilter::Message::Type::Info, fmt::format("Identifying Features: Slice {}/{} complete", slice, dims[2]));
+    m_MessageHandler(IFilter::Message::Type::Info, fmt::format("Identifying Features: Slice {}/{} complete", sliceIdx, dimensions[2]));
 
-    int64 startPoint = slice * dims[0] * dims[1];
-    int64 endPoint = (slice + 1) * dims[0] * dims[1];
-    int64 currentStartPoint = startPoint;
+    const int64 sliceStartVoxelIdx = sliceIdx * dimensions[0] * dimensions[1];
+    const int64 sliceEndVoxelIdx = (sliceIdx + 1) * dimensions[0] * dimensions[1];
+    int64 nextSeedSearchVoxelIdx = sliceStartVoxelIdx;
 
     int32 featureCount = 1;
-    bool noSeeds = false;
-    while(!noSeeds)
+    bool hasNoSeeds = false;
+    while(!hasNoSeeds)
     {
-      int64 seed = -1;
+      int64 seedVoxelIdx = -1;
 
-      for(int64 point = currentStartPoint; point < endPoint; point++)
+      for(int64 voxelIdx = nextSeedSearchVoxelIdx; voxelIdx < sliceEndVoxelIdx; voxelIdx++)
       {
-        if((!m_InputValues->UseMask || (m_MaskCompare != nullptr && m_MaskCompare->isTrue(point))) && miFeatureIds[point] == 0 && m_CellPhases[point] > 0)
+        if((!m_InputValues->UseMask || (m_MaskCompare != nullptr && m_MaskCompare->isTrue(voxelIdx))) && sliceFeatureIds[voxelIdx] == 0 && cellPhasesArrayRef[voxelIdx] > 0)
         {
-          seed = point;
-          currentStartPoint = point;
+          seedVoxelIdx = voxelIdx;
+          nextSeedSearchVoxelIdx = voxelIdx;
         }
-        if(seed > -1)
+        if(seedVoxelIdx > -1)
         {
           break;
         }
       }
 
-      if(seed == -1)
+      if(seedVoxelIdx == -1)
       {
-        noSeeds = true;
+        hasNoSeeds = true;
       }
-      if(seed >= 0)
+      if(seedVoxelIdx >= 0)
       {
-        std::vector<int64_t>::size_type size = 0;
-        miFeatureIds[seed] = featureCount;
-        voxelList[size] = seed;
-        size++;
-        for(size_t j = 0; j < size; ++j)
+        std::vector<int64>::size_type voxelListSize = 0;
+        sliceFeatureIds[seedVoxelIdx] = featureCount;
+        voxelList[voxelListSize] = seedVoxelIdx;
+        voxelListSize++;
+        for(usize voxelListIdx = 0; voxelListIdx < voxelListSize; ++voxelListIdx)
         {
-          int64_t currentpoint = voxelList[j];
-          int64 col = currentpoint % dims[0];
-          int64 row = (currentpoint / dims[0]) % dims[1];
+          const int64 currentVoxelIdx = voxelList[voxelListIdx];
+          const int64 xIdx = currentVoxelIdx % dimensions[0];
+          const int64 yIdx = (currentVoxelIdx / dimensions[0]) % dimensions[1];
 
-          auto q1TupleIndex = currentpoint * 4;
-          ebsdlib::QuatD quat1(quats[q1TupleIndex], quats[q1TupleIndex + 1], quats[q1TupleIndex + 2], quats[q1TupleIndex + 3]);
-          uint32_t laueClass1 = m_CrystalStructures[m_CellPhases[currentpoint]];
-          for(int32_t i = 0; i < 4; i++)
+          const usize currentQuatOffset = currentVoxelIdx * 4;
+          const ebsdlib::QuatD currentQuat(quatsArrayRef[currentQuatOffset], quatsArrayRef[currentQuatOffset + 1], quatsArrayRef[currentQuatOffset + 2], quatsArrayRef[currentQuatOffset + 3]);
+          const int32 currentCellPhaseIdx = cellPhasesArrayRef[currentVoxelIdx];
+          if(static_cast<usize>(currentCellPhaseIdx) >= numCrystalStructures)
           {
-            int64 neighbor = currentpoint + neighborPoints[i];
-            if((i == 0) && row == 0)
+            return MakeErrorResult(-53703, fmt::format("Cell Phases array '{}' has value {} at voxel index {}, but Crystal Structures array '{}' has {} tuples. Valid Phase indices are in [0, {}).",
+                                                       m_InputValues->CellPhasesArrayPath.toString(), currentCellPhaseIdx, currentVoxelIdx, m_InputValues->CrystalStructuresArrayPath.toString(),
+                                                       numCrystalStructures, numCrystalStructures));
+          }
+          const uint32 currentLaueIndex = crystalStructuresArrayRef[currentCellPhaseIdx];
+          if(currentLaueIndex >= orientationOps.size())
+          {
+            return MakeErrorResult(-53704, fmt::format("Crystal Structures array '{}' has value {} at Phase index {}, but only {} Laue operations are available. Valid Laue indices are in [0, {}).",
+                                                       m_InputValues->CrystalStructuresArrayPath.toString(), currentLaueIndex, currentCellPhaseIdx, orientationOps.size(), orientationOps.size()));
+          }
+          for(usize faceIdx = 0; faceIdx < neighborOffsets.size(); faceIdx++)
+          {
+            const int64 neighborVoxelIdx = currentVoxelIdx + neighborOffsets[faceIdx];
+            if((faceIdx == 0) && yIdx == 0)
             {
               continue;
             }
-            if((i == 3) && row == (dims[1] - 1))
+            if((faceIdx == 3) && yIdx == (dimensions[1] - 1))
             {
               continue;
             }
-            if((i == 1) && col == 0)
+            if((faceIdx == 1) && xIdx == 0)
             {
               continue;
             }
-            if((i == 2) && col == (dims[0] - 1))
+            if((faceIdx == 2) && xIdx == (dimensions[0] - 1))
             {
               continue;
             }
-            if(miFeatureIds[neighbor] <= 0 && m_CellPhases[neighbor] > 0)
+            const int32 neighborCellPhaseIdx = cellPhasesArrayRef[neighborVoxelIdx];
+            if(sliceFeatureIds[neighborVoxelIdx] <= 0 && neighborCellPhaseIdx > 0)
             {
-              float32 angle = std::numeric_limits<float>::max();
-              auto q2TupleIndex = neighbor * 4;
-              ebsdlib::QuatD quat2(quats[q2TupleIndex], quats[q2TupleIndex + 1], quats[q2TupleIndex + 2], quats[q2TupleIndex + 3]);
-              uint32_t phase2 = m_CrystalStructures[m_CellPhases[neighbor]];
-
-              if(laueClass1 == phase2)
+              if(static_cast<usize>(neighborCellPhaseIdx) >= numCrystalStructures)
               {
-                ebsdlib::AxisAngleDType axisAngle = orientationOps[laueClass1]->calculateMisorientation(quat1, quat2);
-                angle = axisAngle[3];
+                return MakeErrorResult(-53703,
+                                       fmt::format("Cell Phases array '{}' has value {} at voxel index {}, but Crystal Structures array '{}' has {} tuples. Valid Phase indices are in [0, {}).",
+                                                   m_InputValues->CellPhasesArrayPath.toString(), neighborCellPhaseIdx, neighborVoxelIdx, m_InputValues->CrystalStructuresArrayPath.toString(),
+                                                   numCrystalStructures, numCrystalStructures));
               }
-              if(angle < misorientationTolerance)
+              float32 misorientationAngle = std::numeric_limits<float>::max();
+              const usize neighborQuatOffset = neighborVoxelIdx * 4;
+              const ebsdlib::QuatD neighborQuat(quatsArrayRef[neighborQuatOffset], quatsArrayRef[neighborQuatOffset + 1], quatsArrayRef[neighborQuatOffset + 2], quatsArrayRef[neighborQuatOffset + 3]);
+              const uint32 neighborLaueIndex = crystalStructuresArrayRef[neighborCellPhaseIdx];
+              if(neighborLaueIndex >= orientationOps.size())
               {
-                miFeatureIds[neighbor] = featureCount;
-                voxelList[size] = neighbor;
-                size++;
-                if(size >= voxelList.size())
+                return MakeErrorResult(-53704,
+                                       fmt::format("Crystal Structures array '{}' has value {} at Phase index {}, but only {} Laue operations are available. Valid Laue indices are in [0, {}).",
+                                                   m_InputValues->CrystalStructuresArrayPath.toString(), neighborLaueIndex, neighborCellPhaseIdx, orientationOps.size(), orientationOps.size()));
+              }
+
+              if(currentLaueIndex == neighborLaueIndex)
+              {
+                const ebsdlib::AxisAngleDType axisAngle = orientationOps[currentLaueIndex]->calculateMisorientation(currentQuat, neighborQuat);
+                misorientationAngle = axisAngle[3];
+              }
+              if(misorientationAngle < misorientationTolerance)
+              {
+                sliceFeatureIds[neighborVoxelIdx] = featureCount;
+                voxelList[voxelListSize] = neighborVoxelIdx;
+                voxelListSize++;
+                if(voxelListSize >= voxelList.size())
                 {
-                  size = voxelList.size();
-                  voxelList.resize(size + initialVoxelsListSize);
-                  for(std::vector<int64_t>::size_type v = size; v < voxelList.size(); ++v)
+                  voxelListSize = voxelList.size();
+                  voxelList.resize(voxelListSize + initialVoxelListSize);
+                  for(usize resetIdx = voxelListSize; resetIdx < voxelList.size(); ++resetIdx)
                   {
-                    voxelList[v] = -1;
+                    voxelList[resetIdx] = -1;
                   }
                 }
               }
@@ -454,9 +485,10 @@ void AlignSectionsMutualInformation::formFeaturesSections(std::vector<int32>& mi
         }
         voxelList.erase(std::remove(voxelList.begin(), voxelList.end(), -1), voxelList.end());
         featureCount++;
-        voxelList.assign(initialVoxelsListSize, -1);
+        voxelList.assign(initialVoxelListSize, -1);
       }
     }
-    featureCounts[slice] = featureCount;
+    sliceFeatureCounts[sliceIdx] = featureCount;
   }
+  return {};
 }

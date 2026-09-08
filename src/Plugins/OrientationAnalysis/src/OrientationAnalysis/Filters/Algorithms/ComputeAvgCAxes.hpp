@@ -9,6 +9,10 @@
 namespace nx::core
 {
 
+/**
+ * @struct ComputeAvgCAxesInputValues
+ * @brief Stores the input values for the average C-axis calculation.
+ */
 struct ORIENTATIONANALYSIS_EXPORT ComputeAvgCAxesInputValues
 {
   DataPath QuatsArrayPath;
@@ -21,13 +25,24 @@ struct ORIENTATIONANALYSIS_EXPORT ComputeAvgCAxesInputValues
 
 /**
  * @class ComputeAvgCAxes
- * @brief This filter determines the average C-axis location of each Feature.
+ * @brief Calculates the average C-axis direction of each Feature.
  */
 
 class ORIENTATIONANALYSIS_EXPORT ComputeAvgCAxes
 {
 public:
-  ComputeAvgCAxes(DataStructure& dataStructure, const IFilter::MessageHandler& mesgHandler, const std::atomic_bool& shouldCancel, ComputeAvgCAxesInputValues* inputValues);
+  /**
+   * @brief Constructs the average C-axis algorithm.
+   * @param dataStructure Contains the arrays that the algorithm uses and modifies.
+   * @param messageHandler Receives progress messages.
+   * @param shouldCancel Stops execution when set.
+   * @param inputValues Specifies the input and output paths.
+   */
+  ComputeAvgCAxes(DataStructure& dataStructure, const IFilter::MessageHandler& messageHandler, const std::atomic_bool& shouldCancel, ComputeAvgCAxesInputValues* inputValues);
+
+  /**
+   * @brief Destroys the average C-axis algorithm.
+   */
   ~ComputeAvgCAxes() noexcept;
 
   ComputeAvgCAxes(const ComputeAvgCAxes&) = delete;
@@ -35,6 +50,10 @@ public:
   ComputeAvgCAxes& operator=(const ComputeAvgCAxes&) = delete;
   ComputeAvgCAxes& operator=(ComputeAvgCAxes&&) noexcept = delete;
 
+  /**
+   * @brief Calculates the average C-axis direction for each eligible Feature.
+   * @return An error if a participating Phase cannot index the Crystal Structures array.
+   */
   Result<> operator()();
 
 private:

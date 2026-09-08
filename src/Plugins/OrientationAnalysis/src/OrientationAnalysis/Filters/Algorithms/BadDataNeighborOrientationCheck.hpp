@@ -9,6 +9,10 @@
 namespace nx::core
 {
 
+/**
+ * @struct BadDataNeighborOrientationCheckInputValues
+ * @brief Stores the input values for the bad-data neighbor orientation check.
+ */
 struct ORIENTATIONANALYSIS_EXPORT BadDataNeighborOrientationCheckInputValues
 {
   float32 MisorientationTolerance;
@@ -21,13 +25,25 @@ struct ORIENTATIONANALYSIS_EXPORT BadDataNeighborOrientationCheckInputValues
 };
 
 /**
- * @class
+ * @class BadDataNeighborOrientationCheck
+ * @brief Converts bad voxels to good when enough neighbors have similar orientations.
  */
 class ORIENTATIONANALYSIS_EXPORT BadDataNeighborOrientationCheck
 {
 public:
-  BadDataNeighborOrientationCheck(DataStructure& dataStructure, const IFilter::MessageHandler& mesgHandler, const std::atomic_bool& shouldCancel,
+  /**
+   * @brief Constructs the neighbor-orientation algorithm.
+   * @param dataStructure Contains the geometry and arrays that the algorithm uses and modifies.
+   * @param messageHandler Receives progress messages.
+   * @param shouldCancel Stops execution when set.
+   * @param inputValues Specifies the input paths, tolerance, and neighbor threshold.
+   */
+  BadDataNeighborOrientationCheck(DataStructure& dataStructure, const IFilter::MessageHandler& messageHandler, const std::atomic_bool& shouldCancel,
                                   BadDataNeighborOrientationCheckInputValues* inputValues);
+
+  /**
+   * @brief Destroys the neighbor-orientation algorithm.
+   */
   ~BadDataNeighborOrientationCheck() noexcept;
 
   BadDataNeighborOrientationCheck(const BadDataNeighborOrientationCheck&) = delete;
@@ -35,6 +51,10 @@ public:
   BadDataNeighborOrientationCheck& operator=(const BadDataNeighborOrientationCheck&) = delete;
   BadDataNeighborOrientationCheck& operator=(BadDataNeighborOrientationCheck&&) noexcept = delete;
 
+  /**
+   * @brief Applies the iterative neighbor-orientation correction.
+   * @return An error if a participating Phase or Laue index is out of bounds.
+   */
   Result<> operator()();
 
 private:

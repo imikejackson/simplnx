@@ -6,9 +6,13 @@
 
 #include "simplnx/Common/Types.hpp"
 #include "simplnx/Core/Application.hpp"
+#include "simplnx/DataStructure/AttributeMatrix.hpp"
+#include "simplnx/DataStructure/DataArray.hpp"
+#include "simplnx/DataStructure/Geometry/ImageGeom.hpp"
 #include "simplnx/Pipeline/Pipeline.hpp"
 #include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
+#include "simplnx/Utilities/DataStoreUtilities.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -207,4 +211,97 @@ TEST_CASE("OrientationAnalysis::AlignSectionsMisorientationFilter: SIMPL Backwar
       CHECK(args.value<DataPath>(AlignSectionsMisorientationFilter::k_CrystalStructuresArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
     }
   }
+}
+
+TEST_CASE("OrientationAnalysis::AlignSectionsMisorientationFilter: Phase Index Bounds", "[OrientationAnalysis][AlignSectionsMisorientationFilter]")
+{
+  UnitTest::LoadPlugins();
+
+  constexpr usize k_DimX = 8;
+  constexpr usize k_DimY = 8;
+  constexpr usize k_DimZ = 2;
+  constexpr usize k_TotalVoxels = k_DimX * k_DimY * k_DimZ;
+  constexpr usize k_VoxelsPerSlice = k_DimX * k_DimY;
+  constexpr usize k_NumCrystalStructures = 2;
+
+  const bool invalidReferenceSection = GENERATE(false, true);
+  const bool storeAlignmentShifts = GENERATE(false, true);
+  CAPTURE(invalidReferenceSection, storeAlignmentShifts);
+
+  DataStructure dataStructure;
+  auto* imageGeomPtr = ImageGeom::Create(dataStructure, "ImageGeometry");
+  imageGeomPtr->setDimensions({k_DimX, k_DimY, k_DimZ});
+  imageGeomPtr->setSpacing({1.0F, 1.0F, 1.0F});
+  imageGeomPtr->setOrigin({0.0F, 0.0F, 0.0F});
+
+  const ShapeType cellTupleShape = {k_DimZ, k_DimY, k_DimX};
+  auto* cellDataPtr = AttributeMatrix::Create(dataStructure, "CellData", cellTupleShape, imageGeomPtr->getId());
+  imageGeomPtr->setCellData(*cellDataPtr);
+  auto* ensembleDataPtr = AttributeMatrix::Create(dataStructure, "CellEnsembleData", ShapeType{k_NumCrystalStructures}, imageGeomPtr->getId());
+
+  auto quatsStore = DataStoreUtilities::CreateDataStore<float32>(cellTupleShape, {4}, IDataAction::Mode::Execute);
+  auto* quatsArrayPtr = Float32Array::Create(dataStructure, "Quats", quatsStore, cellDataPtr->getId());
+  auto cellPhasesStore = DataStoreUtilities::CreateDataStore<int32>(cellTupleShape, {1}, IDataAction::Mode::Execute);
+  auto* cellPhasesArrayPtr = Int32Array::Create(dataStructure, "Phases", cellPhasesStore, cellDataPtr->getId());
+  auto maskStore = DataStoreUtilities::CreateDataStore<bool>(cellTupleShape, {1}, IDataAction::Mode::Execute);
+  auto* maskArrayPtr = BoolArray::Create(dataStructure, "Mask", maskStore, cellDataPtr->getId());
+  auto crystalStructuresStore = DataStoreUtilities::CreateDataStore<uint32>(ShapeType{k_NumCrystalStructures}, {1}, IDataAction::Mode::Execute);
+  auto* crystalStructuresArrayPtr = UInt32Array::Create(dataStructure, "CrystalStructures", crystalStructuresStore, ensembleDataPtr->getId());
+
+  quatsArrayPtr->fill(0.0F);
+  for(usize voxelIdx = 0; voxelIdx < k_TotalVoxels; ++voxelIdx)
+  {
+    (*quatsArrayPtr)[voxelIdx * 4 + 3] = 1.0F;
+  }
+  cellPhasesArrayPtr->fill(1);
+  const usize invalidSliceStart = invalidReferenceSection ? k_VoxelsPerSlice : 0;
+  for(usize voxelIdx = invalidSliceStart; voxelIdx < invalidSliceStart + k_VoxelsPerSlice; ++voxelIdx)
+  {
+    (*cellPhasesArrayPtr)[voxelIdx] = static_cast<int32>(k_NumCrystalStructures);
+  }
+  maskArrayPtr->fill(true);
+  (*crystalStructuresArrayPtr)[0] = 999U;
+  (*crystalStructuresArrayPtr)[1] = 1U;
+
+  const DataPath imageGeomPath({"ImageGeometry"});
+  const DataPath cellDataPath = imageGeomPath.createChildPath("CellData");
+  const DataPath ensembleDataPath = imageGeomPath.createChildPath("CellEnsembleData");
+
+  AlignSectionsMisorientationFilter filter;
+  Arguments args = filter.getDefaultArguments();
+  args.insertOrAssign(AlignSectionsMisorientationFilter::k_SelectedImageGeometryPath_Key, std::make_any<DataPath>(imageGeomPath));
+  args.insertOrAssign(AlignSectionsMisorientationFilter::k_QuatsArrayPath_Key, std::make_any<DataPath>(cellDataPath.createChildPath("Quats")));
+  args.insertOrAssign(AlignSectionsMisorientationFilter::k_CellPhasesArrayPath_Key, std::make_any<DataPath>(cellDataPath.createChildPath("Phases")));
+  args.insertOrAssign(AlignSectionsMisorientationFilter::k_CrystalStructuresArrayPath_Key, std::make_any<DataPath>(ensembleDataPath.createChildPath("CrystalStructures")));
+  args.insertOrAssign(AlignSectionsMisorientationFilter::k_StoreAlignmentShifts_Key, std::make_any<bool>(storeAlignmentShifts));
+
+  SECTION("Participating Phase returns an error")
+  {
+    args.insertOrAssign(AlignSectionsMisorientationFilter::k_UseMask_Key, std::make_any<bool>(false));
+
+    auto preflightResult = filter.preflight(dataStructure, args);
+    SIMPLNX_RESULT_REQUIRE_VALID(preflightResult.outputActions);
+
+    auto executeResult = filter.execute(dataStructure, args);
+    SIMPLNX_RESULT_REQUIRE_INVALID(executeResult.result);
+    REQUIRE(executeResult.result.errors()[0].code == -53901);
+  }
+
+  SECTION("Masked Phase is ignored")
+  {
+    for(usize voxelIdx = invalidSliceStart; voxelIdx < invalidSliceStart + k_VoxelsPerSlice; ++voxelIdx)
+    {
+      (*maskArrayPtr)[voxelIdx] = false;
+    }
+    args.insertOrAssign(AlignSectionsMisorientationFilter::k_UseMask_Key, std::make_any<bool>(true));
+    args.insertOrAssign(AlignSectionsMisorientationFilter::k_MaskArrayPath_Key, std::make_any<DataPath>(cellDataPath.createChildPath("Mask")));
+
+    auto preflightResult = filter.preflight(dataStructure, args);
+    SIMPLNX_RESULT_REQUIRE_VALID(preflightResult.outputActions);
+
+    auto executeResult = filter.execute(dataStructure, args);
+    SIMPLNX_RESULT_REQUIRE_VALID(executeResult.result);
+  }
+
+  UnitTest::CheckArraysInheritTupleDims(dataStructure);
 }

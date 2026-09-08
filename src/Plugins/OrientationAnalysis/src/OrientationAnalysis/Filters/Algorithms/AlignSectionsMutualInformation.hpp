@@ -13,6 +13,10 @@
 
 namespace nx::core
 {
+/**
+ * @struct AlignSectionsMutualInformationInputValues
+ * @brief Stores the input values for section alignment by mutual information.
+ */
 struct ORIENTATIONANALYSIS_EXPORT AlignSectionsMutualInformationInputValues
 {
   DataPath ImageGeometryPath;
@@ -32,13 +36,25 @@ struct ORIENTATIONANALYSIS_EXPORT AlignSectionsMutualInformationInputValues
 };
 
 /**
- * @class
+ * @class AlignSectionsMutualInformation
+ * @brief Aligns adjacent sections by maximizing mutual information between segmented regions.
  */
 class ORIENTATIONANALYSIS_EXPORT AlignSectionsMutualInformation : public AlignSections
 {
 public:
-  AlignSectionsMutualInformation(DataStructure& dataStructure, const IFilter::MessageHandler& mesgHandler, const std::atomic_bool& shouldCancel,
+  /**
+   * @brief Constructs the section-alignment algorithm.
+   * @param dataStructure Contains the geometry and arrays that the algorithm uses and modifies.
+   * @param messageHandler Receives progress messages.
+   * @param shouldCancel Stops execution when set.
+   * @param inputValues Specifies the input paths, tolerance, mask use, and optional shift outputs.
+   */
+  AlignSectionsMutualInformation(DataStructure& dataStructure, const IFilter::MessageHandler& messageHandler, const std::atomic_bool& shouldCancel,
                                  AlignSectionsMutualInformationInputValues* inputValues);
+
+  /**
+   * @brief Destroys the section-alignment algorithm.
+   */
   ~AlignSectionsMutualInformation() noexcept override;
 
   AlignSectionsMutualInformation(const AlignSectionsMutualInformation&) = delete;
@@ -46,12 +62,28 @@ public:
   AlignSectionsMutualInformation& operator=(const AlignSectionsMutualInformation&) = delete;
   AlignSectionsMutualInformation& operator=(AlignSectionsMutualInformation&&) noexcept = delete;
 
+  /**
+   * @brief Calculates and applies the section-alignment shifts.
+   * @return An error if a participating Phase or Laue index is out of bounds.
+   */
   Result<> operator()();
 
 protected:
+  /**
+   * @brief Calculates the relative X and Y shifts between adjacent sections.
+   * @param xShifts Receives the cumulative X shift for each section.
+   * @param yShifts Receives the cumulative Y shift for each section.
+   * @return An error if section segmentation fails.
+   */
   Result<> findShifts(std::vector<int64>& xShifts, std::vector<int64>& yShifts) override;
 
-  void formFeaturesSections(std::vector<int32>& miFeatureIds, std::vector<int32>& featureCounts);
+  /**
+   * @brief Segments each section into regions for the mutual-information calculation.
+   * @param sliceFeatureIds Receives the temporary region identifier for each voxel.
+   * @param sliceFeatureCounts Receives the number of regions in each section.
+   * @return An error if a participating Phase or Laue index is out of bounds.
+   */
+  Result<> formFeaturesSections(std::vector<int32>& sliceFeatureIds, std::vector<int32>& sliceFeatureCounts);
 
 private:
   DataStructure& m_DataStructure;

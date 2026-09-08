@@ -162,36 +162,36 @@ IFilter::PreflightResult AlignSectionsMisorientationFilter::preflightImpl(const 
 
   nx::core::Result<OutputActions> resultOutputActions;
 
-  std::vector<DataPath> dataPaths;
+  std::vector<DataPath> dataArrayPaths;
 
-  const auto* quats = dataStructure.getDataAs<Float32Array>(pQuatsArrayPath);
-  if(quats->getNumberOfComponents() != 4)
+  const auto* quatsArrayPtr = dataStructure.getDataAs<Float32Array>(pQuatsArrayPath);
+  if(quatsArrayPtr->getNumberOfComponents() != 4)
   {
     return MakePreflightErrorResult(::k_InputComponentCountError,
-                                    fmt::format("Quaternion Array at path '{}' has {} components but 4 are required.", pQuatsArrayPath.toString(), quats->getNumberOfComponents()));
+                                    fmt::format("Quaternion Array at path '{}' has {} components but 4 are required.", pQuatsArrayPath.toString(), quatsArrayPtr->getNumberOfComponents()));
   }
-  dataPaths.push_back(pQuatsArrayPath);
+  dataArrayPaths.push_back(pQuatsArrayPath);
 
-  dataPaths.push_back(pCellPhasesArrayPath);
+  dataArrayPaths.push_back(pCellPhasesArrayPath);
 
   if(pUseGoodVoxels)
   {
-    dataPaths.push_back(pGoodVoxelsArrayPath);
+    dataArrayPaths.push_back(pGoodVoxelsArrayPath);
   }
   // Ensure all DataArrays have the same number of Tuples
-  auto tupleValidityCheck = dataStructure.validateNumberOfTuples(dataPaths);
+  auto tupleValidityCheck = dataStructure.validateNumberOfTuples(dataArrayPaths);
   if(!tupleValidityCheck)
   {
     return MakePreflightErrorResult(k_InconsistentTupleCount, fmt::format("The following DataArrays all must have equal number of tuples but this was not satisfied.\n{}", tupleValidityCheck.error()));
   }
 
-  const auto* inputGeom = dataStructure.getDataAs<ImageGeom>(inputImageGeometry);
-  if(inputGeom == nullptr)
+  const auto* inputImageGeomPtr = dataStructure.getDataAs<ImageGeom>(inputImageGeometry);
+  if(inputImageGeomPtr == nullptr)
   {
     return MakePreflightErrorResult(k_InputRepresentationTypeError, fmt::format("Cannot find selected input Image geometry at path '{}'", inputImageGeometry.toString()));
   }
 
-  if(inputGeom->getCellData() == nullptr)
+  if(inputImageGeomPtr->getCellData() == nullptr)
   {
     return MakePreflightErrorResult(k_InputRepresentationTypeError, fmt::format("Cannot find cell data Attribute Matrix in the selected Image geometry '{}'", inputImageGeometry.toString()));
   }
@@ -199,24 +199,26 @@ IFilter::PreflightResult AlignSectionsMisorientationFilter::preflightImpl(const 
   // Handle Array Creation
   if(pStoreAlignmentShifts)
   {
-    const usize dims = inputGeom->getDimensions().getZ();
+    const usize numSlices = inputImageGeomPtr->getDimensions().getZ();
     auto pAlignmentAMName = filterArgs.value<DataObjectNameParameter::ValueType>(k_AlignmentAMName_Key);
-    const DataPath amPath = inputImageGeometry.createChildPath(pAlignmentAMName);
+    const DataPath alignmentAMPath = inputImageGeometry.createChildPath(pAlignmentAMName);
 
     // Create Parent AM
-    resultOutputActions.value().appendAction(std::make_unique<CreateAttributeMatrixAction>(amPath, ShapeType{dims}));
+    resultOutputActions.value().appendAction(std::make_unique<CreateAttributeMatrixAction>(alignmentAMPath, ShapeType{numSlices}));
 
     // Create slices Array
     auto pSlicesName = filterArgs.value<DataObjectNameParameter::ValueType>(k_SlicesArrayName_Key);
-    resultOutputActions.value().appendAction(std::make_unique<CreateArrayAction>(DataType::uint32, std::vector<usize>{dims}, std::vector<usize>{2}, amPath.createChildPath(pSlicesName)));
+    resultOutputActions.value().appendAction(std::make_unique<CreateArrayAction>(DataType::uint32, std::vector<usize>{numSlices}, std::vector<usize>{2}, alignmentAMPath.createChildPath(pSlicesName)));
 
     // Create positioning Array
     auto pRelativeShiftsName = filterArgs.value<DataObjectNameParameter::ValueType>(k_RelativeShiftsArrayName_Key);
-    resultOutputActions.value().appendAction(std::make_unique<CreateArrayAction>(DataType::int64, std::vector<usize>{dims}, std::vector<usize>{2}, amPath.createChildPath(pRelativeShiftsName)));
+    resultOutputActions.value().appendAction(
+        std::make_unique<CreateArrayAction>(DataType::int64, std::vector<usize>{numSlices}, std::vector<usize>{2}, alignmentAMPath.createChildPath(pRelativeShiftsName)));
 
     // Create shifts Array
     auto pCumulativeShiftsName = filterArgs.value<DataObjectNameParameter::ValueType>(k_CumulativeShiftsArrayName_Key);
-    resultOutputActions.value().appendAction(std::make_unique<CreateArrayAction>(DataType::int64, std::vector<usize>{dims}, std::vector<usize>{2}, amPath.createChildPath(pCumulativeShiftsName)));
+    resultOutputActions.value().appendAction(
+        std::make_unique<CreateArrayAction>(DataType::int64, std::vector<usize>{numSlices}, std::vector<usize>{2}, alignmentAMPath.createChildPath(pCumulativeShiftsName)));
   }
 
   // Inform users that the following arrays are going to be modified in place
@@ -234,13 +236,12 @@ Result<> AlignSectionsMisorientationFilter::executeImpl(DataStructure& dataStruc
   AlignSectionsMisorientationInputValues inputValues;
 
   inputValues.ImageGeometryPath = filterArgs.value<DataPath>(k_SelectedImageGeometryPath_Key);
-  auto* inputGeom = dataStructure.getDataAs<ImageGeom>(inputValues.ImageGeometryPath);
-  inputValues.misorientationTolerance = filterArgs.value<float32>(k_MisorientationTolerance_Key);
+  inputValues.MisorientationTolerance = filterArgs.value<float32>(k_MisorientationTolerance_Key);
   inputValues.UseMask = filterArgs.value<bool>(k_UseMask_Key);
-  inputValues.quatsArrayPath = filterArgs.value<DataPath>(k_QuatsArrayPath_Key);
-  inputValues.cellPhasesArrayPath = filterArgs.value<DataPath>(k_CellPhasesArrayPath_Key);
+  inputValues.QuatsArrayPath = filterArgs.value<DataPath>(k_QuatsArrayPath_Key);
+  inputValues.CellPhasesArrayPath = filterArgs.value<DataPath>(k_CellPhasesArrayPath_Key);
   inputValues.MaskArrayPath = filterArgs.value<DataPath>(k_MaskArrayPath_Key);
-  inputValues.crystalStructuresArrayPath = filterArgs.value<DataPath>(k_CrystalStructuresArrayPath_Key);
+  inputValues.CrystalStructuresArrayPath = filterArgs.value<DataPath>(k_CrystalStructuresArrayPath_Key);
 
   inputValues.StoreAlignmentShifts = filterArgs.value<bool>(k_StoreAlignmentShifts_Key);
   inputValues.AlignmentAMPath = inputValues.ImageGeometryPath.createChildPath(filterArgs.value<DataObjectNameParameter::ValueType>(k_AlignmentAMName_Key));
