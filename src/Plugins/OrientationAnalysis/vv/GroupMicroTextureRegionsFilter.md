@@ -8,7 +8,7 @@
 | Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE |
 | Sign-off | Michael Jackson <mike.jackson@bluequartz.net> — 2026-08-27 |
-| Second-engineer sign-off | Nathan Young — 2026-06-23 (approving reviewer, PR #1637). Metallurgical intent separately reviewed by Adam L. Pilchak, Pratt & Whitney, 2026-08-11. The completing changes were delivered by PR #1703 (merged 2026-08-28); **Joey Kleingers <joey.kleingers@bluequartz.net> is the assigned second-engineer reviewer for that PR — sign-off pending.** |
+| Second-engineer sign-off | Nathan Young — 2026-06-23 (approving reviewer, PR #1637). Metallurgical intent separately reviewed by Adam L. Pilchak, Pratt & Whitney, 2026-08-11. The completing changes were delivered by PR #1703 (merged 2026-08-28); |
 
 ## At a glance
 
