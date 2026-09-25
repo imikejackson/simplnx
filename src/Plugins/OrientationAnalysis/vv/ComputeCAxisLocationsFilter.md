@@ -14,12 +14,12 @@
 
 | Aspect                 | Current state            |
 |------------------------|--------------------------|
-| Algorithm Relationship | Port - The EbsdLib, matrix math, and SIMPL APIs have changed but the code is functionally identical. Addition of several error branches when the crystal structure type is not hexagonal. |
-| Oracle (confirmed)     | Class 1 (Analytical) -  15 hand derived data fixtures |
-| Code paths enumerated  | 7 of 8 paths exercised - only the filter cancelation path is untested |
-| Tests today            | 5 test cases - 1 test with Class 1 Oracle, 2 error path tests, 1 warning path test, 1 SIMPL json backwards compatibility test |
-| Exemplar archive       | None - removed test using circular oracle data from `caxis_data.tar.gz` |
-| Legacy comparison      | Run 2026-07-31 against DREAM3D 6.5.171 using the 15 inline Class 1 fixtures and a shared serialized input. All 45 output float32 values were bit-identical, and the comparison artifacts were uploaded to OneDrive on 2026-07-31. |
+| Algorithm Relationship | **Port** — EbsdLib, matrix-math, and SIMPL APIs changed, but the calculation is functionally identical. SIMPLNX adds error and warning paths for non-hexagonal crystal structures. |
+| Oracle (confirmed)     | **Class 1 (Analytical)** — 15 hand-derived fixtures encoded in `test/ComputeCAxisLocationsTest.cpp`; all pass. |
+| Code paths enumerated  | 7 of 8 paths exercised; only the cancellation path is not directly tested. |
+| Tests today            | 5 test cases cover the Class 1 oracle, two error paths, one warning path, and SIMPL JSON conversion. |
+| Exemplar archive       | **None** — the test that used circular-oracle data from `caxis_data.tar.gz` is retired. |
+| Legacy comparison      | **Run** — All 45 valid hexagonal values were bit-identical; D1 through D3 document the SIMPLNX domain guards for non-hexagonal data. |
 | Bug flags              | None |
 | V&V phase | **COMPLETE.** |
 
@@ -27,17 +27,13 @@ For worked instances see `src/Plugins/OrientationAnalysis/vv/BadDataNeighborOrie
 
 ## Summary
 
-ComputeCAxisLocationsFilter determines the direction of the C-axis for each element, in the *sample reference frame*, by applying the quaternion of the element to the <001> direction, which is the C-axis for *Hexagonal* materials.
-
-The filter is verified with a Class 1 (Analytical) oracle. The filter uses the quaternion to rotate the C-axis into the sample reference frame. This is done by converting the quaternion to a rotation matrix. Then the transpose of the matrix is used due to DREAM3D conventions (see `wrapping/python/docs/source/Reference_Frame_Notes.md`). Due to the transpose the sign of the third element may need to be flipped. A new test was added with handed verified data.
-
-There were no deviations that affect the output found for hexagonal materials.
+`ComputeCAxisLocationsFilter` rotates the hexagonal <001> direction into the sample reference frame for each element. A Class 1 analytical oracle verifies the transposed rotation-matrix calculation and its sign convention with 15 hand-derived orientations. Hexagonal outputs have no deviation, while D1 through D3 document the NaN, rejection, and warning contracts for non-hexagonal data.
 
 ## Algorithm Relationship
 
-*Classification*: Port
+*Classification:* **Port**
 
-*Evidence*: Same loop with the same rotation equation used
+*Evidence:* The port uses the same loop and rotation equation.
 
 - UUID changed from SIMPL and filter renamed to match "Compute" naming conventions.
 - EbsdLib is now up to version 3 which has equivalent but changed API for orientations like quaternions. The internal matrix math API has also changed here to use EbsdLib and Eigen but is functionally identical.
@@ -64,11 +60,15 @@ There were no deviations that affect the output found for hexagonal materials.
 
 *Second-engineer review:* **Michael Jackson — 2026-08-10** (approving reviewer of PR #1679; Nathan Young also approved).
 
+## Bugs found and fixed
+
+None.
+
 ## Code path coverage
 
 *7 of 8 paths exercised. The non-covered path is the cancellation branch which is not currently able to be tested for all filters*
 
-Source: `src/Plugins/OrientationAnalysis/src/OrientationAnalysis/Filters/Algorithms/ComputeCAxisLocations.cpp` (107 lines).
+Source: `src/Plugins/OrientationAnalysis/src/OrientationAnalysis/Filters/Algorithms/ComputeCAxisLocations.cpp` (106 lines).
 
 | #  | Phase           | Path            | Test case|
 |----|-----------------|---------------------------------------------------|--------------------------------------------|
@@ -100,6 +100,8 @@ No new exemplar archive was created for this V&V cycle: the Class 1 oracle is en
 ## Deviations from DREAM3D 6.5.171
 
 The comparison was run on 2026-07-31 using the 15 quaternion fixtures from `"OrientationAnalysis::ComputeCAxisLocationsFilter: Class 1 Oracle"`. DREAM3D 6.5.171 serialized the shared input immediately before running `FindCAxisLocations`; the NX Debug pipeline read that same file and ran `ComputeCAxisLocationsFilter`. Nine shared input DataArrays remained identical in both outputs. The target arrays had identical float32 shape `(15, 3)`, 0 of 45 differing float32 words, and a maximum absolute NX-versus-6.5.171 difference of `0.0`; both outputs also satisfied the analytical oracle at absolute tolerance `1e-7`.
+
+The 2026-09-17 comparison used byte-identical mixed and all-cubic inputs. The eight hexagonal cells remained bit-identical. DREAM3D 6.5.171 wrote finite but physically inapplicable vectors for seven cubic cells, while SIMPLNX wrote NaN and warnings `-3521` and `-3523`; on the all-cubic input, legacy completed while SIMPLNX rejected the input with `-3522` and wrote no output.
 
 The CSV fixture, shared input, legacy and NX pipelines, output DREAM3D files, and comparison summary were uploaded to OneDrive on 2026-07-31.
 

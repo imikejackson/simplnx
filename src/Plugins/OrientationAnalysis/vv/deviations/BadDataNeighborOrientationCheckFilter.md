@@ -6,15 +6,14 @@ Entries are referenced by stable ID (`BadDataNeighborOrientationCheckFilter-D<N>
 
 ## Comparison summary
 
-A direct A/B comparison was run on 2026-05-29 across all 27 algorithmic test fixtures defined by the engineer in the V&V test data archive (`bad_data_neighbor_orientation_check_v2/test_design.md`). Inputs were identical (same `Quats`, `Phases`, `Mask`, `CrystalStructures`, `MisorientationTolerance`, `NumberOfNeighbors`) for both implementations.
+A direct A/B comparison was rerun on 2026-09-17 across all 27 algorithmic fixtures and one 4,444,713-cell Small IN100 case. Inputs were identical for all compared applications: the same `Quats`, `Phases`, `Mask`, `CrystalStructures`, `MisorientationTolerance`, and `NumberOfNeighbors` arrays and parameters were read from each shared input file.
 
-| | Cases | Mask bytes affected |
+| Comparison | Identical cases | Differing mask values |
 |---|---|---|
-| Bit-identical SIMPLNX = 6.5.171 | 12 of 27 (all Case 1.X.{2,3} — "should not flip" scenarios) | 0 |
-| SIMPLNX ≠ 6.5.171, direction 1→0 (SIMPLNX flips, 6.5.171 misses) | 15 of 27 (all Case 1.X.1 + all Case 2.X + both Case 3.X + Case 4) | 288 |
-| SIMPLNX ≠ 6.5.171, direction 0→1 (SIMPLNX correct, 6.5.171 false-flips) | 0 | 0 |
+| SIMPLNX vs DREAM3D 6.5.171 | 12 of 28 | 45,229, all SIMPLNX good / legacy bad |
+| SIMPLNX vs local legacy build with the surgical fixes | 28 of 28 | 0 |
 
-**100% of observed diffs are direction 1→0**, consistent with a single root cause: the legacy convergence-loop bound that terminates one level early (D1 below). The D2 stale-`w` defect is real and code-evident but does not produce a 0→1 diff in any of the engineer's tests because D1 prevents the bumped count from ever crossing threshold — the two legacy bugs mask each other.
+The patch-isolation sequence separated the causes. After the D1 loop-bound and shared orientation-precision corrections, 41 fixture differences remained: 37 from D2's stale cross-phase misorientation and four from the legacy tolerance conversion at the exact 5° boundary. Applying the D2 same-phase gate and matching the corrected tolerance conversion removed those differences. The final local legacy build reproduced SIMPLNX exactly on all four compared arrays in all 28 cases.
 
 ---
 
@@ -26,7 +25,7 @@ A direct A/B comparison was run on 2026-05-29 across all 27 algorithmic test fix
 | **Filter UUID** | `3f342977-aea1-49e1-a9c2-f73760eba0d3` |
 | **Status** | active |
 
-**Symptom:** DREAM3D 6.5.171 fails to flip a bad voxel whose good-neighbor count is exactly equal to the user-supplied `NumberOfNeighbors`. SIMPLNX correctly flips such voxels. Observable in 15 of the 27 V&V fixtures (288 mask bytes total) — every case where the algorithm depends on reaching the bottom level of the iterative-decay loop.
+**Symptom:** DREAM3D 6.5.171 fails to flip a bad voxel whose good-neighbor count is exactly equal to the user-supplied `NumberOfNeighbors`. SIMPLNX correctly flips such voxels. The 27 analytical fixtures contain 288 such mask differences; the production case adds 44,941, for 45,229 across the complete comparison.
 
 **Root cause:** Bug in DREAM3D 6.5.171.
 
@@ -46,11 +45,11 @@ SIMPLNX corrects this to `while(currentLevel >= m_InputValues->NumberOfNeighbors
 |---|---|
 | **Deviation ID** | `BadDataNeighborOrientationCheckFilter-D2` |
 | **Filter UUID** | `3f342977-aea1-49e1-a9c2-f73760eba0d3` |
-| **Status** | active (latent — not observable in the V&V test suite, but real and code-evident) |
+| **Status** | active |
 
-**Symptom:** Latent. DREAM3D 6.5.171 can count a different-phase neighbor's misorientation as within tolerance if a *previous* same-phase neighbor's `w` was small, because the misorientation-threshold check sits outside the same-phase conditional and inherits the stale `w` from the prior iteration. SIMPLNX prevents this by moving the threshold check inside the same-phase conditional.
+**Symptom:** DREAM3D 6.5.171 can count a different-phase neighbor's misorientation as within tolerance if a *previous* same-phase neighbor's `w` was small, because the misorientation-threshold check sits outside the same-phase conditional and inherits the stale `w` from the prior iteration. SIMPLNX prevents this by moving the threshold check inside the same-phase conditional.
 
-This bug is not directly observable in any of the 27 V&V test fixtures, because the D1 loop-bound bug (above) terminates the iterative-decay loop before any voxel whose count was incorrectly bumped by D2 could be flipped. The two legacy bugs cancel each other in the engineer's test inputs.
+D1 masks D2 in the unmodified release comparison. The isolation rerun first corrected D1 while retaining the legacy phase gate; 37 fixture mask differences then appeared. Applying the same-phase gate used by SIMPLNX closed all 37. Four additional exact-tolerance differences were separately removed by matching the corrected degree-to-radian conversion. This sequence demonstrates D2 independently of D1.
 
 **Root cause:** Bug in DREAM3D 6.5.171.
 
@@ -88,15 +87,13 @@ The bug is documented as "Issue 2" in the engineer's V&V test archive README at 
 
 **Affected users:** Anyone running the filter in DREAM3D 6.5.171 on a dataset with mixed phases adjacent to grain boundaries. The bug would manifest as voxels at phase boundaries being incorrectly flipped to "good" because they appear to have more within-tolerance neighbors than they actually do.
 
-**Why not observable in V&V A/B:** The D1 loop-bound bug prevents iteration from reaching the level where the bumped count would matter. With `NumberOfNeighbors = N`, D1 stops iteration at `currentLevel = N + 1`, so a voxel with count = N (true count) or N + 1 (bumped count) cannot be flipped at the N level. To isolate D2, one would need to patch legacy 6.5.171 with just the D1 fix (without D2 fix), then run a mixed-phase fixture where a bad voxel's neighbor sequence includes a same-phase good neighbor followed by a different-phase neighbor. This is a future Phase 8 regression test addition.
-
-**Recommendation:** Trust SIMPLNX. The 6.5.171 result was mathematically incorrect. Both the D1 and D2 fixes were applied together to a local build of the legacy source for the root-cause proof (see D1). Note: applying only the D1 fix to 6.5.171 without also applying the D2 fix would UNCOVER D2 as new false-positive flips at phase boundaries — both fixes belong together.
+**Recommendation:** Trust SIMPLNX. The 6.5.171 result was mathematically incorrect. D1 and D2 were isolated in sequence on a local build of the legacy source, and the final corrected build reproduced SIMPLNX on every comparison case.
 
 ---
 
 ### EbsdLib 2.4.1 CubicOps precision improvement (precision improvement; not a behavioral deviation in this filter's test data)
 
-SIMPLNX delegates misorientation math to `ebsdlib::LaueOps::calculateMisorientation` (EbsdLib 2.4.1+); legacy 6.5.171 delegates to `OrientationLib::CubicOps::getMisoQuat` (DREAM3D 6.5.x). The modern API recovers ~0.02° of precision for cubic misorientations that lie on a 4-fold, 3-fold, or 2-fold symmetry op (replacing the precision-fragile `acos(w)` near 1 with the numerically stable `2·atan2(|v|, w)` using explicit reduced-quaternion v components). The improvement is documented in the EbsdLib 2.4.1 release notes (commit `5c8c993` on `/Users/mjackson/Workspace9/EbsdLib`, 2026-05-29).
+SIMPLNX delegates misorientation math to `ebsdlib::LaueOps::calculateMisorientation` (EbsdLib 2.4.1+); legacy 6.5.171 delegates to `OrientationLib::CubicOps::getMisoQuat`. The modern API recovers ~0.02° of precision for cubic misorientations on 4-fold, 3-fold, or 2-fold symmetry operators by replacing the precision-fragile `acos(w)` near 1 with the stable `2·atan2(|v|, w)` form. The improvement is documented in the EbsdLib 2.4.1 release notes.
 
 **Not observed as a deviation in this filter** because the engineer's test fixtures do not include any voxel pair whose misorientation lands on a cubic sym op. The improvement is real and affects other downstream filters (see `ComputeFeatureFaceMisorientationFilter` V&V cycle's D4); for `BadDataNeighborOrientationCheck` specifically, this is a transparent dependency upgrade.
 
@@ -104,12 +101,4 @@ SIMPLNX delegates misorientation math to `ebsdlib::LaueOps::calculateMisorientat
 
 ## Comparison artifacts
 
-Verification fixtures + comparison results are at `/Users/mjackson/Workspace9/DREAM3D_Data/TestFiles/bad_data_neighbor_orientation_check_v2/`:
-
-- `case_*/case_*_*/case_*_*_cell_arrays.csv` — 27 CSV files, one per algorithmic case. Generated from engineer's hand-derived fixtures per `test_design.md`.
-- `case_*/case_*_*/6_5_case_*_*_input.json` — 27 legacy DREAM3D pipelines that generate v7.0 `.dream3d` input + run `BadDataNeighborOrientationCheck` + write output.
-- `vv_comparison/output_legacy/6_5_171_case_*.dream3d` — 27 legacy outputs from the official 6.5.171 PipelineRunner (`/Users/mjackson/Applications/DREAM3D.app/Contents/bin/PipelineRunner`).
-- `bad_data_neighbor_orientation_check_v2/test_design.md` — engineer's hand-derived expected outputs (the Class 1 oracle SIMPLNX is verified against in Phase 6).
-- `bad_data_neighbor_orientation_check_v2/README.md` — engineer's documentation of Issues 1 and 2.
-
-Comparison script (saved at `/tmp/diff_legacy_vs_simplnx.py`) extracts SIMPLNX expected output from the inline `expectedMask` arrays in `BadDataNeighborOrientationCheckTest.cpp` and diffs against the 6.5.171 outputs. Re-runnable.
+The archived record contains the 27 analytical fixtures, the Small IN100 production input, matching pipelines for all compared applications, all outputs, the original engineer test design, source snapshots, execution logs, and machine-readable array comparisons. The archive is reproducible from its included scripts and records the input and binary hashes used for the 2026-09-17 rerun.

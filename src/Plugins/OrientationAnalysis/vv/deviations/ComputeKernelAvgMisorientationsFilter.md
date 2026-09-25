@@ -6,9 +6,9 @@ Entries are referenced by stable ID (`ComputeKernelAvgMisorientationsFilter-D<N>
 
 ## Comparison summary
 
-The legacy A/B comparison was performed by source inspection (2026-06-03) **and by an empirical runtime A/B on the default per-grain path** (2026-07-15, branch `topic/kam_ignore_feature_ids`). SIMPLNX `ComputeKernelAvgMisorientations` is a clean Port of legacy `FindKernelAvgMisorientations::execute()` (same per-voxel outer triple loop; same per-kernel inner triple loop; same focal-validity gate; on the default path the same same-feature gate inside the kernel — legacy line 292 ≡ SIMPLNX line 124 `true`-branch; same per-voxel average with the focal voxel always included in the divisor). The port-time deltas are documented in the V&V report's Algorithm Relationship section. Three deviations are recorded: a precision-class non-deviation (D1) traceable to the EbsdLib 2.4.1 release **and now empirically quantified** (see D1's runtime-A/B block); a legacy bug (D2) at the inner x-loop bound corrected at port time; and an NX-only capability (D3), the `use_feature_ids=false` per-voxel mode added for issue #1613, which has no legacy counterpart and is therefore validated by oracle only, not by comparison.
+The legacy comparison was refreshed empirically on 2026-09-17 with two shared inputs and three kernels per input: symmetric `{1,1,1}` plus asymmetric `{1,1,2}` and `{2,1,1}`. All compared applications read bit-identical `FeatureIds`, `Phases`, and `Quats`. The symmetric cases quantify D1 while D2 is dormant; the asymmetric cases exercise D2 in both the over-reach and truncation directions. A local legacy build with the surgical D1/D2 corrections agrees with SIMPLNX to at most 9.54e-7° in every case, with zero cells above 0.01°.
 
-**Runtime A/B setup.** A synthetic legacy-format input (`.superpowers/sdd/task-6-ab/kam_ab_input.dream3d`, authored with the `compare-legacy-dream3d` writer helper) — a 12×12×12 image, 8 features (2×2×2 octant blocks), single cubic phase, per-cell orientations = per-feature base rotation ⊗ ≤3° intra-grain perturbation — was fed **unchanged** through both binaries: `PipelineRunner` (6.5.171 `FindKernelAvgMisorientations`) via `legacy_kam.json`, and `nxrunner` (`ComputeKernelAvgMisorientations`, `use_feature_ids=true`) via `nx_kam.d3dpipeline` (nxrunner imports the legacy v7 file directly). Kernel `{1,1,1}` (default; D2 dormant). The round-tripped `Quats` and `FeatureIds` were verified bit-identical in both outputs, so any KAM difference is algorithmic/numeric, not an input artifact.
+**Runtime A/B setup.** A seeded 12×12×12 synthetic volume and a 256,000-cell Small IN100 crop were each run with kernels `{1,1,1}`, `{1,1,2}`, and `{2,1,1}`. All six cases use the legacy-equivalent per-grain mode. The archived generators, matching pipelines, inputs, outputs, logs, and comparison scripts make the experiment reproducible without relying on ephemeral scratch files.
 
 ---
 
@@ -18,9 +18,9 @@ The legacy A/B comparison was performed by source inspection (2026-06-03) **and 
 |------------------|----------------------------------------------------------------------------------|
 | **Deviation ID** | `ComputeKernelAvgMisorientationsFilter-D1`                                       |
 | **Filter UUID**  | `61cfc9c1-aa0e-452b-b9ef-d3b9e6268035`                                           |
-| **Status**       | active (precision-class; non-deviation in algorithmic sense)                     |
+| **Status**       | active                     |
 
-**Symptom:** Per-cell `KernelAverageMisorientations` values differ between SIMPLNX built against fixed EbsdLib (≥ v2.4.1, commit `5c8c993`) and DREAM3D 6.5.171 (and, equivalently, between fixed-EbsdLib and pre-fix-EbsdLib SIMPLNX builds — see the dependency note below). The shift is **quaternion-specific, not a uniform per-cell offset**: it is *exactly* 0 for focal cells whose symmetry-reduced self-misorientation lands on the trivial `wmin` candidate (the identity quaternion, and small rotations about a high-symmetry axis), and ~`0.03°` only for focal cells whose self-misorientation is reduced through a non-trivial cubic sym-op candidate (4-fold / 3-fold / 2-fold) that lands at `1 − ε`. Across a real dataset (Small_IN100 and similar) this averages to a per-cell shift of ~`0.005–0.05°`, depending on the focal-cell orientation distribution and the kernel size; it amplifies for asymmetric (e.g. `{2,2,1}`) or single-voxel kernels because the focal-cell self-misorientation term then carries more weight in the average.
+**Symptom:** Per-cell `KernelAverageMisorientations` values differ between SIMPLNX and DREAM3D 6.5.171 at the orientation-math precision level even when D2 is dormant. On Small IN100 with kernel `{1,1,1}`, the measured mean absolute difference is 0.00154° and the maximum is 0.05595°; 2,281 of 256,000 cells exceed 0.01°. A local legacy build with the surgical precision correction reduces the maximum residual to 9.54e-7°.
 
 **Dependency:** the fix lives in EbsdLib commit `5c8c993`, contained in the `v2.4.1` tag. As of this PR the SIMPLNX `vcpkg.json` pins `ebsdlib version>=2.4.1`, so the **standard vcpkg build now links the fixed EbsdLib** and the artifact no longer appears in any supported configuration: both the standard build (`NX-Com-Qt69-Vtk95-Rel`) and the local-source build (`NX-Com-Qt69-Vtk95-Rel-EbsdLib`, `SIMPLNX_USE_LOCAL_EBSD_LIB=ON`) produce the correct, self-miso-free result. The V&V data-fixture unit tests assert the exact analytical oracle (margin `1e-3`) and pass in both configurations. The artifact reappears only if EbsdLib is pinned below `2.4.1` (e.g. an older vcpkg baseline); the *Empirical confirmation* below was captured against the pre-fix `2.4.0` — the version that shipped before this PR — to characterize the symptom and verify the fix.
 
@@ -39,9 +39,9 @@ The KAM filter is *more sensitive* than `ComputeFeatureNeighborMisorientations` 
 
 2. **Same-feature large-N averaging.** For a cell in the middle of a large grain with kernel `{1,1,1}`, numVoxel = 27 (all same-feature). The cumulative effect of 27 small precision noises averages out somewhat, but the systematic self-miso contribution is always present.
 
-3. **The deviation is the self-miso term, essentially nothing else.** For *distinct*-orientation pairs the two EbsdLib forms agree to well below `0.0001°` — empirically confirmed: the sibling `ComputeFeatureNeighborMisorientations` data fixtures assert distinct-pair misorientations of `5.0°` and `10.0°` at margin `1e-3` and **pass against both vcpkg `2.4.0` and the fixed EbsdLib**. That filter excludes the focal feature from its neighbor list, so it never makes a `q1 == q2` call and shows no shift. KAM's per-cell shift is therefore attributable *entirely* to the focal-cell self-misorientation term, not to any per-pair precision noise — which is why KAM is the most observable filter in this cycle for the EbsdLib precision fix.
+3. **The focal self term is the dominant filter-specific amplifier, but not the only last-bit effect.** The KAM kernel always includes the focal cell, so the legacy self-misorientation artifact enters every affected average. On general 3D orientations, `QuatF` versus `QuatD` and other intermediate-rounding differences also affect distinct pairs at the `~1e-3°` scale in either direction. The six-case rerun quantifies the combined precision family; no symmetric-kernel cell differs by more than 0.056° on Small IN100, and the surgically corrected local legacy build reduces the residual to float32 ULP scale.
 
-**Affected users:** Anyone migrating from DREAM3D 6.5.171 to SIMPLNX on cubic-phase EBSD data with this filter, *or* anyone running a SIMPLNX build pinned to EbsdLib `< 2.4.1` (the standard vcpkg build now pins `≥ 2.4.1`, so this affects only builds on an older baseline). The shift is per-cell, systematic in sign (always slightly above the true KAM), and proportional to the inverse of the kernel volume (1 / numVoxel) — but only for focal cells whose orientation triggers the artifact (see *Symptom*); unaffected focal cells shift by 0. The figures below are the **upper bound for an affected focal cell**: for `KernelSize = {1,1,1}` on a grain interior the affected-cell shift is `~0.03°/27 ≈ 0.001°`; for `KernelSize = {0,0,0}` (single-voxel kernel — just the focal cell) it is the full `~0.03°` because the divisor is 1.
+**Affected users:** Anyone migrating from DREAM3D 6.5.171 to SIMPLNX on cubic-phase EBSD data with this filter, or anyone running SIMPLNX with an obsolete EbsdLib baseline. On Small IN100 with the symmetric kernel, 2,276 of the 2,281 cells above 0.01° had legacy above SIMPLNX and five had the opposite sign; the effect is therefore strongly, but not absolutely, one-sided. Its magnitude depends on focal orientation, the number of contributing neighbors, and the distinct-pair rounding terms.
 
 **Recommendation:** **Trust SIMPLNX (EbsdLib 2.4.1+).** The 6.5.171 result was limited by the well-understood `acos(w near 1)` precision pathology amplified by float32-sourced quaternion inputs; SIMPLNX returns the mathematically correct value. The shift is well below typical EBSD measurement resolution and will not materially affect downstream microstructural analyses, but the cumulative effect on KAM-based maps will be visibly smoother in the post-2.4.1 output. Users requiring exact 6.5.171 reproduction can compile against EbsdLib < 2.4.1 (not recommended).
 
@@ -56,22 +56,22 @@ For the full root-cause walkthrough of the EbsdLib precision improvement, see th
 
 The data-fixture unit tests assert the analytical oracle directly (margin `1e-3`, no tolerance for the pre-fix artifact). With EbsdLib pinned `≥ 2.4.1` in `vcpkg.json` this is the correct, regression-sensitive choice: it holds in every supported build and would immediately flag any future regression of the EbsdLib precision fix, rather than silently absorbing it under a loose tolerance.
 
-**Runtime A/B confirmation on general 3D orientations (V&V cycle, branch `topic/kam_ignore_feature_ids`, 2026-07-15):** the setup described in *Comparison summary* above (identical 12³ / 8-feature / single-cubic-phase input through both `PipelineRunner` 6.5.171 and `nxrunner`, default per-grain path, kernel `{1,1,1}`) produced the following per-cell `KernelAverageMisorientations` deltas over all 1728 cells:
+**Runtime A/B confirmation (refreshed 2026-09-17):** identical synthetic and Small IN100 inputs were run through DREAM3D 6.5.171, SIMPLNX, and a local legacy build with the surgical precision correction. The default symmetric kernel isolates D1 because D2 cannot change the neighbor set.
 
-**Input recipe and seed (for reproducibility):** the input was generated by `.superpowers/sdd/task-6-ab/make_input.py` from a single seeded RNG, `np.random.default_rng(1613)` (seed = issue #1613). The 12×12×12 grid is partitioned into 8 features as 2×2×2 octant blocks (single cubic phase, `CrystalStructures = [999, 1]`); each feature is assigned a random-axis base rotation with angle drawn uniformly from 5–25°, and every cell within that feature then receives an independent small intra-grain perturbation (≤3°, about its own random axis) composed onto the feature's base rotation. This is not raw uniform-random unit quaternions across the volume — it is a per-grain-base-plus-scatter construction, chosen so that a spread of focal-cell self-misorientations exercises the D1 precision path. The script is the source of truth for the exact construction.
+**Input recipe and seed (for reproducibility):** the archived generator uses `np.random.default_rng(1613)` on a 12×12×12 grid partitioned into eight 6×6×6 octant features. Each feature receives a random-axis 5–25° base rotation; each cell receives an independent ≤3° perturbation. The archive also records a Small IN100 crop and includes the scripts, inputs, and hashes required to reproduce both datasets.
 
 | Metric | Value |
 |---|---|
-| legacy KAM range (min/mean/max) | 0.952 / 2.142 / 3.551° |
-| nx KAM range (min/mean/max) | 0.952 / 2.141 / 3.549° |
-| \|Δ\| min / mean / max | 2.4e-7 / 7.5e-4 / **7.2e-3°** |
-| cells \|Δ\| > 0.001° | 461 / 1728 |
+| legacy KAM range (min/mean/max) | 0.951784 / 2.141960 / 3.549188° |
+| nx KAM range (min/mean/max) | 0.952303 / 2.141357 / 3.549206° |
+| \|Δ\| min / mean / max | 0 / 7.3522e-4 / **7.1352e-3°** |
+| cells \|Δ\| > 0.001° | 462 / 1728 |
 | cells \|Δ\| > 0.01° | **0** / 1728 |
-| signed (legacy − nx): cells legacy>nx / legacy<nx | 928 / 800 (bidirectional; sums to 1728) |
+| signed (legacy − nx): cells legacy>nx / legacy<nx / equal | 907 / 820 / 1 |
 
 Interpretation: the delta is entirely precision-class and is fully explained by D1's family. **Gating is provably identical** on this path — legacy line 292 (`m_FeatureIds[point] == m_FeatureIds[neighbor]`) and SIMPLNX's `use_feature_ids=true` branch admit the same neighbor set for every focal cell, and both include the focal self, so `numVoxel` (the divisor) is identical per cell in both builds. The remaining difference is therefore purely in the per-pair `calculateMisorientation` values, from two combined precision effects: (a) the EbsdLib 2.4.1 symmetry-reduction fix on the focal self-misorientation term (the effect characterized above), and (b) the `QuatF`→`QuatD` port delta — legacy does the misorientation math in `float32`, SIMPLNX in `float64`. Effect (b) is why the delta is **bidirectional** here whereas the earlier pure-φ1 empirical confirmation (2026-06-04) saw legacy ≥ nx: those fixtures used high-symmetry pure-z-axis rotations for which distinct-pair misorientations happen to agree between the two forms to `<1e-4°`, isolating the one-directional self-miso term; on **general 3D orientations** the `float32`-vs-`float64` distinct-pair difference surfaces at the `~1e-3°` scale and takes either sign. Both effects are precision, not algorithmic — no cell exceeds `0.01°` (well below EBSD angular resolution) and there is no structural/gating pattern (a gating difference would show as `O(degrees)` jumps on specific cells, not uniform sub-`0.01°` noise). **Recommendation stands: trust SIMPLNX.**
 
-Scratch artifacts for this A/B (input generator, both pipelines, both output `.dream3d` files, diff script) live under `.superpowers/sdd/task-6-ab/` — outside the source tree, gitignored, and ephemeral; not part of the deliverable. Because the input is fully determined by the recipe and seed above, the 928/800 signed-cell split and the max-\|Δ\|=0.0072° figure are regenerable at any time by re-running `make_input.py` and the two pipelines, independent of whether the scratch directory itself persists.
+The complete A/B record is retained in the filter verification archive: reproducible generators, six NX pipelines, twelve legacy pipelines, both shared inputs, all outputs, execution logs, environment details, and per-case comparisons. The archive supersedes the earlier ephemeral scratch record.
 
 ---
 
@@ -81,11 +81,11 @@ Scratch artifacts for this A/B (input generator, both pipelines, both output `.d
 |------------------|------------------------------------------------------------------------------------|
 | **Deviation ID** | `ComputeKernelAvgMisorientationsFilter-D2`                                         |
 | **Filter UUID**  | `61cfc9c1-aa0e-452b-b9ef-d3b9e6268035`                                             |
-| **Status**       | active (SIMPLNX correct since port; legacy 6.5.171 still has the bug)              |
+| **Status**       | active              |
 
 **Symptom:** Per-cell `KernelAverageMisorientations` values differ between SIMPLNX and DREAM3D 6.5.171 whenever the user-supplied `KernelSize` has `KernelSize.x != KernelSize.z`. For symmetric kernels (`{1,1,1}`, `{2,2,2}`, etc. — the default and the most common use), the deviation is **dormant**. For asymmetric kernels (e.g., `{1, 1, 2}` — common when the user is processing serial-section data with non-isotropic voxel spacing), the legacy code iterates the x-direction inner loop with the WRONG bound, producing a kernel of incorrect shape and an incorrect KAM.
 
-Concrete example: with `KernelSize = {1, 1, 2}` on a `30x30x30` voxel grid, legacy `FindKernelAvgMisorientations` iterates the inner-most `l` loop from `l = -1` to `l = 2` (5 iterations: `-1, 0, 1, 2`) instead of the correct `l = -1` to `l = 1` (3 iterations). For each focal cell, legacy adds the cells at `x+2` (out of the user's intended kernel) to the average while still excluding cells at `x = focal - 2`. The kernel becomes asymmetric in a way the user did not request.
+Concrete examples: with `KernelSize = {1,1,2}`, legacy iterates `l = -1..2` (four columns) instead of `-1..1` (three), adding an unintended `x+2` column. With `{2,1,1}`, it iterates `l = -2..1` (four columns) instead of `-2..2` (five), dropping the intended `x+2` column. The same one-character upper-bound correction fixes both directions.
 
 **Root cause:** **Bug** in legacy DREAM3D 6.5.171 only.
 
@@ -112,9 +112,9 @@ where `kernelSize[0]` is X. The port from legacy to SIMPLNX silently corrected t
 
 **Recommendation:** **Trust SIMPLNX.** The bug was fixed at port time and SIMPLNX has produced the correct kernel shape for all kernel parameters since the OrientationAnalysis plugin was first ported. Users migrating from DREAM3D 6.5.171 with asymmetric kernels should expect KAM values to change toward the mathematically correct (intended-kernel) value.
 
-A legacy backport branch of `FindKernelAvgMisorientations.cpp` with `m_KernelSize.z + 1` changed to `m_KernelSize.x + 1` would produce the corrected values on DREAM3D 6.5.171 for users requiring legacy-version-parity post-correction. The fix is a one-character edit. No such backport branch is currently maintained.
+The D2 root cause was proven empirically by applying the one-character upper-bound correction to a local build of the legacy source. On both asymmetric kernels and both inputs, the corrected build reduces the SIMPLNX difference to at most 9.54e-7° and zero cells above 0.01°.
 
-This bug is documented in `/Users/mjackson/Desktop/bug_triage.md` (Bug #9) as a known legacy DREAM3D 6.5.171 issue with no SIMPLNX-side action required.
+This bug is documented in the internal V&V triage record as a known DREAM3D 6.5.171 issue with no SIMPLNX-side action required.
 
 ---
 
@@ -124,7 +124,7 @@ This bug is documented in `/Users/mjackson/Desktop/bug_triage.md` (Bug #9) as a 
 |------------------|------------------------------------------------------------------------------------|
 | **Deviation ID** | `ComputeKernelAvgMisorientationsFilter-D3`                                         |
 | **Filter UUID**  | `61cfc9c1-aa0e-452b-b9ef-d3b9e6268035`                                             |
-| **Status**       | active (NX-only capability; no legacy counterpart)                                 |
+| **Status**       | active                                 |
 
 **Symptom:** SIMPLNX exposes a `use_feature_ids` boolean parameter (default `true`) that DREAM3D 6.5.171 `FindKernelAvgMisorientations` does not have. With `use_feature_ids = false`, SIMPLNX computes a **per-voxel** Kernel Average Misorientation in which a kernel neighbor contributes whenever it is in-bounds, has `featureId > 0`, and shares the focal cell's phase — regardless of whether it belongs to the same feature. There is no way to produce this output with DREAM3D 6.5.171, which only ever computes the per-grain KAM (neighbor must share the focal cell's `featureId`).
 

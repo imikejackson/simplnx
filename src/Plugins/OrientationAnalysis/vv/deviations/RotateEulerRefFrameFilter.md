@@ -4,18 +4,22 @@ This file lists every documented behavioral difference between this SIMPLNX filt
 
 Entries are referenced by stable ID (`RotateEulerRefFrameFilter-D<N>`) from the V&V report and from public migration guidance. The ID is stable across renames; the Filter UUID field is the permanent cross-reference anchor.
 
+No D-numbered deviations exist for this filter; the report records that the comparison matched within float32 rounding.
+
 | | |
 |---|---|
 | SIMPLNX UUID | `0458edcd-3655-4465-adc8-b036d76138b5` |
 | Legacy (SIMPL) UUID | `{ef9420b2-8c46-55f3-8ae4-f53790639de4}` |
-| Comparison fixture | 6 axis/angle cases × 12 orientations, shared CSV input (`Code_Review/RotateEulerRefFrame/`) |
-| Comparison date | 2026-07-03 |
+| Comparison fixture | 6 axis/angle cases × 12 orientations, shared CSV input (OneDrive `RotateEulerRefFrameFilter` archive) |
+| Comparison date | 2026-07-03; release matrix refreshed 2026-09-17 |
 
-**Headline: no deviations.** DREAM3D 6.5.171 and SIMPLNX agree to within 7.2e-7 rad (float32 ULP level, wrap-aware) on every comparison case, and both independently match the Class 1 analytical oracle. The entries below are **non-deviations** — differences in representation, precision, or invalid-input handling only — recorded so future engineers do not re-discover them.
+**Headline: no deviations.** DREAM3D 6.5.171, NX 7.4.1/EbsdLib 2.2.0, and NX 7.4.2/EbsdLib 3.1.2 agree to within 7.2e-7 rad (float32 ULP level, wrap-aware) on every comparison case, and all independently match the Class 1 analytical oracle. The entries below are **non-deviations** — differences in representation, precision, or invalid-input handling only — recorded so future engineers do not re-discover them.
 
 ---
 
-## Non-deviation N1 — degree→radian conversion precision
+## Non-deviations (characteristics common to both implementations)
+
+### Non-deviation N1 — degree→radian conversion precision
 
 | Field | Value |
 |---|---|
@@ -33,7 +37,7 @@ Entries are referenced by stable ID (`RotateEulerRefFrameFilter-D<N>`) from the 
 
 ---
 
-## Non-deviation N2 — 0 vs 2π canonical representation at the wrap boundary
+### Non-deviation N2 — 0 vs 2π canonical representation at the wrap boundary
 
 | Field | Value |
 |---|---|
@@ -51,7 +55,7 @@ Entries are referenced by stable ID (`RotateEulerRefFrameFilter-D<N>`) from the 
 
 ---
 
-## Non-deviation N3 — zero-length rotation axis handling (SIMPLNX guard added 2026-07-03)
+### Non-deviation N3 — zero-length rotation axis handling (SIMPLNX guard added 2026-07-03)
 
 | Field | Value |
 |---|---|

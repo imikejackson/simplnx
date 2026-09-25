@@ -4,11 +4,11 @@ This file lists every documented behavioral difference between this SIMPLNX filt
 
 Entries are referenced by stable ID (`ComputeAvgOrientationsFilter-D<N>`) from the V&V report and from public migration guidance. The deviations apply **only to the Rodrigues (original) averaging method**; the von Mises-Fisher and Watson methods are new in SIMPLNX and have no 6.5.171 equivalent.
 
-> **Status:** Empirically validated 2026-06-30 via `compare-legacy-dream3d` against the **official DREAM3D 6.5.171 release** (`~/Applications/DREAM3D.app/Contents/bin/PipelineRunner`), reading byte-identical legacy-format input shared with NX `nxrunner`.
+> **Status:** Empirically validated against the official DREAM3D 6.5.171 release and refreshed 2026-09-17 with a local legacy build carrying the surgical D3 correction. Every application read the same legacy-format input bytes.
 >
-> Two fixtures were run: **(A)** the realistic dataset (`ASCIIData` CSVs — 480,000 cells / 409 feature tuples / single cubic phase) and **(B)** a hand-built 3-feature fixture designed to *force* the edge-case deviations.
+> Four fixtures were run: **(A)** a realistic 480,000-cell / 409-tuple crop, **(B)** a five-tuple fixture forcing D2 and both D3 mechanisms, **(C1)** the Class 1 analytical unit-test fixture, and **(C2)** the cubic-symmetry invariant fixture.
 >
-> **Headline:** on fixture A, SIMPLNX and 6.5.171 agree to float32 epsilon on all 408 **real** features (`AvgQuats` identical ≤1e-6, zero sign flips; `AvgEulerAngles` max diff 4.77e-7). The divergences are confined to the **feature-0 / unindexed-voxel handling**: **D3** (empty feature 0) on fixture A, and **D2** (FeatureId-0 voxels with phase>0) demonstrated on fixture B. **D4** is a confirmed sub-epsilon precision difference. **D1** was downgraded — it could not be made to diverge and has no observable effect (see below). Per-deviation verdicts follow.
+> **Headline:** SIMPLNX and 6.5.171 agree within `1e-6` on every real feature (`AvgQuats` max 8.94e-8; `AvgEulerAngles` max 4.77e-7; zero sign flips). D2 remains an intentional FeatureId-0 policy difference. D3 is now empirically confirmed at tuple zero and for zero-count tuples at index ≥1; the surgical D3 correction makes those empty-tuple outputs agree with SIMPLNX. D4 is sub-epsilon. D1 remains downgraded.
 
 ---
 
@@ -18,15 +18,17 @@ Entries are referenced by stable ID (`ComputeAvgOrientationsFilter-D<N>`) from t
 |---|---|
 | **Deviation ID** | `ComputeAvgOrientationsFilter-D1` |
 | **Filter UUID** | `086ddb9a-928f-46ab-bad6-b1498270d71e` |
-| **Status** | **downgraded 2026-06-30 — not a deviation.** No demonstrable divergence from 6.5.171. |
+| **Status** | retired 2026-06-30 — not a deviation (defensive normalization) |
 
-**What it is:** SIMPLNX appends `.getPositiveOrientation()` after normalize (`ComputeAvgOrientations.cpp:448`), canonicalizing the average quaternion into the northern hemisphere (`w ≥ 0`); legacy `FindAvgOrientations` calls only `QuaternionMathF::UnitQuaternion` (no sign canonicalization). On paper this looked like it could produce a `q` vs `−q` difference for any feature whose average lands with `w < 0`.
+**Symptom:** Withdrawn. The originally reported symptom was a possible `q` versus `−q` difference when SIMPLNX appends `.getPositiveOrientation()` after normalization and the average lands with `w < 0`.
 
-**Why it is not a deviation (empirical + structural, 2026-06-30):** It could not be made to diverge. The Rodrigues algorithm builds each average by symmetry-reducing every voxel toward the running average (`getNearestQuat`), so the result lands in the fundamental zone — rotation angle ≤ 180° ⇒ `w ≥ 0`. A deliberate fixture (feature with `Rz(170°)` + `Rz(200°)`, intended to push the sum to `w < 0`) was reduced identically by **both** 6.5.171 and SIMPLNX to `(0, 0, 0.0436, 0.999)` (`w > 0`) — no sign flip. Even in the only theoretical corner where `w < 0` could survive (pure-triclinic, the incremental average overshooting 180°), the two quaternions represent the **same physical orientation** (`q ≡ −q`), so there is no correctness or downstream effect. `getPositiveOrientation()` is therefore a harmless defensive canonicalization, not a behavioral difference from legacy.
+**Root cause:** Algorithmic choice. This record is not a deviation because `.getPositiveOrientation()` is a defensive canonicalization and no behavioral difference was demonstrated.
+
+**Evidence (empirical + structural, 2026-06-30):** It could not be made to diverge. The Rodrigues algorithm builds each average by symmetry-reducing every voxel toward the running average (`getNearestQuat`), so the result lands in the fundamental zone — rotation angle ≤ 180° ⇒ `w ≥ 0`. A deliberate fixture (feature with `Rz(170°)` + `Rz(200°)`, intended to push the sum to `w < 0`) was reduced identically by **both** 6.5.171 and SIMPLNX to `(0, 0, 0.0436, 0.999)` (`w > 0`) — no sign flip. Even in the only theoretical corner where `w < 0` could survive (pure-triclinic, the incremental average overshooting 180°), the two quaternions represent the **same physical orientation** (`q ≡ −q`), so there is no correctness or downstream effect. `getPositiveOrientation()` is therefore a harmless defensive canonicalization, not a behavioral difference from legacy.
 
 **Affected users:** None.
 
-**Recommendation:** No action. Documented here so the source difference (the extra `getPositiveOrientation()` call) is not mistaken for an unverified deviation in a future audit.
+**Recommendation:** Do not count as a deviation. Keep this record so the extra `getPositiveOrientation()` call is not mistaken for an unverified deviation in a future audit.
 
 ---
 
@@ -36,7 +38,7 @@ Entries are referenced by stable ID (`ComputeAvgOrientationsFilter-D<N>`) from t
 |---|---|
 | **Deviation ID** | `ComputeAvgOrientationsFilter-D2` |
 | **Filter UUID** | `086ddb9a-928f-46ab-bad6-b1498270d71e` |
-| **Status** | **active — empirically demonstrated (2026-06-30)** on a forcing fixture |
+| **Status** | active |
 
 **Symptom:** Voxels labeled `FeatureId == 0` (with `Phase > 0`) contribute to averaging in SIMPLNX and produce a computed average for feature 0; in 6.5.171 they are skipped and feature 0 is left at `(0,0,0,0)`.
 
@@ -56,11 +58,11 @@ Entries are referenced by stable ID (`ComputeAvgOrientationsFilter-D<N>`) from t
 |---|---|
 | **Deviation ID** | `ComputeAvgOrientationsFilter-D3` |
 | **Filter UUID** | `086ddb9a-928f-46ab-bad6-b1498270d71e` |
-| **Status** | **active — empirically confirmed (2026-06-30) at feature 0** |
+| **Status** | active |
 
-**Symptom:** For a feature with zero contributing voxels, SIMPLNX writes a clean identity quaternion `(0,0,0,1)`; 6.5.171 writes garbage. **Confirmed:** feature 0 is `(0,0,0,1)` in NX and `(0,0,0,0)` in 6.5.171 — the only divergent tuple in the entire 409-tuple comparison.
+**Symptom:** For a feature with zero contributing voxels, SIMPLNX writes identity quaternion `(0,0,0,1)` and zero Euler angles. DREAM3D 6.5.171 leaves tuple zero at `(0,0,0,0)` and produces NaN quaternion and Euler values for zero-count tuples at index ≥1. Both mechanisms were reproduced directly in the forcing and analytical fixtures.
 
-**Root cause:** Bug in 6.5.171, via two mechanisms. (a) The legacy init and finalize loops both run `for(i = 1; i < totalFeatures)` (`FindAvgOrientations.cpp:239,263`), so feature 0 is **never finalized** and keeps its allocation default `(0,0,0,0)` — this is what the comparison observed. (b) For a zero-count feature at index ≥ 1, the legacy finalize sets `Identity` then still executes `QuaternionMathF::ScalarDivide(avgQuats[i], counts[i])` — a divide by zero — then `UnitQuaternion`. SIMPLNX (`ComputeAvgOrientations.cpp:440–444`) iterates `for(featureId = 0)` and, on `counts == 0`, writes identity and `continue`s, handling both cases cleanly. (No zero-count feature at index ≥ 1 existed in the dataset, so mechanism (b) is source-confirmed only.)
+**Root cause:** Bug in 6.5.171, via two mechanisms. (a) The legacy init and finalize loops both run `for(i = 1; i < totalFeatures)` (`FindAvgOrientations.cpp:239,263`), so feature 0 is never finalized and keeps `(0,0,0,0)`. (b) For a zero-count feature at index ≥1, the legacy finalize sets `Identity` and then divides it by zero. SIMPLNX (`ComputeAvgOrientations.cpp:440–444`) includes tuple zero and, when `counts == 0`, writes identity plus zero Euler angles and continues. Applying those same changes to a local build of the legacy source reproduced the SIMPLNX empty-tuple outputs on all forcing and analytical cases.
 
 **Affected users:** Anyone whose Feature Attribute Matrix contains a feature index with no contributing voxels (feature 0 always; index ≥ 1 after feature removal/renumbering gaps), and any consumer of feature 0's `AvgQuats` in legacy.
 
@@ -74,13 +76,13 @@ Entries are referenced by stable ID (`ComputeAvgOrientationsFilter-D<N>`) from t
 |---|---|
 | **Deviation ID** | `ComputeAvgOrientationsFilter-D4` |
 | **Filter UUID** | `086ddb9a-928f-46ab-bad6-b1498270d71e` |
-| **Status** | **active — empirically confirmed (2026-06-30), sub-epsilon** |
+| **Status** | active |
 
 **Symptom:** `AvgEulerAngles` (and possibly `AvgQuats` at the last ULPs) may differ from 6.5.171 at the sub-epsilon level.
 
 **Root cause:** Library + precision. Legacy uses `QuaternionMathF` arithmetic and `OrientationTransforms::qu2eu` for the quaternion→Euler conversion; SIMPLNX uses EbsdLib `ebsdlib::QuatF` and `QuaternionFType::toEuler()`. Both operate in `float32`, but the differing intermediate-math implementations and quaternion→Euler routines can produce last-bit differences.
 
-**Empirical (2026-06-30):** Across all 408 real features, `AvgEulerAngles` differed by at most **4.77e-7** (122 of 1227 components in the 1e-7–1e-6 band, the rest below 1e-7; mean 3.1e-8). `AvgQuats` were identical within 1e-6. Confirms the divergence is purely float32 round-off in the two independent library code paths.
+**Empirical (refreshed 2026-09-17):** Across all 408 real features, `AvgEulerAngles` differed by at most **4.77e-7** (86 of 1224 components in the 1e-7–1e-6 band, the rest below 1e-7; mean 2.29e-8). `AvgQuats` differed by at most 8.94e-8. This confirms the divergence is float32 round-off in the two independent library code paths.
 
 **Affected users:** Anyone doing bit-exact comparison of `AvgEulerAngles` between versions. Differences are at the floating-point-noise level and not materially significant for any downstream calculation.
 

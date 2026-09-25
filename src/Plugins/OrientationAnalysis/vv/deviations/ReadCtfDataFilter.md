@@ -4,7 +4,7 @@ This file lists every documented behavioral difference between this SIMPLNX filt
 
 Entries are referenced by stable ID (`ReadCtfDataFilter-D<N>`) from the V&V report and from public migration guidance. The ID is stable across renames; the Filter UUID field is the permanent cross-reference anchor.
 
-Comparison run 2026-07-24 against the official DREAM3D 6.5.171 release (`PipelineRunner`): four runs over three byte-identical input files — a hand-authored 3×2 toy `.ctf` (two conversion-option combinations), the 550×400 production scan `Cugrid_after 2nd_15kv_2kx_2.ctf` (two phases — Cu3Ga hexagonal + Copper cubic — with 116,050 unindexed points), and a 2×2×2 multi-slice toy `.ctf`. On every run, all numeric outputs are **bit-identical** except the unindexed-point (Phase 0) family documented as D1/D2 (on the production scan: 543,950 of 660,000 Euler values match; the 116,050 differing values are all unindexed points' φ2). Three additional malformed-input fixtures were run through 6.5.171 to document its failure behavior (D3).
+Comparison run 2026-07-24 against the official DREAM3D 6.5.171 release (`PipelineRunner`): four runs over three byte-identical input files — a hand-authored 3×2 toy `.ctf` (two conversion-option combinations), the 550×400 production scan `Cugrid_after 2nd_15kv_2kx_2.ctf` (two phases — Cu3Ga hexagonal + Copper cubic — with 116,050 unindexed points), and a 2×2×2 multi-slice toy `.ctf`. On every run, all numeric outputs are **bit-identical** except the unindexed-point (Phase 0) family documented as D1/D2 (on the production scan: 543,950 of 660,000 Euler values match; the 116,050 differing values are all unindexed points' φ2). Three additional malformed-input fixtures were run through 6.5.171 to document its failure behavior (D3). Controlled legacy-patch and NX-release proofs were added 2026-09-17 for D3 and D4 respectively.
 
 ---
 
@@ -64,6 +64,8 @@ Comparison run 2026-07-24 against the official DREAM3D 6.5.171 release (`Pipelin
 
 **Root cause:** Bug in 6.5.171 (out-of-bounds access on malformed input) — fixed in SIMPLNX by value-add guards added during this V&V pass. On well-formed files the guards never fire and outputs are unaffected.
 
+**Controlled proof (2026-09-17):** Three changes were introduced one mechanism at a time in a local legacy proof build: reject an empty phase list with `-19600`, verify all required data-column pointers before copying with `-19601`, and range-check each phase value before ensemble lookup with `-19602`. The exact patched commit is recorded in the filter A/B archive. Each corresponding malformed fixture then produced the predicted clean error, did not crash, and wrote no output. Four well-formed cases (toy with two option combinations, 2×2×2 toy, and the Cugrid production scan) retained exact equality across all 15 datasets against their official, unpatched 6.5.171 baselines. The result proves the three unsafe accesses named by D3 and demonstrates no supported-input regression.
+
 **Affected users:** Anyone importing truncated, hand-edited, or non-standard `.ctf` files. No effect on well-formed files.
 
 **Recommendation:** Trust SIMPLNX. A clean error is strictly better than a crash or a heap-dependent output.
@@ -76,11 +78,11 @@ Comparison run 2026-07-24 against the official DREAM3D 6.5.171 release (`Pipelin
 |---|---|
 | **Deviation ID** | `ReadCtfDataFilter-D4` |
 | **Filter UUID** | `7751923c-afb9-4032-8372-8078325c69a4` |
-| **Status** | retired 2026-07-24 (resolved during this V&V pass — recorded for the migration guide) — fixed in DREAM3D-NX **7.4.2** |
+| **Status** | retired 2026-07-24 — resolved during this V&V pass; fixed in DREAM3D-NX 7.4.2 |
 
 **Symptom:** Before this V&V pass, SIMPLNX imported only slice 0 of a multi-slice (3D) `.ctf` file (`ZCells > 1`) — silently — while 6.5.171 imported the full 3D volume.
 
-**Root cause:** Bug in the SIMPLNX port (the preflight hard-coded a z-extent of 1 and a z-spacing of 1.0, dropping the header's `ZCells`/`ZStep`). Restored during this pass; on the 2×2×2 fixture the SIMPLNX output now matches 6.5.171 bit-for-bit (dims, ZStep-derived spacing, and all nine cell arrays).
+**Root cause:** Bug in the SIMPLNX port (the preflight hard-coded a z-extent of 1 and a z-spacing of 1.0, dropping the header's `ZCells`/`ZStep`). A controlled release matrix on the 2×2×2 fixture proves the boundary: DREAM3D-NX 7.4.1 with EbsdLib 2.2.0 produces dimensions `[2,2,1]`, spacing `[0.25,0.5,1.0]`, and 4 cell tuples; DREAM3D-NX 7.4.2 with EbsdLib 3.1.2 produces `[2,2,2]`, `[0.25,0.5,0.75]`, and 8 tuples, matching DREAM3D 6.5.171. All 24 Euler components in the corrected output are bit-identical to legacy; the only Phase differences are the already documented D1 behavior.
 
 **Affected users:** Anyone who imported a multi-slice `.ctf` with an earlier DREAM3D-NX release received a single-slice geometry with slice-0 data and no warning.
 

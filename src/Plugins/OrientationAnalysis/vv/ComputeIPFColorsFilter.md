@@ -9,18 +9,18 @@
 | Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE     |
 | Sign-off | Michael Jackson <mike.jackson@bluequartz.net> — 2026-07-16 |
-| Second-engineer sign-off | Michael Jackson (technical authority) — 2026-07-16 |
+| Second-engineer sign-off | Matthew Marine — 2026-07-13 (approving reviewer, PR #1666). Supersedes the 2026-07-16 technical-authority self-sign-off. |
 
 ## At a glance
 
 | Aspect                 | Current state            |
 |------------------------|--------------------------|
-| Algorithm Relationship | **Port** of DREAM3D 6.5.171 `GenerateIPFColors`. The per-cell loop is a line-for-line translation; deltas are the color library (OrientationLib → EbsdLib), a new `Color Key` choice (TSL/PUCM/Nolze-Hielscher; legacy was TSL-only), bool-or-uint8 mask (legacy bool-only), and added cancel checks. |
-| Oracle (confirmed)     | **Class 1 + 4** (orchestration: mask→black, invalid crystal structure→black, refDir normalization, phase-out-of-range→`-48000`, output invariants) with **Class 2** (each colored cell == a direct in-process EbsdLib `generateIPFColor` call) and **Class 3** (identity cubic viewed down [001] = red IPF corner). 8 tests in `test/ComputeIPFColorsTest.cpp`, all pass. |
-| Code paths enumerated  | 16 of 18 exercised. The 2 gaps are the mid-loop cancel branch and the unreachable `-23510` color-key default. |
-| Tests today            | 8 test cases: 1 main analytical oracle (4 SECTIONs), uint8-mask, no-mask, refDir-normalization, phase-out-of-range error, color-key wiring, preflight `-651`, SIMPL 6.4/6.5 backward-compat. |
-| Exemplar archive       | **None for this filter** — the oracle dataset is built inline in C++. The legacy-produced `so3_cubic_high_ipf_001.tar.gz` was **retired as a circular oracle** from this test (it is still downloaded for `CreateEnsembleInfoTest`, so the `download_test_data()` line remains). |
-| Legacy comparison      | **Run — SIMPLNX vs DREAM3D 6.5.171 (TSL).** SIMPLNX is byte-identical to the stored legacy `IPF Colors` (0/343,963); vs a fresh 6.5.171 run, 14/343,963 cells (0.004%) differ by exactly ±1/255 in one channel. One deviation: `ComputeIPFColorsFilter-D1` (precision + library, quantization jitter). |
+| Algorithm Relationship | **Port** of DREAM3D 6.5.171 `GenerateIPFColors`; material deltas are the EbsdLib color library, three color-key choices, bool-or-uint8 masks, and cancel checks. |
+| Oracle (confirmed)     | **Classes 1 and 4** verify orchestration and invariants; **Classes 2 and 3** verify EbsdLib routing and the standard red IPF corner. All 8 tests in `test/ComputeIPFColorsTest.cpp` pass. |
+| Code paths enumerated  | 16 of 18 exercised; the mid-loop cancel branch and unreachable color-key default are not exercised. |
+| Tests today            | 8 test cases cover the analytical fixture, mask variants, reference-direction normalization, errors, color-key wiring, and SIMPL conversion. |
+| Exemplar archive       | None; the oracle is inline. `so3_cubic_high_ipf_001.tar.gz` is retired as an oracle but remains available to another test. |
+| Legacy comparison      | **Run** — SIMPLNX and the stored legacy array are byte-identical; a fresh official DREAM3D 6.5.171 run differs in 14 of 343,963 cells by ±1/255 in one channel (D1). |
 | Bug flags              | None. |
 | V&V phase | **COMPLETE.** |
 
@@ -60,7 +60,11 @@ Per the "test the value-add, not upstream" principle: EbsdLib is the trusted ref
 
 *Encoded:* `test/ComputeIPFColorsTest.cpp` — 8 `TEST_CASE`s, all pass. The main `Class 1/2/3 Oracle (inline analytical dataset)` case carries the Class 2/3/1/4 assertions across four `SECTION`s.
 
-*Second-engineer review:* **Signed off by Michael Jackson (technical authority), 2026-07-16.**
+*Second-engineer review:* **Matthew Marine — 2026-07-13 (approving reviewer, PR #1666).** Supersedes the 2026-07-16 technical-authority self-sign-off.
+
+## Bugs found and fixed
+
+None.
 
 ## Code path coverage
 
@@ -113,5 +117,7 @@ Logical phases: (a) `operator()` setup + parallel dispatch, (b) per-cell `conver
 ## Deviations from DREAM3D 6.5.171
 
 Comparison run on `so3_cubic_high_ipf_001` (343,963 single-phase cubic cells, TSL, refDir [001]) — see `vv/comparisons/ComputeIPFColorsFilter/`.
+
+NX 7.4.1 with EbsdLib 2.2.0 and NX 7.4.2 with EbsdLib 3.1.2 are byte-identical across all 343,963 RGB tuples. Both reproduce the stored legacy array exactly. Each differs from the fresh official DREAM3D 6.5.171 run in the same 14 tuples.
 
 - `ComputeIPFColorsFilter-D1` — 14/343,963 cells (0.004%) differ from a fresh 6.5.171 run by ±1/255 in one channel (SIMPLNX is byte-identical to the stored legacy reference); precision + library quantization jitter — see `vv/deviations/ComputeIPFColorsFilter.md`.

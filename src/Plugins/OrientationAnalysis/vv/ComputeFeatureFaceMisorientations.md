@@ -9,24 +9,24 @@
 | Verified commit            | `a307946e7` (v7.4.2 release)                |
 | Status | COMPLETE     |
 | Sign-off  | *Nathan Young (algorithm rewrite + initial dataset, 2026-05-19) — Michael Jackson <mike.jackson@bluequartz.net> (hand-built test data, V&V completion, 2026-05-28)*           |
-| Second-engineer sign-off | Michael Jackson (technical authority) — 2026-05-28 |
+| Second-engineer sign-off | Nathan Young — 2026-06-11 (approving reviewer, PR #1631; output rework PR #1618 approved by Matthew Marine 2026-06-04). Supersedes the 2026-05-28 technical-authority self-sign-off. |
 
 ## At a glance
 
 | Aspect                 | Current state            |
 |------------------------|--------------------------|
-| Algorithm Relationship | **Rewrite** — output 1-component angle (was 3-component axis·angle); Laue classes 2→11; NaN explicit on invalid (was implicit 0); modernized EbsdLib API; raw TBB → `ParallelDataAlgorithm` (parallelization disabled per thread-safety policy). EbsdLib `CubicOps` precision fix surfaced during this cycle (non-observable on V&V fixtures). 6 deltas total — see Algorithm Relationship.       |
-| Oracle (confirmed)     | **Class 1 (Analytical) primary** — 37-fixture hand-built dataset: 30 normal cases (10 Laue classes × 3 pure-φ1 boundaries at 0°↔45°, 0°↔90°, 0°↔180°) + 4 edge cases (background-front, background-back, mixed-phase fwd, mixed-phase rev) + 3 Trigonal_High cases. All 11 EbsdLib Laue classes (indices 0–10) exercised. Expected misorientations derived in closed form per Laue-class symmetry group. |
-| Code paths enumerated  | 7 (from line-by-line scan of the parallel-loop body in `ComputeFeatureFaceMisorientation.cpp`)             |
-| Tests today            | 2: 1 valid-execution Class 1 (positive), 1 SIMPL 6.4+6.5 backwards-compat (DYNAMIC_SECTION). The old "Invalid filter execution" test from the pre-rewrite branch was retired during Nathan's algorithm rewrite (NaN-on-invalid-face semantics make most preflight-failure paths unreachable for the cell-feature data).                |
-| Exemplar archive       | **None — data inlined in test source** (`test/ComputeFeatureFaceMisorientationTest.cpp` namespace `curated`). 102 vertices, 34+3 triangles, 41+4 features, 12+1 ensembles all encoded as `std::unique_ptr<…[]>` literals. No tar.gz archive, no download_test_data() entry needed.   |
-| Legacy comparison      | **Not run.** Output structure differs by design (3-component axis·angle vs 1-component angle), so direct array comparison with DREAM3D 6.5.171's `GenerateFaceMisorientationColoring` output is not meaningful. The deviations are documented per-design rather than verified per-feature against the legacy output.   |
-| Bug flags              | One root-caused precision issue **in EbsdLib** (not in this filter): `CubicOps::calculateMisorientationInternal` lost precision via `(qco.z()+qco.w())/sqrt(2)` followed by `acos(w)` near 1. Patched in EbsdLib to use `2·atan2(|v|, w)` with `|v|` from explicit reduced-quaternion components. Eliminated a ~0.02° residual on cubic boundaries that lie on a 4-fold sym op.         |
+| Algorithm Relationship | **Rewrite** — SIMPLNX writes a scalar angle, supports 11 Laue classes, writes NaN for invalid faces, uses the modern EbsdLib API, and uses `ParallelDataAlgorithm`. Six deltas are documented below. |
+| Oracle (confirmed)     | **Class 1 (Analytical)** — 37 hand-built faces exercise all 11 EbsdLib Laue classes, three symmetry boundaries per class, and invalid-face cases. |
+| Code paths enumerated  | 7 of 7 paths exercised by the curated analytical fixture. |
+| Tests today            | 2 test cases cover the Class 1 curated data and SIMPL 6.4/6.5 conversion. The obsolete invalid-execution test is retired. |
+| Exemplar archive       | **None** — the 37-face dataset is inline in `test/ComputeFeatureFaceMisorientationTest.cpp`. |
+| Legacy comparison      | **Run** — Three comparisons mapped the legacy axis-angle norm to the SIMPLNX scalar angle and confirmed D1 through D4; the local legacy proof build matched all 640,880 comparable faces within the stated tolerance. |
+| Bug flags              | `ComputeFeatureFaceMisorientations-D3` is a legacy correctness ambiguity. D4 is a precision deviation, not a Bug-class entry. |
 | V&V phase | **COMPLETE.** |
 
 ## Summary
 
-`ComputeFeatureFaceMisorientationFilter` computes a single per-triangle misorientation angle (in degrees) between the two grains on either side of each surface-mesh face. The algorithm reads each face's two `FaceLabels` features, looks up their average orientations (`AvgQuats`) and shared phase, and dispatches to the appropriate `LaueOps::calculateMisorientation` for the symmetry-reduced minimum angle; faces with mixed phases, background voxels (`featureId ≤ 0`), or unsupported Laue classes receive an explicit `NaN`. Verification used a **Class 1 (Analytical) hand-built 37-fixture dataset** that sweeps all 11 EbsdLib Laue classes via pure φ1-rotations (0°, 45°, 90°, 180° about the c-axis), allowing closed-form symmetry-group calculation of every expected value — all 54 test assertions pass. A precision issue uncovered during this V&V cycle (the `acos(w)`-near-1 catastrophic cancellation in `CubicOps::calculateMisorientationInternal` when the misorientation lies on a cubic symmetry op) was patched in EbsdLib by computing the reduced quaternion's `|v|` from explicit components, eliminating a ~0.02° residual.
+`ComputeFeatureFaceMisorientationFilter` computes one misorientation angle in degrees for each surface-mesh triangle. A Class 1 analytical fixture verifies 37 faces across all 11 Laue classes. The three-case comparison covered 640,880 comparable faces; the unmodified release differed above 0.0001° on 1,249 faces, while the local legacy proof build agreed with SIMPLNX within the stated tolerance on every comparable face.
 
 ## Algorithm Relationship
 
@@ -52,7 +52,7 @@
 
 *Class:* **1 (Analytical)** primary.
 
-### Applied (Class 1 — Analytical)
+*Applied:* The Class 1 analytical oracle derives expected values as described below.
 
 Expected misorientation values are derived from the closed-form symmetry-group reduction of the boundary's true rotation. The dataset uses pure φ1-rotations (Bunge Euler angles `(φ1, 0, 0)` with `Φ = φ2 = 0`), so the true misorientation between any two features is simply `|Δφ1|` modulo the c-axis-aligned symmetry operators of the Laue class.
 
@@ -89,20 +89,24 @@ And three boundary faces are constructed: A↔B, A↔C, A↔D. The symmetry-redu
 | 32   | 1           | 5          | NaN      | Different phases (phase 1 Hex_High vs phase 2 Cubic_High) |
 | 33   | 5           | 1          | NaN      | Different phases, reversed      |
 
-### Encoded
+*Encoded:* The tests below encode the oracle.
 
 - **Class 1 (Analytical)**: `test/ComputeFeatureFaceMisorientationTest.cpp::"OrientationAnalysis::ComputeFeatureFaceMisorientationFilter: Curated Data"` — 30 + 4 + 3 = 37 fixture assertions, 54 total assertions (including geometry setup REQUIRE-VALID checks).
 - *(kept)* `test/ComputeFeatureFaceMisorientationTest.cpp::"OrientationAnalysis::ComputeFeatureFaceMisorientationFilter: SIMPL Backwards Compatibility"` — SIMPL 6.4 + 6.5 conversion paths via `DYNAMIC_SECTION`.
 
-### Second-engineer review
+*Second-engineer review:* Nathan Young — 2026-06-11 (approving reviewer, PR #1631; output rework PR #1618 approved by Matthew Marine 2026-06-04). Review focus: the symmetry-group hand calculations for Trigonal_High and the EbsdLib precision-fix rationale. Note that the Trigonal_Low and Trigonal_High closed-form values are identical because mirror planes that contain the c-axis do not reduce pure c-axis rotations further.
 
-**Signed off by Michael Jackson (technical authority), 2026-05-28.** Review focus: the symmetry-group hand calculations for Trigonal_High and the EbsdLib precision-fix rationale. Note that the Trigonal_Low and Trigonal_High closed-form values are identical (mirror planes containing the c-axis do not reduce pure c-axis rotations further).
+## Bugs found and fixed
+
+| Deviation | Defect | Affected released versions | Resolution in this branch |
+|-----------|--------|----------------------------|---------------------------|
+| `ComputeFeatureFaceMisorientations-D3` | DREAM3D 6.5.171 writes zero for invalid or unprocessed faces, so users cannot distinguish them from a true zero misorientation. | DREAM.3D 6.5.171 only. DREAM3D-NX was not affected. | SIMPLNX writes NaN for every face that does not have a meaningful misorientation. |
 
 ## Code path coverage
 
 *7 of 7 paths exercised. Cancel-check paths and "valid Laue class" type-dispatch are aggregate-tested via the Class 1 dataset; per-Laue-class paths are confirmed individually by the per-class assertions.*
 
-Source: `src/Plugins/OrientationAnalysis/src/OrientationAnalysis/Filters/Algorithms/ComputeFeatureFaceMisorientation.cpp` (146 lines).
+Source: `src/Plugins/OrientationAnalysis/src/OrientationAnalysis/Filters/Algorithms/ComputeFeatureFaceMisorientation.cpp` (134 lines).
 
 | # | Phase           | Path             | Test case            |
 |---|-----------------|-------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|
@@ -132,7 +136,7 @@ Data construction details: 102 vertices laid out in a y-axis-stacked grid (one r
 
 ## Deviations from DREAM3D 6.5.171
 
-Four documented deviation classes. All are deliberate design changes from the legacy filter (none are bugs in either side). One related EbsdLib precision fix (not a deviation in the strict V&V sense, since it improves both SIMPLNX and any other consumer of EbsdLib's CubicOps).
+Four deviation classes are documented. D1 and D2 are library or algorithmic choices, D3 records a legacy correctness ambiguity, and D4 records a related EbsdLib precision fix.
 
 ### ComputeFeatureFaceMisorientations-D1
 

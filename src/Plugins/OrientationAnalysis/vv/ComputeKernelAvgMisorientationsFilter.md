@@ -15,13 +15,13 @@
 
 | Aspect                 | Current state            |
 |------------------------|--------------------------|
-| Algorithm Relationship | **Port with one legacy bug corrected + one NX-only feature addition** — per-voxel kernel averaging; focal-validity gate; divisor always ≥1 (focal self-included). `QuatF`→`QuatD`; `getMisoQuat`→`calculateMisorientation`; iteration order optimized for cache (`col→row→plane` → `plane→row→col`). D2 (legacy l-loop bound typo `KernelSize.z+1` → `KernelSize.x+1`) corrected at port. UUID reassigned. **New this cycle (issue #1613):** `use_feature_ids` BoolParameter (default `true`). `true` = legacy per-grain behavior (neighbor gate `featureIds[point]==featureIds[neighbor]`, behavior-identical to before). `false` = per-voxel KAM: neighbor contributes iff in-bounds AND `featureIds[neighbor]>0` AND `cellPhases[neighbor]==cellPhases[point]`. Focal gate unchanged. No legacy counterpart — see D3. |
-| Oracle (confirmed)     | **Class 1 (Analytical) primary** — 6 hand-derived data fixtures: uniform single-feature, x-axis gradient, z-axis gradient (3D path), multi-feature multi-voxel with background, **per-voxel multi-feature (`use_feature_ids=false`), and per-voxel two-phase gates**. **Class 4 (Invariant) companion** — non-negativity, cubic max-angle bound (62.8°), uniform-within-feature ⇒ KAM=0, background-voxel ⇒ KAM=0 exactly, **and mode-equivalence (per-grain ≡ per-voxel bit-for-bit on single-feature single-phase data)**. Class 1 oracle uses pure φ1 Bunge ZXZ rotations `(φ1, 0, 0)` so that for cubic symmetry, the misorientation between any two cells equals `|Δφ1|` (the c-axis 4-fold reduction is identity when φ1 differences are ≤45°). |
-| Code paths enumerated  | 8 paths enumerated, 8 exercised (re-enumerated for the per-mode neighbor gate; the former path 9, the dead `numVoxel==0` fallback, was removed from SIMPLNX by the review-driven cleanup commit `7f9cddc7d` — see below): (1) focal-valid gate → enter kernel; (2) boundary clamp (out-of-bounds j/k/l, now a signed-index comparison with no separate `neighbor<0` guard) → `continue`; (3) per-grain neighbor feature-id match → accumulate; (4) per-grain neighbor feature-id mismatch → skip; (5) per-voxel neighbor `featureId>0` + phase-match → accumulate; (6) per-voxel neighbor `featureId==0` → skip; (7) per-voxel neighbor phase-mismatch → skip; (8) focal-invalid (`featureIds==0 \|\| cellPhases==0`, now reached via `else`) → KAM=0 directly. |
-| Tests today            | **9 TEST_CASEs / 9 ctest entries**, 100% pass (see full regression sweep, 2026-07-15). 6 Class 1 fixtures + 2 Class 4 invariant tests (Mode-Equivalence + the 3-sub-section Invariants) + 1 SIMPL backwards-compatibility test. **No exemplar archive consumed by this filter.**              |
-| Exemplar archive       | **None — inline-constructed in test source.** The pre-existing main exemplar TEST_CASE (consumed `6_6_stats_test_v2.tar.gz`) was **retired 2026-06-03** because the exemplar `KernelAverageMisorientations` array was a circular oracle (regenerated from pre-EbsdLib-2.4.1 SIMPLNX output, where the precision shift documented as D1 manifests as a non-zero spurious self-misorientation contribution in every focal voxel — see deviations doc). The 6 Class 1 hand-derived data fixtures, plus the Class 4 invariants, cover all 9 re-enumerated active algorithmic paths and replace the retired test. The shared archive `6_6_stats_test_v2.tar.gz` remains downloaded for `AlignSectionsMutualInformation`, `ComputeShapes`, and `ComputeSchmids` tests; only F#5's consumption line was removed. |
-| Legacy comparison      | **Runtime A/B against DREAM3D 6.5.171 completed (default per-grain path).** Identical synthetic input (12³ cube, 8 features, single cubic phase, kernel `{1,1,1}`) fed through both `PipelineRunner` (6.5.171 `FindKernelAvgMisorientations`) and `nxrunner`; inputs bit-identical (Quats, FeatureIds). KAM delta: **max \|Δ\|=0.0072°, mean \|Δ\|=0.00075°, 0/1728 cells exceed 0.01°, bidirectional** (928 cells legacy>nx, 800 legacy<nx). Gating is provably identical on this path (both use the `featureIds[point]==featureIds[neighbor]` gate → identical neighbor sets → identical divisor), so the delta is purely `calculateMisorientation` precision — consistent with **D1** (EbsdLib 2.4.1 precision fix) plus the `QuatF`→`QuatD` port delta (same precision family). No structural/gating deviation. `use_feature_ids=false` has no legacy counterpart (see D3). Prior source-inspection findings retained. Two deviations observed: **D1 (EbsdLib 2.4.1 CubicOps precision improvement)** — precision-class deviation analogous to BadDataNeighborOrientationCheck, ComputeFeatureFaceMisorientation, ComputeFeatureNeighborMisorientations, and ComputeFeatureReferenceMisorientations of this cycle. The KAM filter is *more sensitive* to this fix than the per-pair misorientation filters because the kernel inclusion of the focal voxel triggers a self-misorientation call per cell, where the pre-2.4.1 `acos(w near 1)` form returns a spurious ~0.03° on float32-sourced quaternions instead of 0°. This precision noise propagates directly into the per-cell average. **D2 (legacy kernel-bound bug at `FindKernelAvgMisorientations.cpp:264`)** — legacy `for(int32_t l = -m_KernelSize.x; l < m_KernelSize.z + 1; l++)` uses `KernelSize.z + 1` as the upper bound for the x-direction inner loop (should be `KernelSize.x + 1`). SIMPLNX has the correct form at line 111. Bug is dormant when `KernelSize.x == KernelSize.z` (default `{1,1,1}` case); fires for asymmetric kernels. |
-| Bug flags              | **One real legacy bug (D2) corrected at port time** — see deviations. SIMPLNX has been correct from the port onward; no SIMPLNX-side algorithmic change required by this V&V cycle. Logged to `/Users/mjackson/Desktop/bug_triage.md` as a known legacy DREAM3D 6.5.171 issue. **Review-driven cleanup (2026-07-16, commit `7f9cddc7d`):** a behavior-preserving cleanup pass refactored the kernel boundary-index handling to signed comparisons (computing the neighbor index directly from the clamped indices instead of a separate stride+negative-index guard), hoisted `LaueOps` construction out of the per-cell hot loop into a worker member built once per run, tightened cancellation checking from per-plane to per-row granularity, and removed the dead `numVoxel==0` fallback (folding the invalid-cell reset into an `else` branch) — all verified behavior-identical by the unchanged 9-test suite passing. |
+| Algorithm Relationship | **Port** with a corrected legacy kernel-bound bug (D2), precision/library changes (D1), and the NX-only `use_feature_ids=false` mode (D3). |
+| Oracle (confirmed)     | **Class 1** uses 6 hand-derived KAM fixtures; **Class 4** verifies range, background, uniform-data, and mode-equivalence invariants. All 9 tests pass. |
+| Code paths enumerated  | 8 of 8 paths exercised after removal of the unreachable `numVoxel==0` fallback. |
+| Tests today            | 9 test cases: 6 analytical fixtures, 2 invariant tests, and 1 SIMPL conversion test. |
+| Exemplar archive       | None; fixtures are inline. The circular `6_6_stats_test_v2.tar.gz` KAM exemplar was retired for this filter but remains shared by other tests. |
+| Legacy comparison      | **Run** — six cases on synthetic and Small IN100 inputs establish precision D1 and asymmetric-kernel bug D2; the corrected local legacy build agrees within 9.54e-7° in every case. |
+| Bug flags              | `ComputeKernelAvgMisorientationsFilter-D2` — the legacy x-loop used the z-radius as its upper bound; SIMPLNX corrected it at port time. |
 | V&V phase | **COMPLETE.** |
 
 ## Summary
@@ -54,7 +54,9 @@ The output is `KernelAverageMisorientations`, a `Float32Array` co-located in the
 
 ## Oracle
 
-*Confirmed class:* **Class 1 (Analytical) primary, Class 4 (Invariant) companion.**
+*Class:* **1 (Analytical) primary, 4 (Invariant) companion.**
+
+*Applied:* Six hand-derived fixtures use pure φ1 rotations to calculate expected KAM values. Companion invariants check output bounds, background values, uniform data, and equivalence of the two modes when their neighbor sets are equal.
 
 ### Class 1 (Analytical)
 
@@ -104,17 +106,27 @@ Class 4 invariants asserted in the `Class 4 - Invariants` TEST_CASE across 3 sub
 
 The Class 4 invariants are oracle-agnostic — they hold for any input, so they catch regressions even if specific Class 1 expected values were edited away.
 
+*Encoded:* `test/ComputeKernelAvgMisorientationsTest.cpp` — 6 Class 1 fixtures and 2 Class 4 tests; all 9 active test cases pass.
+
 ### Class 2, 3, 5
 
 N/A — no reference-library invocation (Class 2), no published-paper figure reproduction (Class 3), no expert-visual sign-off (Class 5) needed. Class 1 + Class 4 are sufficient.
 
-### Second-engineer oracle review
-
-**Complete — Jared Duffey, 2026-07-29** (approving reviewer of PR #1674, which delivered the reopened `use_feature_ids` work; the review was submitted 2026-07-28 and the PR merged 2026-07-29). This supersedes the earlier review of PR #1631 by Nathan Young (2026-06-11). Under the project's V&V policy the PR author is the primary engineer and the PR reviewer is the secondary sign-off.
+*Second-engineer review:* **Jared Duffey — 2026-07-29** (approving reviewer of PR #1674, which delivered the reopened `use_feature_ids` work). This supersedes the earlier review of PR #1631 by Nathan Young (2026-06-11).
 
 The area flagged for the second pair of eyes during the cycle was the multi-feature multi-voxel fixture, which carries 6 hand-derived per-cell expected values resting on symmetry-reduced cubic misorientation reasoning.
 
+## Bugs found and fixed
+
+| Deviation | Defect | Affected released versions | Resolution in this branch |
+|-----------|--------|----------------------------|---------------------------|
+| `ComputeKernelAvgMisorientationsFilter-D2` | The legacy x-loop used `KernelSize.z` for its upper bound and produced the wrong kernel shape when the x- and z-radii differed. | DREAM.3D 6.5.171 only. DREAM3D-NX was not affected. | SIMPLNX uses `KernelSize.x` for both x-loop bounds and has done so since the port. |
+
 ## Code path coverage
+
+*8 of 8 paths exercised.*
+
+Source: `src/Plugins/OrientationAnalysis/src/OrientationAnalysis/Filters/Algorithms/ComputeKernelAvgMisorientations.cpp` (209 lines).
 
 Re-enumerated for the per-mode neighbor gate (`ComputeKernelAvgMisorientations.cpp:124`). Paths 3–4 are the per-grain branch (`use_feature_ids = true`); paths 5–7 are the per-voxel branch (`use_feature_ids = false`). **Updated 2026-07-16 (commit `7f9cddc7d`):** the former path 9 (`numVoxel==0` fallback) was removed as unreachable dead code — see path 8's note. Path 2's boundary clamp is now a signed-index comparison (`zIdx`/`yIdx`/`xIdx` at `.cpp:100,107,114`) with the neighbor index computed directly from the clamped indices (`.cpp:120`); the separate `neighbor < 0` guard no longer exists because it is now provably unreachable by construction rather than checked at runtime.
 
@@ -160,6 +172,6 @@ The shared archive remains referenced in `src/Plugins/OrientationAnalysis/test/C
 
 See `vv/deviations/ComputeKernelAvgMisorientationsFilter.md` for the canonical, ID-stable list:
 
-- **`ComputeKernelAvgMisorientationsFilter-D1`** — EbsdLib 2.4.1 CubicOps precision improvement (non-deviation in the algorithmic sense; precision class). The pre-2.4.1 `acos(w near 1)` form produces a spurious ~0.03° angle on float32-sourced identical quaternions, which inflates every per-cell self-misorientation contribution to the KAM. The 2.4.1 `2*atan2(|v|, w)` form returns 0° as expected. **Confirmed by runtime A/B this cycle:** on identical 12³ synthetic input (default per-grain path, kernel `{1,1,1}`), max \|Δ\|=0.0072°, mean \|Δ\|=0.00075°, 0/1728 cells > 0.01°, gating provably identical — the delta is purely `calculateMisorientation` precision (D1 + the `QuatF`→`QuatD` port delta).
-- **`ComputeKernelAvgMisorientationsFilter-D2`** — Legacy `FindKernelAvgMisorientations.cpp:264` uses `KernelSize.z + 1` as the upper bound of the x-direction inner loop (should be `KernelSize.x + 1`). SIMPLNX has the correct form. Dormant when `KernelSize.x == KernelSize.z`; fires for asymmetric kernels. Logged in `bug_triage.md`.
+- **`ComputeKernelAvgMisorientationsFilter-D1`** — Orientation-library precision difference. On Small IN100 with the symmetric kernel, DREAM3D 6.5.171 differs from SIMPLNX by up to 0.056°; 2,281 of 256,000 cells exceed 0.01°. The local legacy build with the surgical precision correction reduces the maximum residual to 9.54e-7°.
+- **`ComputeKernelAvgMisorientationsFilter-D2`** — Legacy x-loop upper-bound bug. The 2026-09-17 asymmetric-kernel rerun exercises both over-reach (`{1,1,2}`) and truncation (`{2,1,1}`); differences reach 1.16° on Small IN100. Applying the one-character correction to a local legacy build reduces every asymmetric case to at most 9.54e-7° with zero cells above 0.01°, proving the root cause.
 - **`ComputeKernelAvgMisorientationsFilter-D3`** — `use_feature_ids = false` (per-voxel KAM) is an **NX-only capability** added for issue #1613. DREAM3D 6.5.171 `FindKernelAvgMisorientations` has no equivalent (it is per-grain only), so there is nothing to A/B against; the mode is validated by the Class 1 per-voxel fixtures and the Class 4 mode-equivalence invariant. The default (`use_feature_ids = true`) is unchanged and remains legacy-comparable.

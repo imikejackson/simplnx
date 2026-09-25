@@ -9,24 +9,24 @@
 | Verified commit            | `a307946e7` (v7.4.2 release)         |
 | Status | COMPLETE     |
 | Sign-off  | Michael Jackson <mike.jackson@bluequartz.net> — 2026-07-16 |
-| Second-engineer sign-off | Michael Jackson (technical authority) — 2026-07-16 |
+| Second-engineer sign-off | Nathan Young — 2026-07-01 (approving reviewer, PR #1645; follow-up PR #1664 approved 2026-07-13). Supersedes the 2026-07-16 technical-authority self-sign-off. |
 
 ## At a glance
 
 | Aspect                 | Current state            |
 |------------------------|--------------------------|
-| Algorithm Relationship | **Minor changes** (Rodrigues method) **+ New** (vMF/Watson). The Rodrigues average is a faithful port of legacy `FindAvgOrientations::execute()` with 4 deliberate deltas (positive-orientation canonicalization, FeatureId==0 inclusion, divide-by-zero cleanup, EbsdLib library swap). The von Mises-Fisher and Watson methods are **new to DREAM3D-NX** (added PR #1577), have **no legacy equivalent**, are off by default, and delegate their EM math to EbsdLib `DirectionalStats` — itself a C++ port of the EMsoft `dictmod.f90` directional-statistics module (Marc De Graef Research Group, Carnegie Mellon University; original EM implementation by Yu-Hui Chen). The math is published and peer-reviewed [R1] [R2], not novel to this project. |
-| Oracle (confirmed)     | **Confirmed.** Rodrigues → **Class 1 (analytical)** + **Class 4 (invariant)**; vMF/Watson → **Class 2 (EbsdLib reference, trusted, not re-tested)** + **Class 4 (invariant)**, scoped to the filter's value-add per the "don't re-test upstream" rule. Encoded as 2 oracle TEST_CASEs (+1 error test) in `test/ComputeAvgOrientationsTest.cpp`; all pass. SIMPLNX matches the oracle on every fixture. |
+| Algorithm Relationship | **Minor changes** for Rodrigues and **new capability** for vMF/Watson. Rodrigues ports `FindAvgOrientations` with four documented deltas; vMF/Watson have no legacy equivalent and delegate published EM math to EbsdLib `DirectionalStats`. |
+| Oracle (confirmed)     | **Classes 1 and 4** verify Rodrigues; **Classes 2 and 4** verify the vMF/Watson integration against the EbsdLib reference. The oracle tests in `test/ComputeAvgOrientationsTest.cpp` pass. |
 | Code paths enumerated  | 15 of 16 paths exercised (see Code path coverage); the one gap is the Watson-only dispatch branch (low-value array-selection path).              |
-| Tests today            | 9 test cases: Rodrigues analytical (Class 1+4), Rodrigues cubic-symmetry invariant (Class 4, #1660), Rodrigues voxel-ordering independence (Class 4), vMF/Watson EbsdLib-reference (Class 2+4), vMF/Watson phase-0 exclusion regression (#1659), crystal-structure/phase guard warnings (#1661), no-method-enabled error (preflight -54673 + runtime backstop -54670), cell-array tuple-mismatch error (-651, code asserted), and SIMPL 6.4/6.5 backwards-compat (DYNAMIC_SECTION). All inline hand-built data — no exemplar archive. Closes the GCOV vMF/Watson coverage gap.       |
-| Exemplar archive       | **None — retired `7_ComputeAvgOrientation_v2.tar.gz`** (it was a circular oracle regenerated from post-fix SIMPLNX output in PR #1577). Oracle is now inline in the test source. `download_test_data()` entry to be removed in Phase 10.               |
-| Legacy comparison      | **Run (2026-06-30) vs the official DREAM3D 6.5.171 release.** Two fixtures. On the realistic 480k-cell / 408-feature input the two are **numerically equivalent on all real features** (`AvgQuats` ≤1e-6, zero sign flips; `AvgEulerAngles` max 4.77e-7). Divergences are confined to **feature-0 / unindexed-voxel handling**: **D3** (empty feature 0) and **D2** (FeatureId-0 voxels with phase>0 — demonstrated on a forcing fixture: NX computes the average, legacy writes `(0,0,0,0)`). **D4** sub-epsilon. **D1 downgraded** (no demonstrable divergence). vMF/Watson have no legacy equivalent (N/A). |
-| Bug flags              | One **legacy** bug, empirically confirmed: `ComputeAvgOrientationsFilter-D3` (6.5.171 leaves the zero-voxel feature 0 as `(0,0,0,0)` / divides zero-count features by zero; SIMPLNX writes a clean identity). D2 is a deliberate algorithmic-choice divergence (not a bug). One **SIMPLNX** bug found by the post-merge adversarial review and fixed 2026-07-08: **issue #1659** — the vMF/Watson gather loop ignored `Phases`, so a phase-0 voxel inside a feature contributed a garbage quaternion to the EM average. Fixed by gating the gather identically to the counting pass; pinned by the `vMF/Watson Ignores Phase-0 Voxels` regression test. |
+| Tests today            | 9 test cases cover the Rodrigues, vMF, and Watson oracles; phase and crystal-structure guards; two error paths; and SIMPL 6.4/6.5 conversion. All data is inline. |
+| Exemplar archive       | **None — `7_ComputeAvgOrientation_v2.tar.gz` is retired** because it was a circular oracle. The replacement oracle is inline in the test source. |
+| Legacy comparison      | **Run** — Four Rodrigues fixtures confirmed numerical equivalence on real features, the intentional D2 policy difference, and the legacy D3 empty-tuple defect; vMF/Watson have no legacy equivalent. |
+| Bug flags              | `ComputeAvgOrientationsFilter-D3` is a legacy bug. The separately tracked SIMPLNX issue #1659 was fixed and is described in the long-form sections. |
 | V&V phase | **COMPLETE.** |
 
 ## Summary
 
-`ComputeAvgOrientationsFilter` ("Compute Feature Average Orientations") computes a per-Feature average crystallographic orientation from per-Element (voxel) quaternions, using one or more of three independently-toggled methods: the original **Rodrigues** running-quaternion average (a port of legacy `FindAvgOrientations`), and two **new** Expectation-Maximization distribution fits — **von Mises-Fisher** and **Watson** — that delegate their sampling math to EbsdLib `DirectionalStats`, a C++ port of the EMsoft `dictmod.f90` module written by Dr. Marc De Graef's group at Carnegie Mellon University [R1] [R2] [R3]. Verification establishes correctness independently of legacy: Rodrigues via a Class 1 analytical oracle (hand-built single- and multi-voxel features with closed-form averages) plus Class 4 invariants; vMF/Watson via Class 2 (EbsdLib as trusted reference, not re-tested) plus Class 4 invariants scoped to the filter's value-add. Headline result: SIMPLNX matches the oracle on every fixture and is numerically equivalent to the official DREAM3D 6.5.171 on all real features; the only legacy divergences are the deliberate feature-0 / unindexed-voxel handling (D2, D3) and a sub-epsilon precision difference (D4). All 9 unit tests pass.
+`ComputeAvgOrientationsFilter` computes per-feature average orientations with the Rodrigues, von Mises-Fisher, and Watson methods. Class 1 and 4 oracles verify Rodrigues, while Class 2 and 4 oracles verify the vMF/Watson integration. The four-case legacy comparison confirms numerical equivalence on real features, demonstrates D2 and both D3 mechanisms, and shows that the D3 correction makes empty-tuple output agree with SIMPLNX; all 9 unit tests pass.
 
 ## Algorithm Relationship
 
@@ -74,8 +74,6 @@ Line-by-line review performed via the `review-algorithm` skill on the already-or
 
 ## Oracle
 
-*Status: confirmed. Boundary with EbsdLib confirmed; second-engineer oracle review signed off by Michael Jackson (technical authority) 2026-07-16.*
-
 *Class:* **1 (Analytical) + 4 (Invariant)** for Rodrigues; **2 (Reference — EbsdLib, trusted & not re-tested) + 4 (Invariant)** for vMF/Watson.
 
 ### The EbsdLib boundary (what we do NOT re-test)
@@ -86,7 +84,7 @@ The vMF/Watson EM math lives in EbsdLib `DirectionalStats::EMforDS` — a C++ po
 
 EbsdLib owns: EM convergence/multi-restart (`numEM` = EMsoft `Num_of_init` random restarts, best-likelihood wins; `numIter` = EMsoft `Num_of_iterations` EM iterations per restart, with early exit when the Q-function changes by <0.01), symmetry-aware E/M steps, kappa estimation, FZ mapping of the result, seeded-PRNG reproducibility (the port reproduces EMsoft's Park-Miller `r8_uniform_01` and `r8vec_normal_01` bit-for-bit in double precision). We trust those (Class 2 reference), on the strength of both the published derivation [R1] [R2] and EbsdLib's own hard-asserted unit test. We do **not** reproduce the EM algorithm, and we do **not** re-derive it from the papers.
 
-### Applied
+*Applied:* The Rodrigues and vMF/Watson oracles are applied as follows.
 
 - **Rodrigues (Class 1 — analytical):** Hand-built features with closed-form averages — a single-voxel feature averages to that voxel's FZ-reduced, northern-hemisphere quaternion; N identical-orientation voxels average to that same orientation; a symmetric pair about a known axis averages to the bisector. Expected quats/Eulers derived by hand.
 - **Rodrigues (Class 4 — invariant):** unit-norm + northern-hemisphere (`w ≥ 0`) output quats; zero-voxel feature → identity `(0,0,0,1)` + zero Euler; result invariant to voxel ordering within a feature.
@@ -105,11 +103,21 @@ EbsdLib owns: EM convergence/multi-restart (`numEM` = EMsoft `Num_of_init` rando
 
 All 9 test cases pass in the `NX-Com-Qt69-Vtk95-Rel` build.
 
-*Second-engineer review:* **Signed off by Michael Jackson (technical authority), 2026-07-16.**
+*Second-engineer review:* Nathan Young — 2026-07-01 (approving reviewer, PR #1645; follow-up PR #1664 approved 2026-07-13).
+
+## Bugs found and fixed
+
+| Deviation | Defect | Affected released versions | Resolution in this branch |
+|-----------|--------|----------------------------|---------------------------|
+| `ComputeAvgOrientationsFilter-D3` | DREAM3D 6.5.171 leaves tuple zero invalid and divides zero-count feature tuples by zero. | DREAM.3D 6.5.171 only. DREAM3D-NX was not affected. | SIMPLNX writes the identity quaternion and zero Euler angles for every empty feature tuple. |
 
 ## Code path coverage
 
-*15 of 16 paths exercised. Source: `src/Plugins/OrientationAnalysis/src/OrientationAnalysis/Filters/Algorithms/ComputeAvgOrientations.cpp`.* Logical phases: **(a)** `operator()` dispatch + output-array selection/validation, **(b)** Rodrigues two-pass average, **(c)** vMF/Watson per-feature EM (serial over features). Paths 12–16 were added by the #1659/#1661 follow-up work (2026-07-08).
+*15 of 16 paths exercised.*
+
+Source: `src/Plugins/OrientationAnalysis/src/OrientationAnalysis/Filters/Algorithms/ComputeAvgOrientations.cpp` (551 lines).
+
+Logical phases: **(a)** `operator()` dispatch + output-array selection/validation, **(b)** Rodrigues two-pass average, **(c)** vMF/Watson per-feature EM (serial over features). Paths 12–16 were added by the #1659/#1661 follow-up work (2026-07-08).
 
 | #  | Phase            | Path       | Test case            |
 |----|------------------|----|----------------------|
@@ -157,7 +165,7 @@ All 9 test cases pass in the `NX-Com-Qt69-Vtk95-Rel` build.
 
 ## Deviations from DREAM3D 6.5.171
 
-*Comparison run 2026-06-30 against the **official DREAM3D 6.5.171 release** (`~/Applications/DREAM3D.app/Contents/bin/PipelineRunner`), Rodrigues method only (vMF/Watson have no legacy equivalent). Two byte-identical-input fixtures shared with NX `nxrunner`: **(A)** realistic — built from the `ASCIIData` CSVs (480k cells, 408 real features, single cubic phase); **(B)** a hand-built 3-feature fixture forcing the edge cases. **Result:** on fixture A the two are numerically equivalent on all 408 real features (`AvgQuats` ≤1e-6, zero sign flips; `AvgEulerAngles` max 4.77e-7); all divergences are confined to feature-0 / unindexed-voxel handling (D3 on A, D2 demonstrated on B). Full write-up: `vv/deviations/ComputeAvgOrientationsFilter.md` and the comparison summary in the archive (Phase 12).*
+*The legacy comparison was refreshed on 2026-09-17 for the Rodrigues method only; vMF/Watson have no legacy equivalent. Four byte-identical-input fixtures were run: a 480,000-cell production crop, a D2/D3 forcing fixture, and two analytical unit-test fixtures. All real features agree within `1e-6`; D2 is the intentional FeatureId-0 policy difference, while D3 is empirically reproduced at tuple zero and at zero-count tuples with index ≥1. A local legacy build with the surgical D3 correction writes the same identity quaternion and zero Euler angles as SIMPLNX for every empty tuple. Full details are in `vv/deviations/ComputeAvgOrientationsFilter.md` and the archived comparison summary.*
 
 - `ComputeAvgOrientationsFilter-D1` — **Downgraded — NOT a deviation.** Northern-hemisphere canonicalization (`getPositiveOrientation`) could not be made to diverge (symmetry reduction keeps `w≥0`; the pure-triclinic edge is `q≡−q`, same orientation). Documented so the source difference isn't re-flagged. See deviations file.
 - `ComputeAvgOrientationsFilter-D2` — **Demonstrated:** FeatureId-0 voxels (phase>0) — SIMPLNX averages them, 6.5.171 writes `(0,0,0,0)`. Algorithmic choice (not a bug). See deviations file.

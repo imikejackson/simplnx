@@ -4,7 +4,7 @@ This file lists every documented behavioral difference between this SIMPLNX filt
 
 Entries are referenced by stable ID (`ReadAngDataFilter-D<N>`) from the V&V report and from public migration guidance. The ID is stable across renames; the Filter UUID field is the permanent cross-reference anchor.
 
-Comparison run 2026-07-07 against the official DREAM3D 6.5.171 release on three fixtures (hand-authored 2-phase toy `.ang`, Small IN100 `Slice_1.ang`, and a non-contiguous-phase-index variant of the toy file). **All numeric outputs — cell arrays, ensemble arrays, and geometry — were bit-identical on the two supported-format fixtures.** The deviations below are the complete list of differences.
+Comparison run 2026-07-07 against the official DREAM3D 6.5.171 release on three fixtures (hand-authored 2-phase toy `.ang`, Small IN100 `Slice_1.ang`, and a non-contiguous-phase-index variant of the toy file). **All numeric outputs — cell arrays, ensemble arrays, and geometry — were bit-identical on the two supported-format fixtures.** A controlled local legacy patch proof on 2026-09-17 closed the sparse-phase crash while preserving the official output on both supported fixtures. The deviations below are the complete list of differences.
 
 ---
 
@@ -56,6 +56,8 @@ Comparison run 2026-07-07 against the official DREAM3D 6.5.171 release on three 
 **Symptom:** A `.ang` file whose phase sections do not start at index 1 (e.g., only a `# Phase 2` section) **crashes DREAM3D 6.5.171 with a segmentation fault** (PipelineRunner exit code 139, confirmed 2026-07-07). SIMPLNX imports the file correctly.
 
 **Root cause:** Bug in 6.5.171. Legacy `ReadAngData::loadMaterialInfo()` sizes the ensemble arrays to `phases.size() + 1` but writes each phase at `phase->getPhaseIndex()`; when indices are non-contiguous the write is out of bounds (a 2-tuple array written at index 2). SIMPLNX (resolved) sizes the ensemble arrays to `maxPhaseIndex + 1` in preflight, initializes every slot to the "Invalid Phase" defaults (`CrystalStructures = 999`, `MaterialName = "Invalid Phase"`, zero lattice constants), overwrites the slots that have phase sections, and returns error `-19502` if a phase index falls outside the arrays.
+
+**Controlled proof (2026-09-17):** A local legacy proof build was changed only to size the three ensemble arrays to at least `maxPhaseIndex + 1` and initialize every slot before the per-phase writes. The exact patched commit is recorded in the filter A/B archive. The previously crashing sparse `# Phase 2` fixture then imported successfully; every numeric dataset matched DREAM3D-NX exactly and gap slot 1 retained `{CrystalStructures = 999, MaterialName = "Invalid Phase", LatticeConstants = 0}`. Re-running the hand-authored toy and Small IN100 fixtures produced all 14 datasets exactly equal to their official, unpatched 6.5.171 baselines. This is the result predicted by the stated root cause, with no supported-input regression.
 
 **Affected users:** Anyone importing a `.ang` file with non-contiguous phase indices into 6.5.171 (crash, potential silent memory corruption in earlier writes). Standard EDAX exports number phases contiguously from 1, so typical files are unaffected.
 

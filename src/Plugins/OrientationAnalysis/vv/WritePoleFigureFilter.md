@@ -8,24 +8,24 @@
 | Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE |
 | Sign-off | Michael Jackson <mike.jackson@bluequartz.net> — 2026-07-16 |
-| Second-engineer sign-off | Michael Jackson (technical authority) — 2026-07-16 |
+| Second-engineer sign-off | Jared Duffey — 2026-07-10 (approving reviewer, PR #1647). Supersedes the 2026-07-16 technical-authority self-sign-off. |
 
 ## At a glance
 
 | Aspect                 | Current state            |
 |------------------------|--------------------------|
-| Algorithm Relationship | **Rewrite** — same intent (generate `<001>/<011>/<111>` pole figures) but a different output medium and rendering stack: legacy writes a **PDF per phase** via libharu; SIMPLNX creates an **image geometry** (+ optional intensity arrays) and optional raster image on disk, rendered by the **EbsdLib compositor**. |
-| Oracle (confirmed)     | **Class 5 (Expert-visual)** primary + **Class 4 (Invariant)** companions. Expert side-by-side sign-off of hex and cubic renders (6.5.171 / 6.5.172 / SIMPLNX). Invariants encoded in `WritePoleFigureTest.cpp` (mask-effectiveness, hex-convention plumbing) pass on EbsdLib 3.1.0. |
-| Code paths enumerated  | 10 of 13 simplnx-wrapper paths exercised in CI; the 3 uncovered are defensive/error branches noted below. (Per-Laue-class + pixel rendering is owned and byte-tested by EbsdLib upstream.) |
-| Tests today            | 4 test cases — mask-effectiveness (Class 4), hex-convention plumbing (Class 4, intensity + composite paths), discrete-mode + marker-radius plumbing (Class 4), SIMPL 6.4/6.5 backward-compat. All pass against EbsdLib 3.1.0. |
-| Exemplar archive       | `Pole_Figure_Exemplars_v6.tar.gz` (inputs only — 502 hex-Ti orientations + 251/251 mask). No baked image exemplar (deliberate: avoids coupling CI to EbsdLib pixel byte-identity). |
-| Legacy comparison      | Three-way expert-visual (6.5.171 / 6.5.172 / SIMPLNX) on hex **and** cubic. 6.5.171 == 6.5.172 (byte-identical). Data (pole positions, intensity, color mapping) visually identical; 4 cosmetic/rendering deviations. |
-| Bug flags              | **None.** All 4 deviations are cosmetic (axis/family labels, font) or an intentional rendering improvement (discrete vector markers). No correctness defect. |
+| Algorithm Relationship | **Rewrite** with the same pole-figure intent; SIMPLNX replaces per-phase PDF output and libharu with image geometry, optional intensity arrays, and EbsdLib raster rendering. |
+| Oracle (confirmed)     | **Class 5** expert review covers hexagonal and cubic renders; **Class 4** tests mask, convention, discrete-mode, and marker-radius wiring. All 4 tests pass. |
+| Code paths enumerated  | 10 of 13 wrapper paths exercised; 3 defensive or validation paths remain uncovered. EbsdLib owns per-Laue-class rendering tests. |
+| Tests today            | 4 test cases cover mask behavior, hex convention, discrete markers, and SIMPL conversion. |
+| Exemplar archive       | `Pole_Figure_Exemplars_v6.tar.gz` contains input orientations and a mask only; no rendered image is used as an oracle. |
+| Legacy comparison      | **Run** — expert review found visually identical pole data across official DREAM3D 6.5.171, the local legacy proof build, and SIMPLNX; D1–D5 are non-defect presentation or API differences. |
+| Bug flags              | None; all 5 deviations are cosmetic, intentional rendering changes, or output-format differences. |
 | V&V phase | **COMPLETE.** |
 
 ## Summary
 
-`WritePoleFigureFilter` generates `<001>/<011>/<111>` (or the hexagonal/trigonal equivalents) pole figures for each phase from per-cell Euler angles, phases, and crystal structures, optionally masked. It was verified by expert (Class 5) side-by-side comparison of hex and cubic pole figures rendered through DREAM3D 6.5.171, 6.5.172, and SIMPLNX (EbsdLib 3.1.0), backed by Class 4 invariant unit tests for the simplnx-unique wiring. The pole-figure data is visually identical across all versions; the only differences are cosmetic labeling/font and an intentional discrete-marker rendering improvement — four documented, non-defect deviations.
+`WritePoleFigureFilter` generates `<001>/<011>/<111>` (or the hexagonal/trigonal equivalents) pole figures for each phase from per-cell Euler angles, phases, and crystal structures, optionally masked. It was verified by expert (Class 5) side-by-side comparison of hex and cubic pole figures rendered through official DREAM3D 6.5.171, a locally patched legacy build, and SIMPLNX (EbsdLib 3.1.0), backed by Class 4 invariant unit tests for the simplnx-unique wiring. The pole-figure data is visually identical across all versions; the differences are cosmetic labeling/font, an intentional discrete-marker rendering improvement, and PNG-only output — five documented, non-defect deviations.
 
 ## Algorithm Relationship
 
@@ -46,20 +46,24 @@ The shared pole-figure projection math (modified Lambert for Color, stereographi
 
 *Justification for Class 5:* the filter's output is a rasterized pole-figure image whose correctness is inherently visual; legacy DREAM3D emits **only PDFs** (no numeric ground truth to diff), and the pixel-level rendering is owned and byte-tested by EbsdLib upstream. No Class 1–3 oracle fully specifies the rendered image. The analytically-checkable part (pole positions) and the simplnx-unique wiring are covered by the Class 4 invariants below.
 
-*Applied:* the same 502 hex-Ti orientations (and a cubic-relabeled variant) were rendered through DREAM3D 6.5.171, 6.5.172, and SIMPLNX (EbsdLib 3.1.0) in Color and Discrete modes; a domain expert reviewed the figures side by side. Pole positions, intensity distribution, and color-intensity mapping are visually identical across all three; the only differences are the four cosmetic/rendering items in the Deviations file.
+*Applied:* the same 502 hex-Ti orientations (and a cubic-relabeled variant) were rendered through official DREAM3D 6.5.171, a locally patched legacy build, and SIMPLNX (EbsdLib 3.1.0) in Color and Discrete modes; a domain expert reviewed the figures side by side. Pole positions, intensity distribution, and color-intensity mapping are visually identical across all three; the differences are the five cosmetic/rendering/API items in the Deviations file.
 
 *Encoded:*
 - **Class 4 (Invariant):** `test/WritePoleFigureTest.cpp::"OrientationAnalysis::WritePoleFigureFilter: Mask filter changes the rendered pole figure"` (masked output differs from unmasked by >1% of bytes → mask is wired) and `::"…: HexConvention choice reaches algorithm"` (X‖a vs X‖a* rotates the basal families 30° in both the intensity array and the composite RGB → both plumbing paths honor the convention). Both pass against EbsdLib 3.1.0.
 - **Class 5 (Expert-visual):** the hex + cubic renders (legacy PDFs + SIMPLNX PNGs), signed off. Generator scripts + pipelines are committed under `Code_Review/vv/WritePoleFigure/`; the binary renders are archived to OneDrive — see the provenance sidecar and that folder's `README.md`.
 - **Class 2 (Reference), cited not duplicated:** EbsdLib `PoleFigureCompositorTest::All_Laue_Classes` pins per-Laue-class pixel reproduction.
 
-*Second-engineer review:* **Signed off by Michael Jackson (technical authority), 2026-07-16.** Review focus: the four documented differences are confirmed the complete set and all non-defect.
+*Second-engineer review:* **Jared Duffey — 2026-07-10 (approving reviewer, PR #1647).** Supersedes the 2026-07-16 technical-authority self-sign-off. Review focus: the five documented differences are confirmed as the complete set and are all non-defects.
+
+## Bugs found and fixed
+
+None.
 
 ## Code path coverage
 
 10 of 13 simplnx-wrapper paths exercised in CI. The filter is a wrapper around the EbsdLib compositor; per-Laue-class projection and pixel rendering are owned/tested by EbsdLib. Logical phases: (a) preflight validation + array creation, (b) parameter→enum translation, (c) per-phase mask filtering, (d) intensity generation, (e) composite image generation.
 
-Source: `src/Plugins/OrientationAnalysis/src/OrientationAnalysis/Filters/Algorithms/WritePoleFigure.cpp` + `WritePoleFigureFilter.cpp`.
+Source: `src/Plugins/OrientationAnalysis/src/OrientationAnalysis/Filters/Algorithms/WritePoleFigure.cpp` (787 lines) + `WritePoleFigureFilter.cpp`.
 
 | #  | Phase              | Path                                                                     | Test case                                                        |
 |----|--------------------|--------------------------------------------------------------------------|------------------------------------------------------------------|
@@ -95,7 +99,7 @@ Source: `src/Plugins/OrientationAnalysis/src/OrientationAnalysis/Filters/Algorit
 
 ## Deviations from DREAM3D 6.5.171
 
-Established by expert (Class 5) visual comparison on hex and cubic; 6.5.171 == 6.5.172. Full renders archived to OneDrive; regeneration scripts committed under `Code_Review/vv/WritePoleFigure/`. All four are cosmetic / labeling / intentional-rendering; none is a defect.
+Established by expert (Class 5) visual comparison on hex and cubic; official 6.5.171 and the locally patched legacy build are visually indistinguishable (three raster-identical cases; one 7-pixel residual). Full renders are archived to OneDrive. All five are cosmetic, labeling, intentional-rendering, or output-format/API differences; none is a defect.
 
 - `WritePoleFigureFilter-D1` — axis labels `X`/`Y` (legacy) → `A1`/`A2` (SIMPLNX). Cosmetic.
 - `WritePoleFigureFilter-D2` — font/text-metrics differ (libharu Helvetica → EbsdLib canvas_ity). Library, cosmetic.

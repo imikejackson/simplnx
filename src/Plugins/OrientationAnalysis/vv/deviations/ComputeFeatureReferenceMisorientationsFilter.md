@@ -6,11 +6,9 @@ Entries are referenced by stable ID (`ComputeFeatureReferenceMisorientationsFilt
 
 ## Comparison summary
 
-The legacy A/B comparison was performed by **source inspection** rather than empirical run. Justification: SIMPLNX `ComputeFeatureReferenceMisorientationsFilter::operator()()` is a clean Port of legacy `FindFeatureReferenceMisorientations::execute()` (same two-mode dispatch, same per-voxel main loop, same per-feature averaging finalization, same `LaueOps`-delegated misorientation math, same `m_Centers` selection with `>=` tie-break). The only port-time deltas are API modernization (`getMisoQuat` → `calculateMisorientation`), type widening (`QuatF` → `QuatD` for the internal math, narrowed back to `float` for storage), cleaner auxiliary storage (interleaved `avgMisoPtr` → separate `avgMisorientationSums` + `avgMisorientationCounts`), added cancel checks, and a new optional `EuclideanCenters` output array in Mode 1 (no pre-existing output is affected).
+The legacy comparison was rerun empirically on 2026-09-17 using the six analytical fixtures and a 748,800-cell Small IN100 case in both reference modes. Every application read byte-identical scientific inputs. DREAM3D 6.5.171 completed Mode 0 but terminated with a segmentation fault in all four direct Mode 1 cases. A local legacy build with the surgical Mode 1 and orientation-precision corrections completed every case, matched SIMPLNX bit-for-bit on the three analytical Mode 1 fixtures, and agreed within one per-cell float32 ULP on Small IN100.
 
-For the V&V data fixtures (pure φ1 rotations about z, no cubic-symmetry-op-aligned grain boundaries), both implementations are expected to produce bit-identical outputs modulo `float` precision (< 1 ULP differences possible due to `QuatF` → `QuatD` promotion).
-
-For real EBSD data (e.g., the Small-IN100 dataset that the retired exemplar archive came from), the EbsdLib 2.4.1 `CubicOps::calculateMisorientationInternal` precision improvement (`2·atan2(|v|, w)` form replacing the precision-fragile `acos(w)` near 1) propagates through SIMPLNX's misorientation math and yields per-voxel `FRM` values that differ from legacy by ~ULP-scale (sub-`0.0001°`) for sym-op-aligned voxel pairs. When those per-voxel values are averaged into per-feature `avgRefMis` quantities, the small per-voxel shifts can accumulate to 2×–10× the `1e-4` epsilon used by the retired exemplar tests.
+Mode 0 quantified D1 rather than merely inferring it. On the analytical fixtures, baseline differences reached 1.86e-4°; on Small IN100 they reached 0.0738° per cell and 0.01761° per feature average. The corrected local legacy build reduced the per-cell production residual to at most 1.907e-6°. Mode 1 exposed the independent legacy crash documented as D2.
 
 ---
 
@@ -20,11 +18,9 @@ For real EBSD data (e.g., the Small-IN100 dataset that the retired exemplar arch
 |------------------|-------------------------------------------------------------|
 | **Deviation ID** | `ComputeFeatureReferenceMisorientationsFilter-D1`           |
 | **Filter UUID**  | `24b54daf-3bf5-4331-93f6-03a49f719bf1`                      |
-| **Status**       | active (precision-class; non-deviation in algorithmic sense) |
+| **Status**       | active |
 
-**Symptom:** Per-feature average misorientations (`Feature Avg Misorientations`) differ between SIMPLNX and DREAM3D 6.5.171 on real EBSD datasets containing cubic-phase grains with grain boundaries near cubic-symmetry operators. On the Small-IN100 dataset (the basis for the retired `compute_feature_reference_misorientation.tar.gz` exemplar archive), Mode 0 (`AverageMisorientation`) averages drifted by ~`2e-4` (2× the `1e-4` epsilon used by `CompareDataArrays`); Mode 1 (`EuclideanDistance`) averages drifted by ~`1e-3` (10×). Per-voxel `FRM` values shift by sub-`0.0001°` (within float precision), but the magnitude amplifies when summed over a feature's voxels and divided by count.
-
-On the V&V data fixtures (pure φ1 rotations about z, no cubic-sym-op-aligned voxel pairs), no observable deviation. All 6 Class 1 fixtures produce SIMPLNX values within `1e-3°` of the analytical expected value.
+**Symptom:** Per-cell and per-feature misorientations differ between SIMPLNX and DREAM3D 6.5.171 at the precision level. The empirical rerun measured up to 1.86e-4° on the analytical Mode 0 fixtures and, on Small IN100, up to 0.0738° per cell and 0.01761° per feature average. All six analytical fixtures remain within `1e-3°` of the independent expected values.
 
 **Root cause:** **Precision** — not an algorithm change in either implementation.
 
@@ -37,6 +33,24 @@ For the full root-cause walkthrough of the EbsdLib precision improvement, see th
 **Affected users:** Anyone running this filter in DREAM3D 6.5.171 on EBSD data with cubic-phase grains that have grain boundaries near 4-fold (90° c-axis), 3-fold (120° [111]), or 2-fold (180° face-diagonal) cubic symmetry operators, and comparing per-feature `Feature Avg Misorientations` output across the version boundary. On non-cubic-phase data, no deviation. On cubic data without sym-op-aligned boundaries, no observable deviation.
 
 **Recommendation:** **Trust SIMPLNX.** The 6.5.171 result was limited by float32-input ULP noise amplified by `acos`-near-1 catastrophic cancellation; SIMPLNX returns the mathematically correct value. The `~0.02°` shift is well below typical EBSD measurement resolution (per the BadDataNeighborOrientationCheckFilter V&V cycle's precedent characterization) and will not materially affect downstream microstructural analyses for users migrating from DREAM3D 6.5.171.
+
+---
+
+## ComputeFeatureReferenceMisorientationsFilter-D2
+
+| Field            | Value                                                       |
+|------------------|-------------------------------------------------------------|
+| **Deviation ID** | `ComputeFeatureReferenceMisorientationsFilter-D2`           |
+| **Filter UUID**  | `24b54daf-3bf5-4331-93f6-03a49f719bf1`                      |
+| **Status**       | active |
+
+**Symptom:** DREAM3D 6.5.171 terminates with a segmentation fault whenever Mode 1 (Euclidean-distance reference) is selected. It produces no output for any direct Mode 1 fixture. SIMPLNX completes all Mode 1 cases and matches the independent analytical expectations.
+
+**Root cause:** **Bug** in DREAM3D 6.5.171. The legacy `execute()` method obtains `totalFeatures` by locking the Mode-0-only `AvgQuats` input pointer before dispatching to the Mode 1 center-selection path. `dataCheck()` does not initialize that pointer in Mode 1, so the dereference is invalid. A surgical one-line correction uses the tuple count of the always-created feature-average output instead, which is valid in both modes.
+
+**Affected users:** Every DREAM3D 6.5.171 user who selected the Euclidean-distance reference mode. The filter terminates before producing reference-misorientation output.
+
+**Recommendation:** **Trust SIMPLNX.** The SIMPLNX port does not depend on the Mode-0-only input for its feature count. A local legacy build with the surgical correction completed all four Mode 1 cases, matched SIMPLNX bit-for-bit on the three analytical fixtures, and agreed within one per-cell float32 ULP on Small IN100.
 
 ---
 
@@ -60,11 +74,4 @@ Both implementations leave `avgRefMis[0]` at its initialized `0.0f` value (since
 
 ## Comparison artifacts
 
-For this filter's V&V cycle, the legacy A/B comparison was performed by **source inspection** rather than empirical run. Justification: both algorithms have been independently V&V'd at the source-code level (this filter via the V&V report; the EbsdLib precision math via BadDataNeighborOrientationCheckFilter's V&V cycle), and the data fixtures used here do not include sym-op-aligned boundaries that would surface the precision-class deviation. Running an empirical A/B on the data fixtures would confirm bit-identical (or sub-ULP) output, which is the expected outcome from source inspection.
-
-If a future engineer wants to run an empirical A/B for confirmation:
-
-- **6.5.171 binary**: `/Users/mjackson/Applications/DREAM3D.app/Contents/bin/PipelineRunner`
-- **Suggested input fixture**: convert any V&V data fixture to legacy `.dream3d` format via the same h5py-based script pattern used in `BadDataNeighborOrientationCheckFilter`'s `bad_data_neighbor_orientation_check_v2/case_1/.../6_5_*_input.json` series. A draft Python script for Fixture B (Mode 0, 2×2×2 single grain, all 5° about z) lives at `/tmp/build_cfrm_fixtureB_legacy.py` from this V&V cycle.
-- **Suggested legacy pipeline**: `DataContainerReader` → `FindFeatureReferenceMisorientations` → `DataContainerWriter`. The `DataContainerReader` requires a `DataContainerArrayProxy` enumerating the input file's paths; that adds ~150 lines of JSON for a 6-data-fixture sweep.
-- **Expected outcome**: bit-identical or sub-ULP-difference output between SIMPLNX and 6.5.171 on the data fixtures (no sym-op-aligned boundaries → precision improvement not observable).
+The archived comparison record contains six analytical fixtures, the Small IN100 production case, direct Mode 0 and Mode 1 pipelines, an independent Mode 1 emulation through Mode 0, debugger evidence for the release crash, outputs from the local surgically corrected legacy build, and machine-readable comparisons. Thirty-six pipelines were executed. All twelve SIMPLNX and twelve corrected-legacy executions succeeded; DREAM3D 6.5.171 succeeded on the eight Mode 0/emulation cases and terminated with exit 139 on all four direct Mode 1 cases.

@@ -107,8 +107,10 @@ The fix is mathematically equivalent for non-sym-op-aligned misorientations (bot
 
 **Recommendation:** **Trust the fixed SIMPLNX (post-2026-05-28).** The fix is a strict improvement; all 306 EbsdLib unit tests pass post-fix; 181/189 OrientationAnalysis unit tests pass post-fix (the 8 failures are exemplar-based regression tests against pre-fix-generated exemplars, with diffs in the `1e-4` to `1e-3` range — see the V&V doc's "Downstream impact note"). Exemplar files for the 8 affected downstream tests will be regenerated at the engineer's discretion to lock in the post-fix values as the new reference.
 
+**Empirical patch proof (2026-09-17):** Three shared-input cases were run through SIMPLNX, DREAM3D 6.5.171, and a local legacy build with the surgical cubic and hexagonal orientation-precision corrections. The comparison converted each legacy axis–angle vector to its Euclidean-norm angle before comparing it with the SIMPLNX scalar output. Of 640,880 comparable faces, the unmodified release had 1,249 values above 0.0001° and four above 0.001° (maximum 0.00193°). The corrected local build had zero values above either threshold and passed `rtol=1e-6, atol=1e-6` on every comparable face. All invalid faces satisfied the SIMPLNX-NaN / legacy-zero contract, and every class unsupported by the legacy filter satisfied the SIMPLNX-finite / legacy-zero contract.
+
 ---
 
-## Comparison build & library nuance
+### Comparison build & library nuance
 
-This filter's V&V did NOT run a direct A/B comparison against legacy DREAM3D 6.5.171's `GenerateFaceMisorientationColoring`. The output structure is incompatible by design (D2: 3-component axis·angle vs 1-component angle), making a per-array comparison meaningless. The Class 1 oracle (hand-derived from symmetry-group analysis) serves as the verification floor; the deviation entries above document the design choices that distinguish the new filter from the legacy.
+An empirical A/B comparison was completed on 2026-09-17. The raw arrays are intentionally incompatible (D2: 3-component axis·angle versus 1-component angle), so the comparison uses the Euclidean norm of the legacy vector as the directly comparable angle. Three cases cover the 37-face analytical fixture, 4,650 random cubic/hexagonal faces, and a 756,474-face Small IN100 mesh. The Class 1 oracle remains the correctness basis; the A/B is used only to explain the four migration deviations and to prove the precision root cause.

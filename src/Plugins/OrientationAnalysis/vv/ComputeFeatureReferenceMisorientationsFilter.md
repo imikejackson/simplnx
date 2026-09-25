@@ -8,29 +8,25 @@
 | DREAM3D 6.5.171 equivalent | `FindFeatureReferenceMisorientations` — `Source/Plugins/OrientationAnalysis/OrientationAnalysisFilters/FindFeatureReferenceMisorientations.{h,cpp}` (UUID `428e1f5b-e6d8-5e8b-ad68-56ff14ee0e8c`) |
 | Verified commit            | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE     |
-| Sign-off  | *Michael Jackson <mike.jackson@bluequartz.net>  |
+| Sign-off  | Michael Jackson <mike.jackson@bluequartz.net> — 2026-06-03 (PR #1629 author) |
 | Second-engineer sign-off   | Nathan Young — 2026-06-03 (approving reviewer, PR #1629)   |
 
 ## At a glance
 
 | Aspect                 | Current state            |
 |------------------------|--------------------------|
-| Algorithm Relationship | **Port** — same two-mode structure + per-voxel math via `LaueOps`. `QuatF`→`QuatD`; `getMisoQuat`→`calculateMisorientation`; raster→linear iteration; cancel checks added; new optional `EuclideanCenters` array (Mode 1). UUID reassigned for `Find`→`Compute` rename.             |
-| Oracle (confirmed)     | **Class 1 (Analytical) primary** — 6 hand-derived data fixtures covering both reference-orientation modes + 2D + 3D + multi-feature + edge cases. **Class 4 (Invariant) companion** — monotonicity, range bounds, skip-condition correctness, and the per-feature averaging formula asserted via `ClassFourInvariants::AssertClass4Invariants()` across both fixture configurations.|
-| Code paths enumerated  | 7 of 8 algorithmic paths exercised directly (Mode 0 vs Mode 1 dispatch, `m_Centers` selection, `EuclideanCenters` writing, valid-voxel accumulate, skip-voxel, finalize-non-empty, finalize-empty-count). 1 path (cancel-check) tested implicitly via the unconditional cancel-check-at-loop-top instrumentation. |
-| Tests today            | **8 TEST_CASEs / 8 ctest entries**, 100% pass (~0.7s). 6 Class 1 data fixtures + 1 Class 4 invariants sweep + 1 SIMPL backwards-compatibility test. **No exemplar archive consumed.**      |
-| Exemplar archive       | **None — inline-constructed in test source.** The pre-existing `compute_feature_reference_misorientation.tar.gz` archive (Small-IN100-based regression-against-exemplar) was **retired 2026-06-01** because its exemplar arrays were a circular oracle (regenerated from pre-EbsdLib-2.4.1 SIMPLNX output). The 6 hand-derived data fixtures cover all 8 algorithmic paths and replace the regression-against-archive coverage.            |
-| Legacy comparison      | **Source-inspection comparison against DREAM3D 6.5.171** completed. Algorithm structurally identical to legacy modulo port-time deltas. **No algorithmic deviations** observed (no behavioral bugs in either implementation). One precision-class non-deviation documented: the EbsdLib 2.4.1 `CubicOps::calculateMisorientationInternal` precision improvement (already characterized in `BadDataNeighborOrientationCheckFilter`'s V&V cycle) propagates into per-feature averages for sym-op-aligned grain boundaries — non-observable on data fixtures. |
-| Bug flags              | None.         |
+| Algorithm Relationship | **Port** — The two reference modes and per-voxel math are preserved. SIMPLNX adds API updates, linear iteration, cancel checks, and the optional `EuclideanCenters` output. |
+| Oracle (confirmed)     | **Class 1 (Analytical)** uses 6 hand-derived 2D, 3D, multi-feature, and edge-case fixtures; **Class 4 (Invariant)** checks bounds, skip behavior, and feature averages. |
+| Code paths enumerated  | 7 of 8 paths exercised directly; only the cancellation path is not directly tested. |
+| Tests today            | 8 test cases cover 6 Class 1 fixtures, 1 Class 4 invariant sweep, and SIMPL conversion. No exemplar archive is used. |
+| Exemplar archive       | **None** — the circular `compute_feature_reference_misorientation.tar.gz` test is retired and replaced by inline fixtures. |
+| Legacy comparison      | **Run** — Six analytical fixtures and Small IN100 confirmed D1's precision difference and D2's Mode 1 crash; the local legacy proof build matched SIMPLNX at the stated precision. |
+| Bug flags              | `ComputeFeatureReferenceMisorientationsFilter-D2` is a legacy Mode 1 null-pointer defect; SIMPLNX is not affected. |
 | V&V phase | **COMPLETE.** |
 
 ## Summary
 
-`ComputeFeatureReferenceMisorientationsFilter` computes the misorientation angle (in degrees) between each cell's quaternion and a per-feature reference quaternion. The reference is either the feature's average quaternion (Mode 0) or the quaternion of the voxel within the feature that is farthest from the grain boundary (Mode 1). Per-feature averages are computed alongside the per-cell values. In Mode 1, a `Feature Euclidean Centers` array recording the coordinates of each feature's reference voxel is also written.
-
-Verification is via a **Class 1 (Analytical) hand-derived data-fixture set of 6 unit tests** plus a **Class 4 (Invariant) companion sweep**. The fixtures use pure φ1-rotation quaternions (Bunge ZXZ Euler `(φ1, 0, 0)`) so that misorientation values are closed-form derivable: for Δφ1 ∈ {0°, 5°, 10°} and cubic symmetry, the symmetry-reduced misorientation equals `|Δφ1|`. The fixtures range from 2×2×2 (8 voxels, 1 feature) to 4×3×1 (12 voxels, 5 features including a background and an all-unphased feature), and include a 3×3×2 (18-voxel) 3D fixture specifically to verify the linear-voxelIdx → 3D-coord arithmetic in Mode 1.
-
-A pre-existing `compute_feature_reference_misorientation.tar.gz` archive (Small-IN100 regression-against-exemplar) was retired during this V&V cycle: its exemplar arrays were generated from a pre-EbsdLib-2.4.1 SIMPLNX run (circular oracle), and the EbsdLib 2.4.1 `CubicOps::calculateMisorientationInternal` precision improvement shifted the exemplar values by 2× to 10× the 1e-4 epsilon used in the regression check. The data fixtures cover all 8 algorithmic paths analytically and remove the circular-oracle dependency. Source inspection of the legacy `FindFeatureReferenceMisorientations` confirms the SIMPLNX algorithm is a clean Port with no algorithmic deviations; the only legacy-vs-SIMPLNX difference is the EbsdLib precision improvement (a precision-class non-deviation), which manifests on real EBSD data with cubic-phase sym-op-aligned boundaries but is non-observable on the data fixtures.
+`ComputeFeatureReferenceMisorientationsFilter` compares each cell orientation with either its feature average or its feature's farthest interior voxel and also computes feature averages. Six Class 1 fixtures and a Class 4 invariant sweep verify both modes, including 2D, 3D, multi-feature, and edge-case data. The comparison confirms D1's precision difference and D2's legacy Mode 1 crash; the local legacy proof build reproduces SIMPLNX on the analytical cases and to float32 precision on production data.
 
 ## Algorithm Relationship
 
@@ -54,13 +50,15 @@ A pre-existing `compute_feature_reference_misorientation.tar.gz` archive (Small-
 
 *Class:* **1 (Analytical)** primary + **4 (Invariant)** companion. Class 3 (Paper-based) N/A — this filter delegates misorientation math to `ebsdlib::LaueOps::calculateMisorientation`; the Rowenhorst 2015 paper-based verification of that math is part of EbsdLib's own V&V, not this filter's.
 
-### Applied (Class 1 — Analytical)
+*Applied:* The Class 1 and Class 4 oracles are applied as described below.
+
+### Class 1 — Analytical
 
 Expected per-voxel `FRM` and per-feature `avgRefMis` outputs are derived in closed form from the input `Quats` + `Phases` + `FeatureIds` + reference-quaternion source (Mode 0: `AvgQuats[fid]`; Mode 1: `Quats[centerVoxelIdx]`) by hand-tracing the algorithm. The fixtures use pure φ1-rotation quaternions (Bunge ZXZ Euler `(φ1, 0, 0)`) so that misorientation between any two voxels equals `|Δφ1|` modulo the cubic c-axis 4-fold symmetry. For Δφ1 ∈ {0°, 5°, 10°} the symmetry reduction is the identity (no fold below the input), so expected FRM values are exactly `|Δφ1|`. Per-feature averages are `sum(FRM[v ∈ feature fid, phase>0]) / count(v ∈ feature fid, phase>0)` for `fid > 0` with non-empty count, or `0` when count is empty (path 7 in the code-path table below).
 
 Mode 1 hand-picks `GBEuclideanDistances` values so that `m_Centers[fid]` selection has a unique closed-form answer (or, for the tied-distance multi-feature fixture, a deterministic later-voxel-wins tie-break per the `>=` comparison semantics that both legacy and SIMPLNX share).
 
-### Applied (Class 4 — Invariant)
+### Class 4 — Invariant
 
 Five invariants every filter run must satisfy regardless of input configuration, asserted via `namespace AnalyticalFixtures::AssertClass4Invariants()` in the test source:
 
@@ -70,24 +68,31 @@ Five invariants every filter run must satisfy regardless of input configuration,
 - **Background-feature zero**: `avgRefMis[0] == 0` (background)
 - **Per-feature averaging formula**: `avgRefMis[fid] == sum(FRM[v ∈ feature fid, phase>0]) / count(v ∈ feature fid, phase>0)` for `fid > 0` with count > 0; `avgRefMis[fid] == 0` when count == 0
 
-### Encoded
+*Encoded:* The tests below encode the oracle.
 
 - **Class 1 (Analytical)**: `test/ComputeFeatureReferenceMisorientationsTest.cpp` — 6 `TEST_CASE` blocks under the `Class 1 - …` family. Per-voxel and per-feature expected values asserted via `AnalyticalFixtures::RequireFRMClose()` / `RequireAvgClose()` with 1e-3° tolerance (degrees) and `Approx().margin(1e-5f)` for `EuclideanCenters` coord assertions.
 - **Class 4 (Invariant)**: `ComputeFeatureReferenceMisorientationsFilter: Class 4 - Invariants Sweep` — two configurations (Mode 0 mixed 3×3×1 and Mode 1 3×3×1) each asserting all five invariants via the `AssertClass4Invariants()` helper.
 - *(kept)* `ComputeFeatureReferenceMisorientationsFilter: SIMPL Backwards Compatibility` — SIMPL 6.4 + 6.5 conversion paths via `DYNAMIC_SECTION`; UUID + argument-key + parameter-value validation only.
 
-### Second-engineer review
+*Second-engineer review:* Nathan Young — 2026-06-03 (approving reviewer, PR #1629).
 
-*Pending — recommend an OA-domain engineer (Joey Kleingers or similar) review:*
+Recorded review topics:
+
 - *The Class 1 hand-derivations in the 6 data fixtures + 1 invariants sweep for plausibility (the fixtures are small enough to walk through in ~30 minutes).*
 - *The Class 4 invariant set for completeness — are there other properties this algorithm must satisfy?*
 - *The decision to retire the `compute_feature_reference_misorientation.tar.gz` Small-IN100 exemplar archive in favor of inline data fixtures.*
+
+## Bugs found and fixed
+
+| Deviation | Defect | Affected released versions | Resolution in this branch |
+|-----------|--------|----------------------------|---------------------------|
+| `ComputeFeatureReferenceMisorientationsFilter-D2` | DREAM3D 6.5.171 dereferences a Mode-0-only quaternion pointer in Mode 1 and terminates before calculation. | DREAM.3D 6.5.171 only. DREAM3D-NX was not affected. | SIMPLNX obtains the feature count without the Mode-0-only input and completes both modes. |
 
 ## Code path coverage
 
 *7 of 8 paths exercised directly; 1 (cancel) implicitly via the unconditional cancel-check-at-loop-top instrumentation.*
 
-Source: `src/Plugins/OrientationAnalysis/src/OrientationAnalysis/Filters/Algorithms/ComputeFeatureReferenceMisorientations.cpp` (~175 lines).
+Source: `src/Plugins/OrientationAnalysis/src/OrientationAnalysis/Filters/Algorithms/ComputeFeatureReferenceMisorientations.cpp` (185 lines).
 
 The algorithm has three logical phases: (a) Mode 1 pre-loop (populate `centers[fid]` from `gbEuclideanDistances` + write `EuclideanCenters` coords); (b) main per-voxel loop (compute per-voxel misorientation, accumulate per-feature sums + counts); (c) per-feature finalize (compute per-feature average from sum/count).
 
@@ -131,9 +136,15 @@ The pre-existing `compute_feature_reference_misorientation.tar.gz` archive was r
 
 ## Deviations from DREAM3D 6.5.171
 
-One precision-class non-deviation documented; no algorithmic deviations.
+Two active deviations are documented: D1 (orientation-library precision) and D2 (a legacy Mode 1 crash).
 
 ### ComputeFeatureReferenceMisorientationsFilter-D1
 
-- **Symptom:** Per-feature average misorientations differ from DREAM3D 6.5.171 output by 2× to 10× the 1e-4 epsilon used by `CompareDataArrays` on Small-IN100-class EBSD data. On the V&V data fixtures (pure φ1 rotations, no sym-op-aligned boundaries), no observable deviation.
+- **Symptom:** Per-cell and per-feature misorientations differ at the precision level. On the analytical fixtures the baseline difference reaches 1.86e-4°; on Small IN100 it reaches 0.0738° per cell and 0.01761° per feature average. A local legacy build with the shared orientation-precision correction reduces the per-cell residual to at most one float32 ULP.
 - **Root cause:** Precision — propagation of the EbsdLib 2.4.1 `CubicOps::calculateMisorientationInternal` precision fix. This filter is a clean Port of the legacy algorithm; no algorithmic deviation. See `vv/deviations/ComputeFeatureReferenceMisorientationsFilter.md` for full root-cause walkthrough.
+
+### ComputeFeatureReferenceMisorientationsFilter-D2
+
+- **Symptom:** DREAM3D 6.5.171 terminates with a segmentation fault whenever Mode 1 (Euclidean-distance reference) is selected; SIMPLNX completes and returns the analytical result.
+- **Root cause:** **Bug** in DREAM3D 6.5.171. The legacy execution path reads the Mode-0-only `AvgQuats` pointer to obtain the feature count before entering the Mode 1 center-selection path. A surgical local correction uses the tuple count of the always-created feature-average output instead; the corrected build matches SIMPLNX bit-for-bit on all three analytical Mode 1 fixtures.
+- See `vv/deviations/ComputeFeatureReferenceMisorientationsFilter.md` for the debugger evidence and patch proof.

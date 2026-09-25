@@ -16,7 +16,9 @@ Entries are referenced by stable ID (`ComputeCAxisLocationsFilter-D<N>`) from th
 
 **Symptom:** For non-hexagonal cells, NX places NaN values whereas 6.5.171 places meaningless-but-finite computed values.
 
-**Root cause:** Algorithmic choice - Intentional improvement to signal to the user the that the values for those phases could not be calculated.
+**Root cause:** Algorithmic choice. This intentional improvement tells the user that values cannot be calculated for those phases.
+
+**Comparison evidence (2026-09-17):** On a byte-identical 15-cell mixed fixture, all 8 hexagonal cells are bit-identical between official DREAM3D 6.5.171 and NX 7.4.2. Legacy writes finite vectors for the 7 cubic cells; NX writes `(NaN, NaN, NaN)` for all 7, isolating this domain guard without changing valid-domain output.
 
 **Affected users:** Anyone who has non-hexagonal phases in their input to ComputeCAxisLocationsFilter.
 
@@ -34,7 +36,9 @@ Entries are referenced by stable ID (`ComputeCAxisLocationsFilter-D<N>`) from th
 
 **Symptom:** When there are no hexagonal phases present, NX emits an error (-3522) whereas 6.5.171 executes.
 
-**Root cause:** Algorithmic choice - Intentional improvement to prevent running the filter on data where the filter is not valid.
+**Root cause:** Algorithmic choice. This intentional improvement prevents execution on data for which the filter is not valid.
+
+**Comparison evidence (2026-09-17):** On a byte-identical all-cubic fixture, official DREAM3D 6.5.171 executes and writes an output, while NX 7.4.2 returns `-3522` and writes no output.
 
 **Affected users:** Anyone who has no hexagonal phases in their input to ComputeCAxisLocationsFilter.
 
@@ -52,7 +56,9 @@ Entries are referenced by stable ID (`ComputeCAxisLocationsFilter-D<N>`) from th
 
 **Symptom:** NX emits an unconditional warning (-3521) in preflight which advises the user to make sure their data has hexagonal phases and emits a warning (-3523) if there are non-hexagonal phases. 6.5.171 does not emit any warning in either case.
 
-**Root cause:** Algorithmic choice - Intentional improvement to warn the user that the filter's output is only valid for hexagonal phases.
+**Root cause:** Algorithmic choice. This intentional improvement warns the user that the filter output is valid only for hexagonal phases.
+
+**Comparison evidence (2026-09-17):** The mixed NX run emits the unconditional `-3521` reminder and the `-3523` non-hex warning. The all-cubic run emits `-3521` before the D2 `-3522` rejection. Legacy emits none of these warnings.
 
 **Affected users:** Anyone running the filter for the preflight warning, and anyone who has mixed non-hexagonal phases in their input to ComputeCAxisLocationsFilter.
 

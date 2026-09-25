@@ -4,7 +4,7 @@ This file lists every documented behavioral difference between this SIMPLNX filt
 
 Entries are referenced by stable ID (`WritePoleFigureFilter-D<N>`) from the V&V report and from public migration guidance. The ID is stable across renames; the Filter UUID field is the permanent cross-reference anchor.
 
-All entries below were established by an expert (Class 5) side-by-side review of pole figures rendered from the same 502 hex-Ti orientations through DREAM3D 6.5.171, DREAM3D 6.5.172, and SIMPLNX (EbsdLib 3.1.0). 6.5.171 and 6.5.172 outputs are byte-identical. The pole-figure **data** (pole positions, intensity distribution, color-intensity mapping) is visually identical across all three; the only differences are the cosmetic / labeling / rendering items below. None is a correctness defect.
+All entries below were established by an expert (Class 5) side-by-side review of pole figures rendered from the same 502 hex-Ti orientations through official DREAM3D 6.5.171, a locally patched build of the legacy source, and SIMPLNX (EbsdLib 3.1.0). The exact patched commit is recorded in the filter A/B archive. The two legacy builds are visually indistinguishable: at 96 DPI three of four renders are pixel-identical, while cubic-color differs in 7 of 2,832,024 pixels within a 3×3 patch. The pole-figure **data** (pole positions, intensity distribution, color-intensity mapping) is visually identical across all three; the only differences are the cosmetic / labeling / rendering / output-format items below. None is a correctness defect.
 
 ---
 

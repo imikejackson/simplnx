@@ -9,19 +9,19 @@
 | Verified commit | `a307946e7` (v7.4.2 release) |
 | Status | COMPLETE |
 | Sign-off | Michael Jackson <mike.jackson@bluequartz.net> — 2026-07-16 |
-| Second-engineer sign-off | Michael Jackson (technical authority) — 2026-07-16 |
+| Second-engineer sign-off | Nathan Young — 2026-07-13 (approving reviewer, PR #1654). Supersedes the 2026-07-16 technical-authority self-sign-off. |
 
 ## At a glance
 
 | Aspect                 | Current state            |
 |------------------------|--------------------------|
-| Algorithm Relationship | **Port** of legacy `RotateEulerRefFrame::execute()`. Same per-tuple kernel `gNew = normalize_cols(eu2om(euler) * ax2om(axis, angle))` → `om2eu`; library swaps only (OrientationLib → EbsdLib, hand-rolled `MatrixMath` → Eigen) plus a double-precision degree→radian conversion and progress/cancel plumbing. |
-| Oracle (confirmed)     | **Class 1 (Analytical) primary** — 8 hand/script-derived fixtures (`AnalyticalFixtures::k_Fixtures`) with closed-form derivations for Z-axis (`phi1' = phi1 - w mod 2pi`), identity + X/111 axes, normalization, and zero-angle cases. **Class 4 (Invariant) companion** — output-range bounds, (n,w)/(-n,w) round-trip, 45°+45° = 90° composability. Cross-checked by an independent numpy script (Rowenhorst 2015 Eq. A.5/A.9 + first-principles frame-rotation derivation). All pass. |
-| Code paths enumerated  | 7 enumerated; **5 exercised**. The 2 gaps are both cancel branches (cancel-before-start and mid-loop cancel) — only their false path ever runs; taking the true path requires cancel-signal injection (same accepted gap as prior V&V reports). |
-| Tests today            | **5 TEST_CASEs / 13 ctest sections** — 8 Class 1 fixtures (DYNAMIC_SECTION), 3 Class 4 invariant sections, 1 zero-axis preflight-error test (new guard added this cycle), 1 legacy-parity 480k-tuple regression pin (ASCIIData), 1 SIMPL 6.4/6.5 backwards-compat. |
-| Exemplar archive       | `ASCIIData.tar.gz` (pre-existing, shared archive) — provides the 480k-tuple legacy-parity input/comparison CSVs only. **Not an oracle** (legacy-DREAM3D provenance); the Class 1 oracle is inline in the test source. No new archive needed. |
-| Legacy comparison      | **Run** against DREAM3D 6.5.171 on 6 axis/angle cases × 12 orientations (shared CSV input). Max wrap-aware diff 7.2e-7 rad (float32 ULP level). Both implementations independently match the numpy oracle (NX 2.3e-7, legacy 8.1e-7). No deviations; two non-deviations documented. |
-| Bug flags              | None affecting output. Two robustness/policy items addressed: (1) zero-length rotation axis previously produced silent NaN corruption — preflight now rejects it (`-96200`) and the Algorithm class guards it as well (`-67050`); (2) the parallel kernel writes the in-place Euler array via `operator[]` from TBB workers — per the project thread-safety policy this is now gated with `requireArraysInMemory` so parallelization is only enabled for in-core stores (the codebase-sanctioned pattern). Legacy 6.5.171 retains the zero-axis NaN behavior (documented as a non-deviation — not output-correctness). |
+| Algorithm Relationship | **Port** of legacy `RotateEulerRefFrame`; material deltas are EbsdLib/Eigen, double-precision angle conversion, cancel/progress handling, and invalid-axis rejection. |
+| Oracle (confirmed)     | **Class 1** uses 8 independently derived fixtures; **Class 4** verifies range, inverse-rotation, and composition invariants. All tests pass. |
+| Code paths enumerated  | 5 of 7 paths exercised; both uncovered paths require cancel-signal injection. |
+| Tests today            | 5 test cases and 13 sections cover 8 analytical fixtures, 3 invariants, invalid axes, large-array parity, and SIMPL conversion. |
+| Exemplar archive       | `ASCIIData.tar.gz` supplies a 480,000-tuple parity fixture only; it is not an oracle. The analytical oracle is inline. |
+| Legacy comparison      | **Run** — 6 axis/angle cases across 12 orientations agree with DREAM3D 6.5.171 within 7.2e-7 rad; no D-numbered deviations exist. |
+| Bug flags              | `RotateEulerRefFrameFilter-N3` — a zero-length axis caused NaN output; DREAM3D-NX 7.4.2 rejects it before execution. |
 | V&V phase | **COMPLETE.** |
 
 ## Summary
@@ -52,13 +52,21 @@
 
 *Encoded:* `test/RotateEulerRefFrameTest.cpp::"OrientationAnalysis::RotateEulerRefFrameFilter: Class 1 Analytical Fixtures"` — 8 fixtures (`AnalyticalFixtures::k_Fixtures`), tolerance 1e-5 rad, all pass. Invariants: `...::"OrientationAnalysis::RotateEulerRefFrameFilter: Class 4 Invariants"` — 3 sections (range bounds, (n,w)/(−n,w) round-trip, 45°+45°=90° composability) over a 6-orientation batch, all pass.
 
-*Second-engineer review:* **Signed off by Michael Jackson (technical authority), 2026-07-16.** Review focus covered: (a) the F1–F7 hand derivations; (b) the sign convention — a +w reference-frame rotation about Z *subtracts* w from phi1 (`phi1' = phi1 − w`), which the first-principles derivation establishes and both implementations exhibit; (c) the Class 4 invariant set is complete for this algorithm.
+*Second-engineer review:* **Nathan Young — 2026-07-13 (approving reviewer, PR #1654).** Supersedes the 2026-07-16 technical-authority self-sign-off. Review focus covered: (a) the F1–F7 hand derivations; (b) the sign convention — a +w reference-frame rotation about Z *subtracts* w from phi1 (`phi1' = phi1 − w`), which the first-principles derivation establishes and both implementations exhibit; (c) the Class 4 invariant set is complete for this algorithm.
+
+## Bugs found and fixed
+
+This filter has no D-numbered deviations, because the defect below does not change the output for any valid input. The row uses the sidecar's stable non-deviation identifier `N3`; it is listed here because the verified branch fixes it.
+
+| Deviation | Defect | Affected released versions | Resolution in this branch |
+|-----------|--------|----------------------------|---------------------------|
+| `RotateEulerRefFrameFilter-N3` | A zero-length rotation axis caused division by zero and filled the Euler array with NaN values. | DREAM.3D 6.5.171; DREAM3D-NX v7.0.0 through v7.4.1. | DREAM3D-NX 7.4.2 rejects a zero-length axis in preflight and guards the algorithm entry. |
 
 ## Code path coverage
 
 *5 of 7 paths exercised. The 2 gaps (paths 1 and 6) are both cancel branches whose true path is never taken without cancel-signal injection.*
 
-Source: `src/Plugins/OrientationAnalysis/src/OrientationAnalysis/Filters/Algorithms/RotateEulerRefFrame.cpp` (~130 lines).
+Source: `src/Plugins/OrientationAnalysis/src/OrientationAnalysis/Filters/Algorithms/RotateEulerRefFrame.cpp` (147 lines).
 
 The algorithm is flat: (a) entry/setup in `operator()` (cancel check, axis normalization, parallel dispatch), (b) per-tuple kernel in `RotateEulerRefFrameImpl::convert`.
 
@@ -94,7 +102,7 @@ No new exemplar archive was created for this V&V cycle: the Class 1 oracle is en
 
 ## Deviations from DREAM3D 6.5.171
 
-- **No deviations observed.** Comparison run on 6 axis/angle cases × 12 orientations (`Code_Review/RotateEulerRefFrame/euler_input.csv`); max wrap-aware difference 7.2e-7 rad. Two non-deviations documented for future-engineer awareness in `vv/deviations/RotateEulerRefFrameFilter.md`:
+- **No deviations observed.** Comparison run on 6 axis/angle cases × 12 orientations (`Code_Review/RotateEulerRefFrame/euler_input.csv`); max wrap-aware difference 7.2e-7 rad. Three non-deviations are documented for future-engineer awareness in `vv/deviations/RotateEulerRefFrameFilter.md`:
   - **N1 (precision)** — float vs double degree→radian conversion; ULP-level only.
   - **N2 (precision, representation)** — 0 vs 2π canonical representation at the exact wrap boundary (observed for input (π/2, π/4, ¾π) rotated z-90°). Same physical angle.
-**SIMPLNX-side fix ships in DREAM3D-NX 7.4.2** — the deviation from legacy remains, since 6.5.171 is unchanged: `Non-deviation`.
+  - **N3 (invalid-input handling)** — zero-length axes produce NaN output in legacy; DREAM3D-NX 7.4.2 rejects them.
