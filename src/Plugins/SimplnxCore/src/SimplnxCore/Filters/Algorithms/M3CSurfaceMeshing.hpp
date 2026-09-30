@@ -103,7 +103,7 @@ private:
    *
    * Node types still span the complete volume.
    */
-  Result<> runWindowed(bool parallel);
+  Result<> runWindowed(bool parallel) const;
 
   /**
    * @brief Runs bounded external-scratch meshing for disk-backed targets.
