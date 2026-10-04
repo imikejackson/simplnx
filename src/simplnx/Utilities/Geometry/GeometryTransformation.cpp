@@ -10,6 +10,8 @@
 #include "simplnx/Filter/Actions/CopyDataObjectAction.hpp"
 #include "simplnx/Filter/Actions/CreateArrayAction.hpp"
 #include "simplnx/Filter/Actions/CreateImageGeometryAction.hpp"
+#include "simplnx/Filter/Actions/CreateNeighborListAction.hpp"
+#include "simplnx/Filter/Actions/CreateStringArrayAction.hpp"
 #include "simplnx/Filter/Actions/DeleteDataAction.hpp"
 #include "simplnx/Filter/Actions/RenameDataAction.hpp"
 #include "simplnx/Filter/Actions/UpdateImageGeomAction.hpp"
@@ -48,6 +50,29 @@ IFilter::PreflightResult nx::core::PreflightGeometryTransformation(const DataStr
 
   std::vector<IFilter::PreflightValue> preflightUpdatedValues;
 
+  const auto appendSaveMatrixAction = [&]() -> Result<> {
+    if(saveTransform)
+    {
+      if(transformMatrixDataPath.empty())
+      {
+        return MakeErrorResult(-5588, "The DataPath for the saved Transformation Matrix is empty. Please select or set a DataPath to save the transformation matrix into.");
+      }
+      resultOutputActions.value().appendAction(std::make_unique<CreateArrayAction>(DataType::float32, std::vector<usize>{4, 4}, std::vector<usize>{1}, transformMatrixDataPath));
+    }
+    return {};
+  };
+
+  if(pTransformationMatrixTypeValue == detail::k_NoTransformIdx)
+  {
+    resultOutputActions.warnings().push_back(Warning{82001, "No transformation has been selected. This filter will NOT modify any data."});
+    preflightUpdatedValues.push_back({"Generated Transformation Matrix", "Identity (no transformation selected)."});
+    if(Result<> result = appendSaveMatrixAction(); result.invalid())
+    {
+      return {ConvertResultTo<OutputActions>(std::move(result), {})};
+    }
+    return {std::move(resultOutputActions), std::move(preflightUpdatedValues)};
+  }
+
   const ShapeType cDims = {4, 4};
 
   // Reset the final Transformation Matrix to all Zeros before we fill it with what the user has entered.
@@ -66,12 +91,6 @@ IFilter::PreflightResult nx::core::PreflightGeometryTransformation(const DataStr
 
     switch(pTransformationMatrixTypeValue)
     {
-    case detail::k_NoTransformIdx: // No-Op
-    {
-      resultOutputActions.warnings().push_back(Warning{82001, "No transformation has been selected. This filter will NOT modify any data."});
-      transformationMatrixDesc = "No transformation matrix selected.";
-      break;
-    }
     case detail::k_PrecomputedTransformationMatrixIdx: // Transformation matrix from array
     {
       const auto* precomputedMatrixPtr = dataStructure.getDataAs<Float32Array>(pComputedTransformationMatrixPath);
@@ -147,64 +166,6 @@ IFilter::PreflightResult nx::core::PreflightGeometryTransformation(const DataStr
 
     preflightUpdatedValues.push_back({"Generated Transformation Matrix", transformationMatrixDesc});
 
-    std::stringstream errorMessage;
-    errorMessage << "You have selected to transform an 'Image Geometry', please correct the following issues:\n";
-    bool imageGeomInterpolationError = false;
-
-    auto pInterpolationTypeValue = inputValues.InterpolationSelection;
-    if(pInterpolationTypeValue == detail::k_NoInterpolationIdx)
-    {
-      errorMessage << "* Select either 'Nearest Neighbor Resampling' or 'Linear Interpolation' from the 'Image Geometry Resampling/Interpolation' parameter section.\n";
-      imageGeomInterpolationError = true;
-    }
-
-    const auto* srcCellAttrMatrixPtr = dataStructure.getDataAs<AttributeMatrix>(pCellAttributeMatrixPath);
-    if(nullptr == srcCellAttrMatrixPtr)
-    {
-      errorMessage << "* Select the Image Geometry's cell level Attribute Matrix. This will contain all the data that will be interpolated onto the new Image Geometry.";
-      imageGeomInterpolationError = true;
-    }
-    if(imageGeomInterpolationError)
-    {
-      return {MakeErrorResult<OutputActions>(-82006, errorMessage.str())};
-    }
-
-    std::vector<std::string> selectedCellArrayNames = srcCellAttrMatrixPtr->getDataMap().getNames();
-
-    if(pInterpolationTypeValue == detail::k_LinearInterpolationIdx)
-    {
-      // Remove all the DataArrays from the src Cell AttributeMatrix and substitute with just what the user wants to interpolate on.
-      selectedCellArrayNames.clear();
-      for(const auto& arrayName : srcCellAttrMatrixPtr->getDataMap().getNames())
-      {
-        const DataPath dataArrayPath = pCellAttributeMatrixPath.createChildPath(arrayName);
-        const auto* strArrayPtr = dataStructure.getDataAs<StringArray>(dataArrayPath);
-        if(nullptr != strArrayPtr)
-        {
-          resultOutputActions.warnings().push_back(
-              Warning{82009, fmt::format("DataArray '{}' will be deleted from final transformed geometry. Cannot perform interpolation on String Arrays", dataArrayPath.toString())});
-          continue;
-        }
-
-        const auto* boolArrayPtr = dataStructure.getDataAs<BoolArray>(dataArrayPath);
-        if(nullptr != boolArrayPtr)
-        {
-          resultOutputActions.warnings().push_back(
-              Warning{82010, fmt::format("DataArray '{}' will be deleted from final transformed geometry. Cannot perform interpolation on Bool Arrays", dataArrayPath.toString())});
-          continue;
-        }
-
-        const auto* neighborListPtr = dataStructure.getDataAs<INeighborList>(dataArrayPath);
-        if(nullptr != neighborListPtr)
-        {
-          resultOutputActions.warnings().push_back(
-              Warning{82011, fmt::format("DataArray '{}' will be deleted from final transformed geometry. Cannot perform interpolation on NeighborList Arrays", dataArrayPath.toString())});
-          continue;
-        }
-        selectedCellArrayNames.emplace_back(arrayName);
-      }
-    }
-
     if(pTransformationMatrixTypeValue == detail::k_TranslationIdx)
     {
       // If the user is purely doing a translation then just adjust the origin and be done.
@@ -226,6 +187,56 @@ IFilter::PreflightResult nx::core::PreflightGeometryTransformation(const DataStr
     }
     else // We are Rotating or manual transformation or precomputed. we need to create a brand new Image Geometry
     {
+      std::stringstream errorMessage;
+      errorMessage << "You have selected to transform an 'Image Geometry', please correct the following issues:\n";
+      bool imageGeomInterpolationError = false;
+
+      auto pInterpolationTypeValue = inputValues.InterpolationSelection;
+      if(pInterpolationTypeValue == detail::k_NoInterpolationIdx)
+      {
+        errorMessage << "* Select either 'Nearest Neighbor Resampling' or 'Linear Interpolation' from the 'Image Geometry Resampling/Interpolation' parameter section.\n";
+        imageGeomInterpolationError = true;
+      }
+
+      const auto* srcCellAttrMatrixPtr = dataStructure.getDataAs<AttributeMatrix>(pCellAttributeMatrixPath);
+      if(nullptr == srcCellAttrMatrixPtr)
+      {
+        errorMessage << "* Select the Image Geometry's cell level Attribute Matrix. This will contain all the data that will be interpolated onto the new Image Geometry.";
+        imageGeomInterpolationError = true;
+      }
+      if(imageGeomInterpolationError)
+      {
+        return {MakeErrorResult<OutputActions>(-82006, errorMessage.str())};
+      }
+
+      std::vector<std::string> selectedCellArrayNames = srcCellAttrMatrixPtr->getDataMap().getNames();
+
+      if(pInterpolationTypeValue == detail::k_LinearInterpolationIdx)
+      {
+        for(const auto& arrayName : selectedCellArrayNames)
+        {
+          const DataPath dataArrayPath = pCellAttributeMatrixPath.createChildPath(arrayName);
+          int32 errorCode = 0;
+          if(dataStructure.getDataAs<StringArray>(dataArrayPath) != nullptr)
+          {
+            errorCode = -82021;
+          }
+          else if(dataStructure.getDataAs<BoolArray>(dataArrayPath) != nullptr)
+          {
+            errorCode = -82023;
+          }
+          else if(dataStructure.getDataAs<INeighborList>(dataArrayPath) != nullptr)
+          {
+            errorCode = -82022;
+          }
+          if(errorCode != 0)
+          {
+            return {MakeErrorResult<OutputActions>(
+                errorCode, fmt::format("Array '{}' cannot be linearly interpolated. Use Nearest Neighbor, or remove it from the Cell Attribute Matrix before this filter.", dataArrayPath.toString()))};
+          }
+        }
+      }
+
       auto rotateArgs = ImageRotationUtilities::CreateRotationArgs(*imageGeomPtr, transformationMatrix);
 
       auto srcImagePath = inputValues.SelectedGeometryPath;
@@ -271,10 +282,20 @@ IFilter::PreflightResult nx::core::PreflightGeometryTransformation(const DataStr
         for(const auto& cellArrayName : selectedCellArrayNames)
         {
           const DataPath srcCellArrayDataPath = srcImagePath.createChildPath(cellDataName).createChildPath(cellArrayName);
-          const auto& srcArray = dataStructure.getDataRefAs<IDataArray>(srcCellArrayDataPath);
-          const ShapeType componentShape = srcArray.getIDataStoreRef().getComponentShape();
-          resultOutputActions.value().appendAction(
-              std::make_unique<CreateArrayAction>(srcArray.getDataType(), dataArrayShape, componentShape, targetCellAttrMatrix.createChildPath(srcArray.getName())));
+          const DataPath targetArrayPath = targetCellAttrMatrix.createChildPath(cellArrayName);
+          if(const auto* srcArrayPtr = dataStructure.getDataAs<IDataArray>(srcCellArrayDataPath); srcArrayPtr != nullptr)
+          {
+            const ShapeType componentShape = srcArrayPtr->getIDataStoreRef().getComponentShape();
+            resultOutputActions.value().appendAction(std::make_unique<CreateArrayAction>(srcArrayPtr->getDataType(), dataArrayShape, componentShape, targetArrayPath));
+          }
+          else if(dataStructure.getDataAs<StringArray>(srcCellArrayDataPath) != nullptr)
+          {
+            resultOutputActions.value().appendAction(std::make_unique<CreateStringArrayAction>(dataArrayShape, targetArrayPath));
+          }
+          else if(const auto* neighborListPtr = dataStructure.getDataAs<INeighborList>(srcCellArrayDataPath); neighborListPtr != nullptr)
+          {
+            resultOutputActions.value().appendAction(std::make_unique<CreateNeighborListAction>(neighborListPtr->getDataType(), dataArrayShape, targetArrayPath));
+          }
         }
 
         // Store the preflight updated value(s) into the preflightUpdatedValues vector using
@@ -303,8 +324,8 @@ IFilter::PreflightResult nx::core::PreflightGeometryTransformation(const DataStr
       {
         for(const auto& childPath : childPaths.value())
         {
-          const std::string copiedChildName = nx::core::StringUtilities::replace(childPath.toString(), srcImagePath.getTargetName(), destImagePath.getTargetName());
-          const DataPath copiedChildPath = DataPath::FromString(copiedChildName).value();
+          DataPath copiedChildPath = childPath;
+          copiedChildPath.attemptRename(srcImagePath, destImagePath);
           if(dataStructure.getDataAs<BaseGroup>(childPath) != nullptr)
           {
             std::vector<DataPath> allCreatedPaths = {copiedChildPath};
@@ -313,8 +334,9 @@ IFilter::PreflightResult nx::core::PreflightGeometryTransformation(const DataStr
             {
               for(const auto& sourcePath : pathsToBeCopied.value())
               {
-                const std::string createdPathName = nx::core::StringUtilities::replace(sourcePath.toString(), srcImagePath.getTargetName(), destImagePath.getTargetName());
-                allCreatedPaths.push_back(DataPath::FromString(createdPathName).value());
+                DataPath copiedSourcePath = sourcePath;
+                copiedSourcePath.attemptRename(srcImagePath, destImagePath);
+                allCreatedPaths.push_back(copiedSourcePath);
               }
             }
             resultOutputActions.value().appendAction(std::make_unique<CopyDataObjectAction>(childPath, copiedChildPath, allCreatedPaths));
@@ -338,6 +360,12 @@ IFilter::PreflightResult nx::core::PreflightGeometryTransformation(const DataStr
   }
   else
   {
+    if(dataStructure.getDataAs<INodeGeometry0D>(pSelectedGeometryPathValue) == nullptr)
+    {
+      return {MakeErrorResult<OutputActions>(
+          -82020, fmt::format("Geometry '{}' is not supported. ApplyTransformationToGeometry supports only Image and node-based geometries.", pSelectedGeometryPathValue.toString()))};
+    }
+
     // An image geometry was not chosen, so throw a warning communicating to the user that the cell attribute matrix will not be used
     if(!pCellAttributeMatrixPath.getTargetName().empty())
     {
@@ -350,14 +378,9 @@ IFilter::PreflightResult nx::core::PreflightGeometryTransformation(const DataStr
     nx::core::AppendDataObjectModifications(dataStructure, resultOutputActions.value().modifiedActions, pSelectedGeometryPathValue, {});
   }
 
-  // Are we saving the transform matrix
-  if(saveTransform)
+  if(Result<> result = appendSaveMatrixAction(); result.invalid())
   {
-    if(transformMatrixDataPath.empty())
-    {
-      return {MakeErrorResult<OutputActions>(-5588, fmt::format("The DataPath for the saved Transformation Matrix is empty. Please select or set a DataPath to save the transformation matrix into."))};
-    }
-    resultOutputActions.value().appendAction(std::make_unique<CreateArrayAction>(DataType::float32, std::vector<usize>{4, 4}, std::vector<usize>{1}, transformMatrixDataPath));
+    return {ConvertResultTo<OutputActions>(std::move(result), {})};
   }
   // Return both the resultOutputActions and the preflightUpdatedValues via std::move()
   return {std::move(resultOutputActions), std::move(preflightUpdatedValues)};
@@ -455,7 +478,10 @@ Result<> ApplyTransformationToGeometry::applyImageGeometryTransformation()
   {
     const auto* srcDataArray = m_DataStructure.getDataAs<IDataArray>(srcCelLDataAMPath.createChildPath(srcDataObject->getName()));
     const auto* destDataArray = m_DataStructure.getDataAs<IDataArray>(destCellDataAMPath.createChildPath(srcDataObject->getName()));
-    usesOutOfCoreStore = usesOutOfCoreStore || IsOutOfCore(*srcDataArray) || IsOutOfCore(*destDataArray);
+    if(srcDataArray != nullptr && destDataArray != nullptr)
+    {
+      usesOutOfCoreStore = usesOutOfCoreStore || IsOutOfCore(*srcDataArray) || IsOutOfCore(*destDataArray);
+    }
   }
   const bool useOutOfCoreAlgorithm = !ForceInCoreAlgorithm() && (usesOutOfCoreStore || ForceOocAlgorithm());
   RecordAlgorithmPathExecution(useOutOfCoreAlgorithm ? AlgorithmPath::OutOfCore : AlgorithmPath::InCore, usesOutOfCoreStore);
@@ -468,17 +494,37 @@ Result<> ApplyTransformationToGeometry::applyImageGeometryTransformation()
       return {};
     }
 
-    const auto* srcDataArrayPtr = m_DataStructure.getDataAs<IDataArray>(srcCelLDataAMPath.createChildPath(srcDataObject->getName()));
-    auto* destDataArrayPtr = m_DataStructure.getDataAs<IDataArray>(destCellDataAMPath.createChildPath(srcDataObject->getName()));
+    const DataPath srcArrayPath = srcCelLDataAMPath.createChildPath(srcDataObject->getName());
+    const DataPath destArrayPath = destCellDataAMPath.createChildPath(srcDataObject->getName());
+    const auto* srcDataArrayPtr = m_DataStructure.getDataAs<IDataArray>(srcArrayPath);
+    auto* destDataArrayPtr = m_DataStructure.getDataAs<IDataArray>(destArrayPath);
 
     if(m_InputValues->InterpolationSelection == detail::k_NearestNeighborInterpolationIdx)
     {
       filterProgressCallback.sendThreadSafeStatusMessage(fmt::format("Applying Transform || Nearest Neighbor Interpolation {}", srcDataObject->getName()));
 
-      ExecuteParallelFunction<ImageRotationUtilities::RotateImageGeometryWithNearestNeighbor>(srcDataArrayPtr->getDataType(), taskRunner, srcDataArrayPtr, destDataArrayPtr, rotateArgs,
-                                                                                              m_TransformationMatrix, false, &filterProgressCallback);
+      if(srcDataArrayPtr != nullptr && destDataArrayPtr != nullptr)
+      {
+        ExecuteParallelFunction<ImageRotationUtilities::RotateImageGeometryWithNearestNeighbor>(srcDataArrayPtr->getDataType(), taskRunner, srcDataArrayPtr, destDataArrayPtr, rotateArgs,
+                                                                                                m_TransformationMatrix, false, &filterProgressCallback);
+      }
+      else if(const auto* srcStringsPtr = m_DataStructure.getDataAs<StringArray>(srcArrayPath); srcStringsPtr != nullptr)
+      {
+        auto& destStrings = m_DataStructure.getDataRefAs<StringArray>(destArrayPath);
+        ImageRotationUtilities::CopyNearestSourceStrings(*srcStringsPtr, destStrings, rotateArgs, m_TransformationMatrix.inverse(), srcImageGeom, destImageGeom, false, &filterProgressCallback);
+      }
+      else if(const auto* srcListsPtr = m_DataStructure.getDataAs<INeighborList>(srcArrayPath); srcListsPtr != nullptr)
+      {
+        ExecuteNeighborFunction(
+            [&]<typename T>() {
+              const auto& srcLists = m_DataStructure.getDataRefAs<NeighborList<T>>(srcArrayPath);
+              auto& destLists = m_DataStructure.getDataRefAs<NeighborList<T>>(destArrayPath);
+              ImageRotationUtilities::CopyNearestSourceLists<T>(srcLists, destLists, rotateArgs, m_TransformationMatrix.inverse(), srcImageGeom, destImageGeom, false, &filterProgressCallback);
+            },
+            srcListsPtr->getDataType());
+      }
     }
-    else if(m_InputValues->InterpolationSelection == detail::k_LinearInterpolationIdx)
+    else if(m_InputValues->InterpolationSelection == detail::k_LinearInterpolationIdx && srcDataArrayPtr != nullptr && destDataArrayPtr != nullptr)
     {
       filterProgressCallback.sendThreadSafeStatusMessage(fmt::format("Applying Transform || Trilinear Interpolation {}", srcDataObject->getName()));
 
@@ -528,7 +574,8 @@ Result<> ApplyTransformationToGeometry::operator()()
   {
   case detail::k_NoTransformIdx: // No-Op
   {
-    return {};
+    m_TransformationMatrix.setIdentity();
+    break;
   }
   case detail::k_PrecomputedTransformationMatrixIdx: // Transformation matrix from array
   {
@@ -560,7 +607,7 @@ Result<> ApplyTransformationToGeometry::operator()()
 
   auto* imageGeometryPtr = m_DataStructure.getDataAs<ImageGeom>(m_InputValues->SelectedGeometryPath);
   auto* nodeGeometry0D = m_DataStructure.getDataAs<INodeGeometry0D>(m_InputValues->SelectedGeometryPath);
-  if(m_InputValues->TranslateGeometryToGlobalOrigin)
+  if(m_InputValues->TranslateGeometryToGlobalOrigin && m_InputValues->TransformationSelection != detail::k_NoTransformIdx)
   {
     auto boundingBox = (imageGeometryPtr != nullptr) ? imageGeometryPtr->getBoundingBoxf() : nodeGeometry0D->getBoundingBox();
     Point3Df minPoint = boundingBox.getMinPoint();
@@ -581,6 +628,11 @@ Result<> ApplyTransformationToGeometry::operator()()
         transformMatrix[index++] = m_TransformationMatrix(row, col);
       }
     }
+  }
+
+  if(m_InputValues->TransformationSelection == detail::k_NoTransformIdx)
+  {
+    return {};
   }
 
   if(imageGeometryPtr == nullptr)

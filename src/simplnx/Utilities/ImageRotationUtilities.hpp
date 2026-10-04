@@ -6,6 +6,8 @@
 #include "simplnx/Common/Result.hpp"
 #include "simplnx/DataStructure/DataArray.hpp"
 #include "simplnx/DataStructure/Geometry/ImageGeom.hpp"
+#include "simplnx/DataStructure/NeighborList.hpp"
+#include "simplnx/DataStructure/StringArray.hpp"
 #include "simplnx/Filter/IFilter.hpp"
 #include "simplnx/Parameters/DynamicTableParameter.hpp"
 #include "simplnx/Parameters/VectorParameter.hpp"
@@ -16,11 +18,14 @@
 
 #include <Eigen/Dense>
 
+#include <cmath>
 #include <concepts>
 #include <cstring>
 #include <fstream>
 #include <mutex>
 #include <new>
+#include <optional>
+#include <type_traits>
 
 /**
  * @namespace nx::core::ImageRotationUtilities
@@ -710,8 +715,8 @@ public:
    * @return Trilinear value converted to T.
    * @see https://en.wikipedia.org/wiki/Trilinear_interpolation
    *
-   * Integer input accumulates in signed Int64. This prevents unsigned underflow
-   * during weighted intermediate calculations.
+   * Interpolation uses Float64 intermediates. Integer output is rounded once,
+   * after all weighted calculations.
    */
   T calculateInterpolatedValue(const std::vector<AccumulationValueType<T>>& pValues, const Eigen::Vector3f& uvw, usize numComps, usize compIndex) const
   {
@@ -724,31 +729,23 @@ public:
     constexpr usize P7 = 6;
     constexpr usize P8 = 7;
 
-    /* clang-format on */
-    const AccumulationValueType<T> c000 = pValues[P1 * numComps + compIndex];
-    const AccumulationValueType<T> c100 = pValues[P2 * numComps + compIndex];
-    const AccumulationValueType<T> c110 = pValues[P3 * numComps + compIndex];
-    const AccumulationValueType<T> c010 = pValues[P4 * numComps + compIndex];
-    const AccumulationValueType<T> c001 = pValues[P5 * numComps + compIndex];
-    const AccumulationValueType<T> c101 = pValues[P6 * numComps + compIndex];
-    const AccumulationValueType<T> c111 = pValues[P7 * numComps + compIndex];
-    const AccumulationValueType<T> c011 = pValues[P8 * numComps + compIndex];
-
-    const float32 Xd = uvw[0];
-    const float32 Yd = uvw[1];
-    const float32 Zd = uvw[2];
-
-    const AccumulationValueType<T> c00 = c000 * (1 - Xd) + c100 * Xd;
-    const AccumulationValueType<T> c01 = c001 * (1 - Xd) + c101 * Xd;
-    const AccumulationValueType<T> c10 = c010 * (1 - Xd) + c110 * Xd;
-    const AccumulationValueType<T> c11 = c011 * (1 - Xd) + c111 * Xd;
-
-    const AccumulationValueType<T> c0 = c00 * (1 - Yd) + c10 * Yd;
-    const AccumulationValueType<T> c1 = c01 * (1 - Yd) + c11 * Yd;
-
-    const AccumulationValueType<T> c = c0 * (1 - Zd) + c1 * Zd;
-
-    return c;
+    const auto value = [&](usize corner) { return static_cast<float64>(pValues[corner * numComps + compIndex]); };
+    const float64 xd = uvw[0];
+    const float64 yd = uvw[1];
+    const float64 zd = uvw[2];
+    const float64 c00 = value(P1) * (1 - xd) + value(P2) * xd;
+    const float64 c10 = value(P4) * (1 - xd) + value(P3) * xd;
+    const float64 c01 = value(P5) * (1 - xd) + value(P6) * xd;
+    const float64 c11 = value(P8) * (1 - xd) + value(P7) * xd;
+    const float64 c = (c00 * (1 - yd) + c10 * yd) * (1 - zd) + (c01 * (1 - yd) + c11 * yd) * zd;
+    if constexpr(std::is_integral_v<T>)
+    {
+      return static_cast<T>(std::round(c));
+    }
+    else
+    {
+      return static_cast<T>(c);
+    }
   }
 
   /**
@@ -1008,6 +1005,98 @@ private:
 };
 
 /**
+ * @brief Finds the nearest source cell for one output cell.
+ * @param args Provides source and output dimensions.
+ * @param inverseTransform Maps output coordinates to source coordinates.
+ * @param srcGeom Provides source cell coordinates.
+ * @param destGeom Provides output cell coordinates.
+ * @param outputIndex Specifies the flat output cell index.
+ * @param sliceBySlice Preserves the destination Z index when true.
+ * @return Flat source cell index, or std::nullopt when the mapped point is outside the source image.
+ */
+inline std::optional<usize> NearestSourceCellIndex(const RotateArgs& args, const Matrix4fR& inverseTransform, const ImageGeom& srcGeom, const ImageGeom& destGeom, usize outputIndex, bool sliceBySlice)
+{
+  Point3Df destPoint = destGeom.getCoordsf(outputIndex);
+  Eigen::Vector4f coordsNew(destPoint.getX(), destPoint.getY(), destPoint.getZ(), 1.0f);
+  Eigen::Array4f coordsOld = inverseTransform * coordsNew;
+
+  SizeVec3 oldGeomIndices;
+  if(srcGeom.computeCellIndex(coordsOld.data(), oldGeomIndices) != ImageGeom::ErrorType::NoError)
+  {
+    return std::nullopt;
+  }
+  if(sliceBySlice)
+  {
+    oldGeomIndices[2] = outputIndex / (args.outputDims[0] * args.outputDims[1]);
+  }
+  return oldGeomIndices[2] * args.OriginalDims[0] * args.OriginalDims[1] + oldGeomIndices[1] * args.OriginalDims[0] + oldGeomIndices[0];
+}
+
+/**
+ * @brief Copies strings from nearest source cells and clears exterior cells.
+ * @param sourceArray Provides source strings.
+ * @param targetArray Receives output strings.
+ * @param args Provides source and output dimensions.
+ * @param inverseTransform Maps output coordinates to source coordinates.
+ * @param srcGeom Provides source cell coordinates.
+ * @param destGeom Provides output cell coordinates.
+ * @param sliceBySlice Preserves the destination Z index when true.
+ * @param filterCallback Receives progress and supplies cancellation state.
+ */
+inline void CopyNearestSourceStrings(const StringArray& sourceArray, StringArray& targetArray, const RotateArgs& args, const Matrix4fR& inverseTransform, const ImageGeom& srcGeom,
+                                     const ImageGeom& destGeom, bool sliceBySlice, FilterProgressCallback* filterCallback)
+{
+  const usize outputSliceSize = args.outputDims[0] * args.outputDims[1];
+  for(usize outputIndex = 0; outputIndex < targetArray.getNumberOfTuples(); outputIndex++)
+  {
+    if(filterCallback->shouldAbort())
+    {
+      return;
+    }
+    if(outputIndex % outputSliceSize == 0)
+    {
+      filterCallback->sendThreadSafeProgressMessage("{}: Copying values for slice '{}'", sourceArray.getName(), outputIndex / outputSliceSize);
+    }
+    const auto sourceIndex = NearestSourceCellIndex(args, inverseTransform, srcGeom, destGeom, outputIndex, sliceBySlice);
+    targetArray[outputIndex] = sourceIndex.has_value() ? sourceArray[*sourceIndex] : "";
+  }
+  filterCallback->sendThreadSafeStatusMessage(fmt::format("{}: Transform Ending", sourceArray.getName()));
+}
+
+/**
+ * @brief Copies lists from nearest source cells and clears exterior cells.
+ * @tparam T Specifies the neighbor list element type.
+ * @param sourceArray Provides source lists.
+ * @param targetArray Receives output lists.
+ * @param args Provides source and output dimensions.
+ * @param inverseTransform Maps output coordinates to source coordinates.
+ * @param srcGeom Provides source cell coordinates.
+ * @param destGeom Provides output cell coordinates.
+ * @param sliceBySlice Preserves the destination Z index when true.
+ * @param filterCallback Receives progress and supplies cancellation state.
+ */
+template <typename T>
+void CopyNearestSourceLists(const NeighborList<T>& sourceArray, NeighborList<T>& targetArray, const RotateArgs& args, const Matrix4fR& inverseTransform, const ImageGeom& srcGeom,
+                            const ImageGeom& destGeom, bool sliceBySlice, FilterProgressCallback* filterCallback)
+{
+  const usize outputSliceSize = args.outputDims[0] * args.outputDims[1];
+  for(usize outputIndex = 0; outputIndex < targetArray.getNumberOfTuples(); outputIndex++)
+  {
+    if(filterCallback->shouldAbort())
+    {
+      return;
+    }
+    if(outputIndex % outputSliceSize == 0)
+    {
+      filterCallback->sendThreadSafeProgressMessage("{}: Copying values for slice '{}'", sourceArray.getName(), outputIndex / outputSliceSize);
+    }
+    const auto sourceIndex = NearestSourceCellIndex(args, inverseTransform, srcGeom, destGeom, outputIndex, sliceBySlice);
+    targetArray.setValue(outputIndex, sourceIndex.has_value() ? sourceArray.at(*sourceIndex) : typename NeighborList<T>::VectorType{});
+  }
+  filterCallback->sendThreadSafeStatusMessage(fmt::format("{}: Transform Ending", sourceArray.getName()));
+}
+
+/**
  * @class RotateImageGeometryWithNearestNeighbor
  * @brief Resamples one image array through nearest-neighbor selection.
  * @tparam T Specifies the array scalar type.
@@ -1197,24 +1286,14 @@ public:
             }
             const int64 destIndex = destSliceBaseIdx + outDimX * j + i;
             const usize outBufIdx = static_cast<usize>(j * outDimX + i);
-            Point3Df destPoint = destImageGeomPtr->getCoordsf(destIndex);
-            Eigen::Vector4f coordsNew(destPoint.getX(), destPoint.getY(), destPoint.getZ(), 1.0f);
-            Eigen::Array4f coordsOld = inverseTransform * coordsNew;
+            const auto sourceTupleIndex = NearestSourceCellIndex(m_Params, inverseTransform, *srcImageGeomPtr, *destImageGeomPtr, static_cast<usize>(destIndex), sliceBySlice);
 
-            SizeVec3 oldGeomIndices;
-            auto errorResult = srcImageGeomPtr->computeCellIndex(coordsOld.data(), oldGeomIndices);
-
-            if(errorResult == ImageGeom::ErrorType::NoError)
+            if(sourceTupleIndex.has_value())
             {
-              if(sliceBySlice)
-              {
-                oldGeomIndices[2] = k;
-              }
-              int64 srcZ = static_cast<int64>(oldGeomIndices[2]);
+              const int64 srcZ = static_cast<int64>(*sourceTupleIndex / srcSliceSize);
               if(useBoundedPageCache)
               {
-                const usize sourceTupleIndex = static_cast<usize>(srcZ) * srcSliceSize + oldGeomIndices[1] * static_cast<usize>(srcDimX) + oldGeomIndices[0];
-                auto readResult = sourcePageCache->copyElements(sourceTupleIndex * numComps, nonstd::span<T>(outSliceBufPtr + outBufIdx * numComps, numComps));
+                auto readResult = sourcePageCache->copyElements(*sourceTupleIndex * numComps, nonstd::span<T>(outSliceBufPtr + outBufIdx * numComps, numComps));
                 if(readResult.invalid())
                 {
                   boundedReadResult = std::move(readResult);
@@ -1223,7 +1302,7 @@ public:
               }
               else if(srcZ >= cachedSrcZMin && srcZ <= cachedSrcZMax)
               {
-                const usize slabLocalIdx = (static_cast<usize>(srcZ - cachedSrcZMin) * srcSliceSize + oldGeomIndices[1] * static_cast<usize>(srcDimX) + oldGeomIndices[0]) * numComps;
+                const usize slabLocalIdx = (*sourceTupleIndex - static_cast<usize>(cachedSrcZMin) * srcSliceSize) * numComps;
                 for(usize c = 0; c < numComps; c++)
                 {
                   outSliceBufPtr[outBufIdx * numComps + c] = srcSlabBufPtr[slabLocalIdx + c];

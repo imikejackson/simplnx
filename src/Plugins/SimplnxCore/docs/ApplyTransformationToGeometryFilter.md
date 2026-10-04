@@ -8,6 +8,8 @@ Rotation, Scale & Transformation
 
 This **Filter** applies a spatial transformation -- rotation, translation, scaling, or an arbitrary 4x4 matrix -- to a **Geometry**. Both **Image Geometries** and node-based geometries (Vertex, Edge, Triangle, Quadrilateral, Tetrahedral, Hexahedral) are supported.
 
+Rectilinear Grid geometries are not supported. Resample them to an Image Geometry first with [Resample Rectilinear Grid to Image Geometry](ResampleRectGridToImageGeomFilter.md).
+
 ![Fig. 1: The "Rotation" transform type rotates the geometry by an angle θ (in degrees) about a user-specified axis (x, y, z). Unlike Rotate Sample Reference Frame, this is a true geometric transform that moves the geometry itself.](Images/ApplyTransformationToGeometry_AxisAngle.png)
 
 ### Node Geometries
@@ -16,7 +18,7 @@ For node-based geometries, the transformation modifies vertex positions only. No
 
 ### Image Geometry
 
-For Image Geometries, transformation requires re-gridding because cell positions are implicit in the grid spacing and origin. After transformation, a new grid is generated and cell data is interpolated onto it. This is governed by two extra parameters:
+Translation and Scale on an Image Geometry only update origin and spacing, so any Interpolation setting is accepted. Rotation and Manual or Precomputed matrices need Nearest Neighbor or Linear. These transformations generate a new grid and resample the cell data onto it, using two extra parameters:
 
 - **Interpolation Method** -- how cell data values are sampled from the old grid (see below).
 - **Cell Attribute Matrix** -- which attribute matrix holds the cell data to transform.
@@ -68,6 +70,8 @@ The *Transformation Type* parameter selects how the transformation is specified:
 | 4 | Translation | A (dx, dy, dz) translation vector in the geometry's physical units. |
 | 5 | Scale | A (sx, sy, sz) scaling vector (dimensionless multipliers). |
 
+No Transform leaves the geometry and all its data unchanged. Interpolation and Cell Attribute Matrix settings are ignored. The saved matrix is the 4×4 identity.
+
 The linear / bi-linear / tri-linear interpolation math is adapted from [Purdue CS530 slides, page 36](https://www.cs.purdue.edu/homes/cs530/slides/04.DataStructure.pdf).
 
 If *Translate Geometry To Global Origin Before Transformation* is enabled, the geometry is shifted so its centroid sits at (0, 0, 0) before the transformation is applied, then translated back. Use this to rotate about the geometry's center rather than the world origin.
@@ -76,7 +80,11 @@ If *Translate Geometry To Global Origin Before Transformation* is enabled, the g
 
 - **Nearest Neighbor [0]** -- each output cell takes the value of the nearest input cell. Fast; preserves sharp boundaries; blocky.
 - **Linear (trilinear in 3D) [1]** -- each output cell value is interpolated from surrounding input cells. Smoother; may blur sharp features.
-- **No Interpolation [2]** -- no resampling. Use only when the transformation does not change the grid topology (e.g., integer translations that align exactly with the existing grid).
+- **No Interpolation [2]** -- accepted for No Transform, Translation, and Scale. Rotation and Manual or Precomputed matrices require Nearest Neighbor or Linear.
+
+For integer arrays, the linearly interpolated value is rounded to the nearest integer.
+
+With Nearest Neighbor, each output cell copies the value, string or list of its nearest source cell. Nothing is interpolated, so this works for every array type in the Cell Attribute Matrix, including Bool, String and NeighborList arrays. Output cells with no source cell get 0, an empty string or an empty list. Linear interpolation does not support Bool, String or NeighborList arrays; preflight reports an error, so use Nearest Neighbor or remove those arrays first.
 
 ### Saving the Final Transformation Matrix
 
@@ -95,7 +103,7 @@ represents the 4x4 matrix:
 
 - **Geometry** -- any supported geometry; for Image Geometry workflows, typically produced by [Create Image Geometry](CreateImageGeometryFilter.md), [Read Image Stack](../ImageProcessing/ReadImageStackFilter.md), or an EBSD reader.
 - **Pre-Computed Transformation Matrix** (only for Transformation Type 1) -- typically produced by [Combine Transformation Matrices](CombineTransformationMatricesFilter.md).
-- **Cell Attribute Matrix** (Image Geometry only) -- the cell-level data to be re-gridded.
+- **Cell Attribute Matrix** (Image Geometry with Rotation or a Manual or Precomputed matrix) -- the cell-level data to be re-gridded.
 
 % Auto generated parameter table will be inserted here
 

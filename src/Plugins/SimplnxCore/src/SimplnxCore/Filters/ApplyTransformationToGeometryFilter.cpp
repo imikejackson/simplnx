@@ -103,7 +103,8 @@ Parameters ApplyTransformationToGeometryFilter::parameters() const
 
   params.insertSeparator(Parameters::Separator{"Input Geometry"});
   params.insert(std::make_unique<GeometrySelectionParameter>(k_SelectedImageGeometryPath_Key, "Selected Geometry", "The target geometry on which to perform the transformation", DataPath{},
-                                                             IGeometry::GetAllGeomTypes()));
+                                                             GeometrySelectionParameter::AllowedTypes{IGeometry::Type::Image, IGeometry::Type::Vertex, IGeometry::Type::Edge, IGeometry::Type::Triangle,
+                                                                                                      IGeometry::Type::Quad, IGeometry::Type::Tetrahedral, IGeometry::Type::Hexahedral}));
 
   params.insertSeparator(Parameters::Separator{"Image Geometry Resampling/Interpolation"});
   params.insertLinkableParameter(std::make_unique<ChoicesParameter>(k_InterpolationType_Key, "Resampling or Interpolation (Image Geometry Only)",
