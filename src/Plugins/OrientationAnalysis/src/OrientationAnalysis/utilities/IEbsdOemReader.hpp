@@ -75,7 +75,7 @@ public:
 
   /**
    * @brief Loads and copies each selected scan in selection order.
-   * @return Reader, phase-metadata, or derived copy errors.
+   * @return Reader, phase-metadata, scan-dimension mismatch, or derived copy errors.
    *
    * The method sets the destination geometry unit to micrometers before import.
    */
@@ -107,6 +107,17 @@ public:
       if(readResults.invalid())
       {
         return readResults;
+      }
+
+      // readData() already compares OIM and Esprit scans with the first scan (-67606) and the geometry (-67616).
+      if constexpr(!std::is_same_v<T, ebsdlib::H5OIMReader> && !std::is_same_v<T, ebsdlib::H5EspritReader>)
+      {
+        if(static_cast<usize>(m_Reader->getXDimension()) != imageGeom.getNumXCells() || static_cast<usize>(m_Reader->getYDimension()) != imageGeom.getNumYCells())
+        {
+          return MakeErrorResult(-8972, fmt::format("Scan '{}' in file '{}' has {} columns and {} rows, but the Image Geometry '{}' has {} columns and {} rows. Select scans with the same dimensions.",
+                                                    currentScanName, m_InputValues->SelectedScanNames.inputFilePath.string(), m_Reader->getXDimension(), m_Reader->getYDimension(),
+                                                    m_InputValues->ImageGeometryPath.toString(), imageGeom.getNumXCells(), imageGeom.getNumYCells()));
+        }
       }
 
       Result<> copyDataResults = copyRawEbsdData(index);
