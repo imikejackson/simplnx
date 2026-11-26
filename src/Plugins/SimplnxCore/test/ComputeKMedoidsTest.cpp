@@ -3,16 +3,12 @@
 #include <catch2/catch.hpp>
 #include <cmath>
 #include <filesystem>
-#include <fstream>
 
-#include "simplnx/Core/Application.hpp"
 #include "simplnx/DataStructure/AttributeMatrix.hpp"
 #include "simplnx/DataStructure/DataArray.hpp"
 #include "simplnx/DataStructure/Geometry/ImageGeom.hpp"
 #include "simplnx/DataStructure/StringArray.hpp"
 #include "simplnx/Parameters/ChoicesParameter.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 #include "simplnx/Utilities/AlgorithmDispatch.hpp"
 
@@ -449,49 +445,20 @@ TEST_CASE("SimplnxCore::ComputeKMedoidsFilter: Valid Filter Execution", "[Simpln
 
 TEST_CASE("SimplnxCore::ComputeKMedoidsFilter: SIMPL Backwards Compatibility", "[SimplnxCore][ComputeKMedoidsFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "ComputeKMedoidsFilter.json"},
-      {"SIMPL 6.4 (Filter_Name)", conversionDir / "6_4" / "ComputeKMedoidsFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<ComputeKMedoidsFilter>::uuid);
-
-      CHECK(pipelineFilterPtr->getComments().empty());
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      // Successful pipeline loading verifies the AMPathBuilderFilterParameterConverter value.
-      CHECK(args.value<uint64>(ComputeKMedoidsFilter::k_InitClusters_Key) == 5);
-      CHECK(args.value<ChoicesParameter::ValueType>(ComputeKMedoidsFilter::k_DistanceMetric_Key) == 0);
-      CHECK(args.value<bool>(ComputeKMedoidsFilter::k_UseMask_Key) == true);
-      CHECK(args.value<bool>(ComputeKMedoidsFilter::k_UseSeed_Key) == true);
-      CHECK(args.value<uint64>(ComputeKMedoidsFilter::k_SeedValue_Key) == 5);
-      CHECK(args.value<DataPath>(ComputeKMedoidsFilter::k_SelectedArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<DataPath>(ComputeKMedoidsFilter::k_MaskArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<std::string>(ComputeKMedoidsFilter::k_FeatureIdsArrayName_Key) == "TestName");
-      CHECK(args.value<std::string>(ComputeKMedoidsFilter::k_MedoidsArrayName_Key) == "TestName");
-    }
-  }
+  const auto version = GENERATE("6_4", "6_5");
+  CAPTURE(version);
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "ComputeKMedoidsFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<ComputeKMedoidsFilter>::uuid);
+  CHECK(args.value<uint64>(ComputeKMedoidsFilter::k_InitClusters_Key) == 5);
+  CHECK(args.value<bool>(ComputeKMedoidsFilter::k_UseSeed_Key));
+  CHECK(args.value<uint64>(ComputeKMedoidsFilter::k_SeedValue_Key) == 47);
+  CHECK(args.value<ChoicesParameter::ValueType>(ComputeKMedoidsFilter::k_DistanceMetric_Key) == 2);
+  CHECK(args.value<bool>(ComputeKMedoidsFilter::k_UseMask_Key));
+  CHECK(args.value<DataPath>(ComputeKMedoidsFilter::k_SelectedArrayPath_Key) == DataPath({"Scan", "Cells", "Measurements"}));
+  CHECK(args.value<DataPath>(ComputeKMedoidsFilter::k_MaskArrayPath_Key) == DataPath({"Scan", "Cells", "Included"}));
+  CHECK(args.value<std::string>(ComputeKMedoidsFilter::k_FeatureIdsArrayName_Key) == "PopulationIds");
+  CHECK(args.value<DataPath>(ComputeKMedoidsFilter::k_FeatureAMPath_Key) == DataPath({"Scan", "Populations"}));
+  CHECK(args.value<std::string>(ComputeKMedoidsFilter::k_MedoidsArrayName_Key) == "ClusterMedoids");
 }
 
 TEST_CASE("SimplnxCore::ComputeKMedoidsFilter: Mask Array requires 1 component", "[SimplnxCore][ComputeKMedoidsFilter][ComponentShape]")

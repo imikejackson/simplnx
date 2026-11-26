@@ -377,7 +377,17 @@ Result<Arguments> AppendImageGeometryFilter::FromSIMPLJson(const nlohmann::json&
 
   std::vector<Result<>> results;
 
-  results.push_back(simpl_conversion::ConvertParameter<simpl_conversion::SingleToMultiDataPathSelectionFilterParameterConverter>(args, json, simpl::k_InputAttributeMatrixKey, k_InputGeometries_Key));
+  auto inputResult = simpl_conversion::ConvertParameter<simpl_conversion::SingleToMultiDataPathSelectionFilterParameterConverter>(args, json, simpl::k_InputAttributeMatrixKey, k_InputGeometries_Key);
+  if(inputResult.valid())
+  {
+    // The legacy path selects cell data. Append uses its owning image geometry.
+    const auto& cellDataPath = args.valueRef<std::vector<DataPath>>(k_InputGeometries_Key).front();
+    if(cellDataPath.getLength() > 1)
+    {
+      args.insertOrAssign(k_InputGeometries_Key, std::vector<DataPath>{DataPath({cellDataPath[0]})});
+    }
+  }
+  results.push_back(std::move(inputResult));
   results.push_back(
       simpl_conversion::ConvertParameter<simpl_conversion::DataContainerSelectionFilterParameterConverter>(args, json, simpl::k_DestinationAttributeMatrixKey, k_DestinationGeometry_Key));
   results.push_back(simpl_conversion::ConvertParameter<simpl_conversion::BooleanFilterParameterConverter>(args, json, simpl::k_CheckResolutionKey, k_CheckResolution_Key));

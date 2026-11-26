@@ -15,6 +15,7 @@
 
 #include "simplnx/Utilities/SIMPLConversion.hpp"
 
+#include <algorithm>
 #include <filesystem>
 namespace fs = std::filesystem;
 
@@ -234,6 +235,23 @@ constexpr StringLiteralType k_FeatureEulerAnglesArrayPathKey = "FeatureEulerAngl
 constexpr StringLiteralType k_FeaturePhasesArrayPathKey = "FeaturePhasesArrayPath";
 constexpr StringLiteralType k_CrystalStructuresArrayPathKey = "CrystalStructuresArrayPath";
 } // namespace simpl
+
+struct MisorientationRotationConverter
+{
+  using ValueType = VectorFloat32ParameterType::ValueType;
+
+  static Result<ValueType> Convert(const nlohmann::json& json)
+  {
+    auto result = simpl_conversion::AxisAngleFilterParameterConverter<float32>::Convert(json);
+    if(result.valid())
+    {
+      // The legacy converter places the angle first. Fixed Misorientation stores it after the three axis components.
+      auto& rotation = result.value();
+      std::rotate(rotation.begin(), rotation.begin() + 1, rotation.end());
+    }
+    return result;
+  }
+};
 } // namespace
 
 Result<Arguments> ComputeGBCDMetricBasedFilter::FromSIMPLJson(const nlohmann::json& json)
@@ -243,7 +261,7 @@ Result<Arguments> ComputeGBCDMetricBasedFilter::FromSIMPLJson(const nlohmann::js
   std::vector<Result<>> results;
 
   results.push_back(simpl_conversion::ConvertParameter<simpl_conversion::IntFilterParameterConverter<int32>>(args, json, simpl::k_PhaseOfInterestKey, k_PhaseOfInterest_Key));
-  results.push_back(simpl_conversion::ConvertParameter<simpl_conversion::AxisAngleFilterParameterConverter<float32>>(args, json, simpl::k_MisorientationRotationKey, k_MisorientationRotation_Key));
+  results.push_back(simpl_conversion::ConvertParameter<MisorientationRotationConverter>(args, json, simpl::k_MisorientationRotationKey, k_MisorientationRotation_Key));
   results.push_back(simpl_conversion::ConvertParameter<simpl_conversion::ChoiceFilterParameterConverter>(args, json, simpl::k_ChosenLimitDistsKey, k_ChosenLimitDists_Key));
   results.push_back(simpl_conversion::ConvertParameter<simpl_conversion::IntFilterParameterConverter<int32>>(args, json, simpl::k_NumSamplPtsKey, k_NumSamplPts_Key));
   results.push_back(simpl_conversion::ConvertParameter<simpl_conversion::BooleanFilterParameterConverter>(args, json, simpl::k_ExcludeTripleLinesKey, k_ExcludeTripleLines_Key));

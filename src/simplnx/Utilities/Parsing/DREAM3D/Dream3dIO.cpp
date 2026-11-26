@@ -1,5 +1,6 @@
 #include "Dream3dIO.hpp"
 #include "Dream3dIOInternal.hpp"
+#include "Dream3dPreflightCache.hpp"
 #include "ImageMetadataImport.hpp"
 #include "simplnx/Common/Result.hpp"
 #include <fmt/format.h>
@@ -1683,7 +1684,7 @@ static Result<> ReadLegacyStatsDataArrayChild(DataStructure& dataStructure, cons
   return MakeErrorResult(-769634, fmt::format("StatsReader: Unsupported object type for \"{}\"", name));
 }
 
-static Result<> ReadLegacyStatsDataArray(DataStructure& dataStructure, const nx::core::hdf5::GroupIO& statsReader, DataObject::IdType parentId, bool /*preflight*/)
+static Result<DataObject::IdType> ReadLegacyStatsDataArray(DataStructure& dataStructure, const nx::core::hdf5::GroupIO& statsReader, DataObject::IdType parentId)
 {
   // Legacy statistics paths can reach depth six, beyond the deferred legacy
   // materializer. Import this relatively small hierarchy during the metadata pass.
@@ -1691,7 +1692,7 @@ static Result<> ReadLegacyStatsDataArray(DataStructure& dataStructure, const nx:
   DataGroup* dataGroupPtr = DataGroup::Create(dataStructure, statsGroupName, parentId);
   if(dataGroupPtr == nullptr)
   {
-    return MakeErrorResult(-1434547, fmt::format("Unable to create group \"{}\"", statsGroupName));
+    return MakeErrorResult<DataObject::IdType>(-1434547, fmt::format("Unable to create group \"{}\"", statsGroupName));
   }
   std::vector<std::string> childNames = statsReader.getChildNames();
   Result<> combinedResult;
@@ -1701,14 +1702,15 @@ static Result<> ReadLegacyStatsDataArray(DataStructure& dataStructure, const nx:
     if(result.invalid())
     {
       PrependWarnings(result, combinedResult.warnings());
-      return result;
+      return ConvertInvalidResult<DataObject::IdType>(std::move(result));
     }
     AppendWarnings(combinedResult, result.warnings());
   }
-  return combinedResult;
+  return ConvertResultTo<DataObject::IdType>(std::move(combinedResult), dataGroupPtr->getId());
 }
 
-static Result<> ReadLegacyAttributeMatrix(DataStructure& dataStructure, const nx::core::hdf5::GroupIO& amGroupReader, DataObject& parent, bool preflight = false, bool importChildren = true)
+static Result<> ReadLegacyAttributeMatrix(DataStructure& dataStructure, const nx::core::hdf5::GroupIO& amGroupReader, DataObject& parent, bool preflight = false, bool importChildren = true,
+                                          dream3d::NeutralMetadataHandout* metadata = nullptr)
 {
   DataObject::IdType parentId = parent.getId();
   const std::string amName = amGroupReader.getName();
@@ -1737,9 +1739,13 @@ static Result<> ReadLegacyAttributeMatrix(DataStructure& dataStructure, const nx
         if(objectTypeResult.valid() && objectTypeResult.value() == "Statistics")
         {
           auto warnings = std::move(objectTypeResult.warnings());
-          auto result = ReadLegacyStatsDataArray(dataStructure, groupReader, parentId, preflight);
+          auto result = ReadLegacyStatsDataArray(dataStructure, groupReader, parentId);
+          if(metadata != nullptr && result.valid())
+          {
+            metadata->legacyStatisticsIds.emplace(DataPath({parent.getName(), amName, childName}), result.value());
+          }
           PrependWarnings(result, warnings);
-          daResults.push_back(std::move(result));
+          daResults.push_back(ConvertResult(std::move(result)));
         }
         else
         {
@@ -2148,7 +2154,7 @@ static Result<DataObject*> ReadLegacyImageGeom(DataStructure& dataStructure, con
 // End legacy Geometry importing
 
 static Result<> ReadLegacyDataContainer(DataStructure& dataStructure, const nx::core::hdf5::GroupIO& dcGroup, bool preflight = false, bool importChildren = true,
-                                        dream3d::DeferredImageMetadataType* deferredImageMetadata = nullptr)
+                                        dream3d::NeutralMetadataHandout* metadata = nullptr)
 {
   DataObject* containerPtr = nullptr;
   Result<DataObject*> containerResult;
@@ -2169,7 +2175,7 @@ static Result<> ReadLegacyDataContainer(DataStructure& dataStructure, const nx::
     geomName = std::move(geomNameResult.value());
     if(geomName == legacy::geometry_type::k_ImageGeom)
     {
-      containerResult = ReadLegacyImageGeom(dataStructure, geomGroup, dcName, deferredImageMetadata);
+      containerResult = ReadLegacyImageGeom(dataStructure, geomGroup, dcName, metadata != nullptr ? &metadata->deferred_image_metadata : nullptr);
     }
     else if(geomName == legacy::geometry_type::k_EdgeGeom)
     {
@@ -2185,7 +2191,7 @@ static Result<> ReadLegacyDataContainer(DataStructure& dataStructure, const nx::
     }
     else if(geomName == legacy::geometry_type::k_RectGridGeom)
     {
-      containerResult = ReadLegacyRectGridGeom(dataStructure, geomGroup, dcName, preflight, deferredImageMetadata != nullptr);
+      containerResult = ReadLegacyRectGridGeom(dataStructure, geomGroup, dcName, preflight, metadata != nullptr);
     }
     else if(geomName == legacy::geometry_type::k_TetrahedralGeom)
     {
@@ -2238,7 +2244,7 @@ static Result<> ReadLegacyDataContainer(DataStructure& dataStructure, const nx::
 
     auto attributeMatrixGroup = dcGroup.openGroup(amName);
 
-    amResults.push_back(ReadLegacyAttributeMatrix(dataStructure, attributeMatrixGroup, *containerPtr, preflight));
+    amResults.push_back(ReadLegacyAttributeMatrix(dataStructure, attributeMatrixGroup, *containerPtr, preflight, true, metadata));
   }
   auto result = nx::core::MergeResults(amResults);
   PrependWarnings(result, containerWarnings);
@@ -2497,7 +2503,7 @@ static Result<> FinishImportingLegacyDataObject(DataStructure& dataStructure, co
 }
 
 static Result<DataStructure> ImportLegacyDataStructure(const nx::core::hdf5::FileIO& fileReader, bool preflight, std::shared_ptr<const IDataStoreFormatResolver> resolver,
-                                                       dream3d::DeferredImageMetadataType* deferredImageMetadata = nullptr)
+                                                       dream3d::NeutralMetadataHandout* metadata = nullptr)
 {
   DataStructure dataStructure;
   dataStructure.setFormatResolver(std::move(resolver));
@@ -2510,7 +2516,7 @@ static Result<DataStructure> ImportLegacyDataStructure(const nx::core::hdf5::Fil
   for(const auto& dcName : dcNames)
   {
     auto dcGroup = dcaGroup.openGroup(dcName);
-    importResults.push_back(ReadLegacyDataContainer(dataStructure, dcGroup, preflight, true, deferredImageMetadata));
+    importResults.push_back(ReadLegacyDataContainer(dataStructure, dcGroup, preflight, true, metadata));
   }
 
   auto result = nx::core::MergeResults(importResults);
@@ -2522,17 +2528,16 @@ static Result<DataStructure> ImportLegacyDataStructure(const nx::core::hdf5::Fil
   return ImportLegacyDataStructure(fileReader, preflight, {});
 }
 
-Result<DataStructure> dream3d::detail::ImportMetadata(const nx::core::hdf5::FileIO& fileReader, std::shared_ptr<const IDataStoreFormatResolver> resolver,
-                                                      DeferredImageMetadataType& deferredImageMetadata)
+Result<DataStructure> dream3d::detail::ImportMetadata(const nx::core::hdf5::FileIO& fileReader, std::shared_ptr<const IDataStoreFormatResolver> resolver, NeutralMetadataHandout& metadata)
 {
   const auto version = GetFileVersion(fileReader);
   if(version == k_CurrentFileVersion)
   {
-    return hdf5::DataStructureReader::ReadFile(fileReader, true, std::move(resolver), &deferredImageMetadata);
+    return hdf5::DataStructureReader::ReadFile(fileReader, true, std::move(resolver), &metadata.deferred_image_metadata);
   }
   if(version == k_LegacyFileVersion)
   {
-    return ImportLegacyDataStructure(fileReader, true, std::move(resolver), &deferredImageMetadata);
+    return ImportLegacyDataStructure(fileReader, true, std::move(resolver), &metadata);
   }
   return MakeErrorResult<DataStructure>(k_InvalidDataStructureVersion, fmt::format("Cannot import metadata from '{}': file version '{}' is not supported. Expected '{}' or '{}'.",
                                                                                    fileReader.getFilePath().string(), version, k_CurrentFileVersion, k_LegacyFileVersion));

@@ -1575,10 +1575,12 @@ PYBIND11_MODULE(simplnx, mod)
   pathImportPolicy.value("All", Dream3dImportParameter::PathImportPolicy::All);
   pathImportPolicy.value("IncludeList", Dream3dImportParameter::PathImportPolicy::IncludeList);
   pathImportPolicy.value("ExcludeList", Dream3dImportParameter::PathImportPolicy::ExcludeList);
+  pathImportPolicy.value("LegacySelection", Dream3dImportParameter::PathImportPolicy::LegacySelection);
   dream3dImportData.def(py::init<std::filesystem::path, Dream3dImportParameter::PathImportPolicy, std::vector<nx::core::DataPath>>(), py::arg("file_path"),
                         py::arg("path_import_policy") = Dream3dImportParameter::PathImportPolicy::All, py::arg("data_paths") = std::vector<nx::core::DataPath>());
   dream3dImportData.def_readwrite("file_path", &Dream3dImportParameter::ImportData::file_path);
   dream3dImportData.def_readwrite("data_paths", &Dream3dImportParameter::ImportData::data_paths);
+  dream3dImportData.def_readwrite("legacy_excluded_containers", &Dream3dImportParameter::ImportData::legacy_excluded_containers);
   dream3dImportData.def_readwrite("path_import_policy", &Dream3dImportParameter::ImportData::import_policy);
   dream3dImportData.def("__repr__", [](const Dream3dImportParameter::ImportData& /*self*/) { return "Dream3dImportParameter.ImportData()"; });
 

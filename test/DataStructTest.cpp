@@ -2194,25 +2194,39 @@ TEST_CASE("HexahedralGeom::findElementSizes rectangular boxes", "[DataStruct][Ge
   unit_test::CheckArraysInheritTupleDims(dataStructure);
 }
 
-TEST_CASE("CompareDataStructures")
+TEST_CASE("CompareDataStructures", "[simplnx]")
 {
-  unit_test::LoadPlugins();
-
-  DataStructure dataStructure0 = CreateTestDataStructure();
-  DataStructure dataStructure1 = CreateTestDataStructure();
-
-  unit_test::CompareDataStructures(dataStructure0, dataStructure1);
+  const DataStructure first = CreateTestDataStructure();
+  const DataStructure second = CreateTestDataStructure();
+  unit_test::CompareDataStructures(first, second);
 }
 
-TEST_CASE("CompareDataStructures-fail", "[SimplnxReview][!mayfail]")
+TEST_CASE("CompareDataStructures detects a changed nested array value", "[simplnx][!shouldfail]")
 {
-  unit_test::LoadPlugins();
+  const auto makeData = [](int32 value) {
+    DataStructure data;
+    const auto* groupPtr = DataGroup::Create(data, "Group");
+    auto* arrayPtr = unit_test::CreateTestDataArray<int32>(data, "Values", {1}, {1}, groupPtr->getId());
+    (*arrayPtr)[0] = value;
+    return data;
+  };
+  unit_test::CompareDataStructures(makeData(1), makeData(2));
+}
 
-  DataStructure dataStructure0 = CreateTestDataStructure();
-  DataStructure dataStructure1 = CreateTestDataStructure();
-  dataStructure1.removeData(DataPath({constants::k_ImageGeometry}));
+TEST_CASE("CompareDataStructures detects a missing object", "[simplnx][!shouldfail]")
+{
+  DataStructure first;
+  DataGroup::Create(first, "Group");
+  unit_test::CompareDataStructures(first, DataStructure{});
+}
 
-  unit_test::CompareDataStructures(dataStructure0, dataStructure1);
+TEST_CASE("CompareDataStructures detects a renamed root", "[simplnx][!shouldfail]")
+{
+  DataStructure first;
+  DataStructure second;
+  DataGroup::Create(first, "First");
+  DataGroup::Create(second, "Second");
+  unit_test::CompareDataStructures(first, second);
 }
 
 namespace

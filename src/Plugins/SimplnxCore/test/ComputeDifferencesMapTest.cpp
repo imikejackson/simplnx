@@ -1,9 +1,6 @@
 #include "SimplnxCore/Filters/ComputeDifferencesMapFilter.hpp"
 #include "SimplnxCore/SimplnxCore_test_dirs.hpp"
 
-#include "simplnx/Core/Application.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 #include "simplnx/Utilities/DataStoreUtilities.hpp"
 
@@ -12,7 +9,6 @@
 #include <algorithm>
 #include <array>
 #include <filesystem>
-#include <fstream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -109,40 +105,11 @@ TEST_CASE("SimplnxCore::ComputeDifferencesMapFilter: Test Algorithm", "[ComputeD
 
 TEST_CASE("SimplnxCore::ComputeDifferencesMapFilter: SIMPL Backwards Compatibility", "[SimplnxCore][ComputeDifferencesMapFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "ComputeDifferencesMapFilter.json"},
-      {"SIMPL 6.4 (Filter_Name)", conversionDir / "6_4" / "ComputeDifferencesMapFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<ComputeDifferencesMapFilter>::uuid);
-
-      CHECK(pipelineFilterPtr->getComments().empty());
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      CHECK(args.value<DataPath>(ComputeDifferencesMapFilter::k_FirstInputArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<DataPath>(ComputeDifferencesMapFilter::k_SecondInputArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      // Complex type (DataArrayCreationFilterParameterConverter) - verified by successful pipeline loading
-    }
-  }
+  const auto version = GENERATE("6_4", "6_5");
+  CAPTURE(version);
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "ComputeDifferencesMapFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<ComputeDifferencesMapFilter>::uuid);
+  CHECK(args.value<DataPath>(ComputeDifferencesMapFilter::k_FirstInputArrayPath_Key) == DataPath({"Scan", "Cells", "Before"}));
+  CHECK(args.value<DataPath>(ComputeDifferencesMapFilter::k_SecondInputArrayPath_Key) == DataPath({"Scan", "Cells", "After"}));
+  CHECK(args.value<DataPath>(ComputeDifferencesMapFilter::k_DifferenceMapArrayPath_Key) == DataPath({"Scan", "Cells", "Changes"}));
 }

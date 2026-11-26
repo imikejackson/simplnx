@@ -1,17 +1,13 @@
 #include "SimplnxCore/Filters/CreateAttributeMatrixFilter.hpp"
 #include "SimplnxCore/SimplnxCore_test_dirs.hpp"
 
-#include "simplnx/Core/Application.hpp"
 #include "simplnx/DataStructure/AttributeMatrix.hpp"
 #include "simplnx/Parameters/DataGroupCreationParameter.hpp"
 #include "simplnx/Parameters/DynamicTableParameter.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 
 #include <catch2/catch.hpp>
 #include <filesystem>
-#include <fstream>
 
 #include <cmath>
 #include <limits>
@@ -74,41 +70,12 @@ TEST_CASE("SimplnxCore::CreateAttributeMatrixFilter(Invalid Parameters)", "[Simp
 
 TEST_CASE("SimplnxCore::CreateAttributeMatrixFilter: SIMPL Backwards Compatibility", "[SimplnxCore][CreateAttributeMatrixFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "CreateAttributeMatrixFilter.json"},
-      {"SIMPL 6.4 (Filter_Name)", conversionDir / "6_4" / "CreateAttributeMatrixFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<CreateAttributeMatrixFilter>::uuid);
-
-      CHECK(pipelineFilterPtr->getComments().empty());
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      // Complex type (DynamicTableFilterParameterConverter) - verified by successful pipeline loading
-      CHECK(args.value<DataPath>(CreateAttributeMatrixFilter::k_DataObjectPath) == DataPath({"DataContainer", "CellData"}));
-    }
-  }
+  const auto version = GENERATE("6_4", "6_5");
+  CAPTURE(version);
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "CreateAttributeMatrixFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<CreateAttributeMatrixFilter>::uuid);
+  CHECK(args.value<DynamicTableParameter::ValueType>(CreateAttributeMatrixFilter::k_TupleDims_Key) == DynamicTableParameter::ValueType{{1, 2, 3}});
+  CHECK(args.value<DataPath>(CreateAttributeMatrixFilter::k_DataObjectPath) == DataPath({"DataContainer", "CellData"}));
 }
 
 TEST_CASE("SimplnxCore::CreateAttributeMatrix: Dimension RED fractional", "[SimplnxCore][CreateAttributeMatrix][DimensionRed]")

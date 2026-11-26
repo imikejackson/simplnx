@@ -3,14 +3,11 @@
 #include <catch2/catch.hpp>
 
 #include "simplnx/Common/Types.hpp"
-#include "simplnx/Core/Application.hpp"
 #include "simplnx/DataStructure/AttributeMatrix.hpp"
 #include "simplnx/DataStructure/DataArray.hpp"
 #include "simplnx/DataStructure/Geometry/ImageGeom.hpp"
 #include "simplnx/DataStructure/StringArray.hpp"
 #include "simplnx/Parameters/ChoicesParameter.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 #include "simplnx/Utilities/AlgorithmDispatch.hpp"
 #include "simplnx/Utilities/DataStoreUtilities.hpp"
@@ -24,7 +21,6 @@
 #include <atomic>
 #include <chrono>
 #include <filesystem>
-#include <fstream>
 #include <future>
 #include <memory>
 #include <optional>
@@ -705,49 +701,20 @@ TEST_CASE("SimplnxCore::ComputeKMeans: zero clusters leave direct and scanline o
 
 TEST_CASE("SimplnxCore::ComputeKMeansFilter: SIMPL Backwards Compatibility", "[SimplnxCore][ComputeKMeansFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "ComputeKMeansFilter.json"},
-      {"SIMPL 6.4 (Filter_Name)", conversionDir / "6_4" / "ComputeKMeansFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<ComputeKMeansFilter>::uuid);
-
-      CHECK(pipelineFilterPtr->getComments().empty());
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      // Successful pipeline loading verifies the AMPathBuilderFilterParameterConverter value.
-      CHECK(args.value<uint64>(ComputeKMeansFilter::k_InitClusters_Key) == 5);
-      CHECK(args.value<ChoicesParameter::ValueType>(ComputeKMeansFilter::k_DistanceMetric_Key) == 0);
-      CHECK(args.value<bool>(ComputeKMeansFilter::k_UseMask_Key) == true);
-      CHECK(args.value<bool>(ComputeKMeansFilter::k_UseSeed_Key) == true);
-      CHECK(args.value<uint64>(ComputeKMeansFilter::k_SeedValue_Key) == 5);
-      CHECK(args.value<DataPath>(ComputeKMeansFilter::k_SelectedArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<DataPath>(ComputeKMeansFilter::k_MaskArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<std::string>(ComputeKMeansFilter::k_FeatureIdsArrayName_Key) == "TestName");
-      CHECK(args.value<std::string>(ComputeKMeansFilter::k_MeansArrayName_Key) == "TestName");
-    }
-  }
+  const auto version = GENERATE("6_4", "6_5");
+  CAPTURE(version);
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "ComputeKMeansFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<ComputeKMeansFilter>::uuid);
+  CHECK(args.value<uint64>(ComputeKMeansFilter::k_InitClusters_Key) == 5);
+  CHECK(args.value<bool>(ComputeKMeansFilter::k_UseSeed_Key));
+  CHECK(args.value<uint64>(ComputeKMeansFilter::k_SeedValue_Key) == 47);
+  CHECK(args.value<ChoicesParameter::ValueType>(ComputeKMeansFilter::k_DistanceMetric_Key) == 2);
+  CHECK(args.value<bool>(ComputeKMeansFilter::k_UseMask_Key));
+  CHECK(args.value<DataPath>(ComputeKMeansFilter::k_SelectedArrayPath_Key) == DataPath({"Scan", "Cells", "Measurements"}));
+  CHECK(args.value<DataPath>(ComputeKMeansFilter::k_MaskArrayPath_Key) == DataPath({"Scan", "Cells", "Included"}));
+  CHECK(args.value<std::string>(ComputeKMeansFilter::k_FeatureIdsArrayName_Key) == "PopulationIds");
+  CHECK(args.value<DataPath>(ComputeKMeansFilter::k_FeatureAMPath_Key) == DataPath({"Scan", "Populations"}));
+  CHECK(args.value<std::string>(ComputeKMeansFilter::k_MeansArrayName_Key) == "ClusterMeans");
 }
 
 TEST_CASE("SimplnxCore::ComputeKMeans: Cell Mask Array requires 1 component", "[SimplnxCore][ComputeKMeans][ComponentShape]")

@@ -8,8 +8,6 @@
 #include "simplnx/Parameters/DataObjectNameParameter.hpp"
 #include "simplnx/Parameters/NumberParameter.hpp"
 #include "simplnx/Parameters/VectorParameter.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 #include "simplnx/Utilities/AlgorithmDispatch.hpp"
 
@@ -174,50 +172,21 @@ TEST_CASE("OrientationAnalysis::ComputeGBCDPoleFigureFilter", "[OrientationAnaly
 
 TEST_CASE("OrientationAnalysis::ComputeGBCDPoleFigureFilter: SIMPL Backwards Compatibility", "[OrientationAnalysis][ComputeGBCDPoleFigureFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "ComputeGBCDPoleFigureFilter.json"},
-      {"SIMPL 6.4 (Filter_Name)", conversionDir / "6_4" / "ComputeGBCDPoleFigureFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
+  const std::string version = GENERATE("6_4", "6_5");
+  CAPTURE(version);
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "ComputeGBCDPoleFigureFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<ComputeGBCDPoleFigureFilter>::uuid);
+  if(version == "6_5")
   {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<ComputeGBCDPoleFigureFilter>::uuid);
-
-      CHECK(pipelineFilterPtr->getComments().empty());
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      if(label == "SIMPL 6.5 (UUID)")
-      {
-        CHECK(args.value<int32>(ComputeGBCDPoleFigureFilter::k_OutputImageDimension_Key) == 5);
-        CHECK(args.value<std::string>(ComputeGBCDPoleFigureFilter::k_CellAttributeMatrixName_Key) == "TestName");
-        CHECK(args.value<std::string>(ComputeGBCDPoleFigureFilter::k_CellIntensityArrayName_Key) == "TestName");
-      }
-      CHECK(args.value<int32>(ComputeGBCDPoleFigureFilter::k_PhaseOfInterest_Key) == 5);
-      // Pipeline loading verifies AxisAngleFilterParameterConverter<float32>.
-      CHECK(args.value<DataPath>(ComputeGBCDPoleFigureFilter::k_GBCDArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<DataPath>(ComputeGBCDPoleFigureFilter::k_CrystalStructuresArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<DataPath>(ComputeGBCDPoleFigureFilter::k_ImageGeometryName_Key) == DataPath({"DataContainer"}));
-    }
+    CHECK(args.value<int32>(ComputeGBCDPoleFigureFilter::k_OutputImageDimension_Key) == 5);
+    CHECK(args.value<std::string>(ComputeGBCDPoleFigureFilter::k_CellAttributeMatrixName_Key) == "CellAttributeMatrix");
+    CHECK(args.value<std::string>(ComputeGBCDPoleFigureFilter::k_CellIntensityArrayName_Key) == "Intensity");
   }
+  CHECK(args.value<int32>(ComputeGBCDPoleFigureFilter::k_PhaseOfInterest_Key) == 5);
+  CHECK(args.value<VectorFloat32ParameterType::ValueType>(ComputeGBCDPoleFigureFilter::k_MisorientationRotation_Key) == VectorFloat32ParameterType::ValueType{43, 2, -1, 3});
+  CHECK(args.value<DataPath>(ComputeGBCDPoleFigureFilter::k_GBCDArrayPath_Key) == DataPath({"DataContainer", "CellData", "GBCD"}));
+  CHECK(args.value<DataPath>(ComputeGBCDPoleFigureFilter::k_CrystalStructuresArrayPath_Key) == DataPath({"DataContainer", "CellData", "CrystalStructures"}));
+  CHECK(args.value<DataPath>(ComputeGBCDPoleFigureFilter::k_ImageGeometryName_Key) == DataPath({"DataContainer"}));
 }
 
 TEST_CASE("OrientationAnalysis::ComputeGBCDPoleFigureFilter: Phase and Laue Index Bounds", "[OrientationAnalysis][ComputeGBCDPoleFigureFilter]")

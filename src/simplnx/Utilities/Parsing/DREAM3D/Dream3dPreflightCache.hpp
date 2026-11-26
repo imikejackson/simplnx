@@ -25,6 +25,8 @@ struct SIMPLNX_EXPORT NeutralMetadataHandout
   std::string file_version;
   DeferredImageMetadataType deferred_image_metadata; /**< Unvalidated metadata retained until the caller selects image geometries. */
 
+  std::map<DataPath, DataObject::IdType> legacyStatisticsIds; /**< Saved array paths and the group IDs created for those arrays. */
+
   /**
    * @brief Validates and installs origin and spacing for selected image geometries.
    * @param filePath Identifies the source file in diagnostics.

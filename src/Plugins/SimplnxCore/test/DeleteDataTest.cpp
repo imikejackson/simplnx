@@ -2,17 +2,13 @@
 #include "SimplnxCore/SimplnxCore_test_dirs.hpp"
 
 #include "simplnx/Common/TypeTraits.hpp"
-#include "simplnx/Core/Application.hpp"
 #include "simplnx/Parameters/ChoicesParameter.hpp"
 #include "simplnx/Parameters/MultiPathSelectionParameter.hpp"
 #include "simplnx/Parameters/VectorParameter.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 
 #include <catch2/catch.hpp>
 #include <filesystem>
-#include <fstream>
 
 namespace fs = std::filesystem;
 using namespace nx::core;
@@ -523,38 +519,9 @@ TEST_CASE("SimplnxCore::Delete Data Object (Node removal)", "[SimplnxCore][Delet
 
 TEST_CASE("SimplnxCore::DeleteDataFilter: SIMPL Backwards Compatibility", "[SimplnxCore][DeleteDataFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "DeleteDataFilter.json"},
-      {"SIMPL 6.4 (Filter_Name)", conversionDir / "6_4" / "DeleteDataFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<DeleteDataFilter>::uuid);
-
-      CHECK(pipelineFilterPtr->getComments().empty());
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      // Complex type (DataArraysToRemoveConverter) - verified by successful pipeline loading
-    }
-  }
+  const auto version = GENERATE("6_4", "6_5");
+  CAPTURE(version);
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "DeleteDataFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<DeleteDataFilter>::uuid);
+  CHECK(args.value<MultiPathSelectionParameter::ValueType>(DeleteDataFilter::k_DataPath_Key) == std::vector<DataPath>{DataPath({"Scan", "Cells", "Quality"}), DataPath({"Scan", "Cells", "Phases"})});
 }

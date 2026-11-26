@@ -3,7 +3,6 @@
 #include "SimplnxCore/SimplnxCore_test_dirs.hpp"
 
 #include "simplnx/Common/Numbers.hpp"
-#include "simplnx/Core/Application.hpp"
 #include "simplnx/DataStructure/AttributeMatrix.hpp"
 #include "simplnx/DataStructure/DataArray.hpp"
 #include "simplnx/DataStructure/DataStore.hpp"
@@ -11,15 +10,12 @@
 #include "simplnx/Filter/IParameter.hpp"
 #include "simplnx/Parameters/CalculatorParameter.hpp"
 #include "simplnx/Parameters/NumericTypeParameter.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 #include "simplnx/Utilities/StringUtilities.hpp"
 
 #include <algorithm>
 #include <catch2/catch.hpp>
 #include <filesystem>
-#include <fstream>
 #include <numbers>
 #include <optional>
 #include <utility>
@@ -1602,45 +1598,17 @@ TEST_CASE("SimplnxCore::ArrayCalculatorFilter: Bulk multi-page calculation and f
 
 TEST_CASE("SimplnxCore::ArrayCalculatorFilter: SIMPL Backwards Compatibility", "[SimplnxCore][ArrayCalculatorFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "ArrayCalculatorFilter.json"},
-      {"SIMPL 6.4 (Filter_Name)", conversionDir / "6_4" / "ArrayCalculatorFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<ArrayCalculatorFilter>::uuid);
-
-      // Note: Complex SIMPL parameter conversions may produce warnings
-      // pipelineFilter->getComments() may not be empty for filters with custom converters
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      if(label == "SIMPL 6.5 (UUID)")
-      {
-        // Complex type (NumericTypeParameterConverter) - verified by successful pipeline loading
-      }
-      // Complex type (DataArrayCreationFilterParameterConverter) - verified by successful pipeline loading
-    }
-  }
+  const std::string version = GENERATE("6_4", "6_5");
+  CAPTURE(version);
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "ArrayCalculatorFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<ArrayCalculatorFilter>::uuid);
+  const auto calculator = args.value<CalculatorParameter::ValueType>(ArrayCalculatorFilter::k_CalculatorParameter_Key);
+  CHECK(calculator.m_selected_group == DataPath({"Scan", "Cells"}));
+  CHECK(calculator.equation == "sin(30)");
+  CHECK(calculator.m_units == CalculatorParameter::AngleUnits::Degrees);
+  const auto expectedType = version == "6_5" ? NumericType::float32 : NumericType::float64;
+  CHECK(args.value<NumericType>(ArrayCalculatorFilter::k_ScalarType_Key) == expectedType);
+  CHECK(args.value<DataPath>(ArrayCalculatorFilter::k_CalculatedArray_Key) == DataPath({"Scan", "Cells", "SineValues"}));
 }
 
 TEST_CASE("SimplnxCore::ArrayCalculatorFilter: Function result indexing", "[SimplnxCore][ArrayCalculatorFilter]")

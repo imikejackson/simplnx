@@ -107,14 +107,14 @@ Result<NeutralMetadataHandout> ReadFromDisk(const fs::path& filePath, bool neutr
   {
     return MakeErrorResult<NeutralMetadataHandout>(k_FailedOpenFileIOError, fmt::format("Failed to open the HDF5 file at the specified path: '{}'", filePath.string()));
   }
-  auto version = GetFileVersion(fileReader);
-  DeferredImageMetadataType deferredImageMetadata;
-  auto result = neutral ? detail::ImportMetadata(fileReader, std::make_shared<InMemoryFormatResolver>(), deferredImageMetadata) : ImportDataStructureFromFile(fileReader, true);
+  NeutralMetadataHandout handout;
+  handout.file_version = GetFileVersion(fileReader);
+  auto result = neutral ? detail::ImportMetadata(fileReader, std::make_shared<InMemoryFormatResolver>(), handout) : ImportDataStructureFromFile(fileReader, true);
   if(result.invalid())
   {
     return ConvertInvalidResult<NeutralMetadataHandout>(std::move(result));
   }
-  NeutralMetadataHandout handout{.data_structure = std::move(result.value()), .file_version = std::move(version), .deferred_image_metadata = std::move(deferredImageMetadata)};
+  handout.data_structure = std::move(result.value());
   return ConvertResultTo<NeutralMetadataHandout>(ConvertResult(std::move(result)), std::move(handout));
 }
 

@@ -17,7 +17,6 @@
 #include "simplnx/Parameters/DynamicTableParameter.hpp"
 #include "simplnx/Parameters/VectorParameter.hpp"
 #include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 #include "simplnx/Utilities/DataArrayUtilities.hpp"
 #include "simplnx/Utilities/DataStoreUtilities.hpp"
@@ -29,6 +28,7 @@
 #include <filesystem>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -711,52 +711,24 @@ TEST_CASE("SimplnxCore::RotateSampleRefFrame: real HDF5 1MiB-page permutation or
 
 TEST_CASE("SimplnxCore::RotateSampleRefFrameFilter: SIMPL Backwards Compatibility", "[SimplnxCore][RotateSampleRefFrameFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "RotateSampleRefFrameFilter.json"},
-      {"SIMPL 6.4 (Filter_Name)", conversionDir / "6_4" / "RotateSampleRefFrameFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
+  const std::string_view version = GENERATE("6_4", "6_5");
+  CAPTURE(version);
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "RotateSampleRefFrameFilter.json";
+  Arguments args;
+  auto pipeline = unit_test::LoadSIMPLConversionPipeline(fixturePath, FilterTraits<RotateSampleRefFrameFilter>::uuid, args);
+  CHECK_FALSE(args.value<BoolParameter::ValueType>(RotateSampleRefFrameFilter::k_ClearFeatureAttributeMatrix_Key));
+  if(version == "6_5")
   {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<RotateSampleRefFrameFilter>::uuid);
-
-      CHECK(pipelineFilterPtr->getComments().empty());
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      CHECK_FALSE(args.value<BoolParameter::ValueType>(RotateSampleRefFrameFilter::k_ClearFeatureAttributeMatrix_Key));
-      if(label == "SIMPL 6.5 (UUID)")
-      {
-        CHECK(args.value<ChoicesParameter::ValueType>(RotateSampleRefFrameFilter::k_RotationRepresentation_Key) == 0);
-        // Complex type (DynamicTableFilterParameterConverter) - verified by successful pipeline loading
-        // Complex type (FloatVec3p1FilterParameterConverter) - verified by successful pipeline loading
-      }
-      CHECK(args.value<DataPath>(RotateSampleRefFrameFilter::k_SelectedImageGeometryPath_Key) == DataPath({"DataContainer"}));
-      DataStructure dataStructure;
-      CreateSequentialImageGeom(dataStructure, "DataContainer", {2, 3, 1});
-      REQUIRE(dataStructure.getDataAs<AttributeMatrix>(DataPath({"DataContainer", "Cell Feature Data"})) == nullptr);
-      CHECK(pipeline.preflight(dataStructure, false));
-      unit_test::CheckArraysInheritTupleDims(dataStructure);
-    }
+    CHECK(args.value<ChoicesParameter::ValueType>(RotateSampleRefFrameFilter::k_RotationRepresentation_Key) == 1);
+    CHECK(args.value<DynamicTableParameter::ValueType>(RotateSampleRefFrameFilter::k_RotationMatrix_Key) == DynamicTableParameter::ValueType{{0, -1, 0, 0}, {1, 0, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}});
   }
+  CHECK(args.value<VectorFloat32ParameterType::ValueType>(RotateSampleRefFrameFilter::k_RotationAxisAngle_Key) == std::vector<float32>{1, -1, 0, 180});
+  CHECK(args.value<DataPath>(RotateSampleRefFrameFilter::k_SelectedImageGeometryPath_Key) == DataPath({"DataContainer"}));
+  DataStructure ds;
+  CreateSequentialImageGeom(ds, "DataContainer", {2, 3, 1});
+  REQUIRE(ds.getDataAs<AttributeMatrix>(DataPath({"DataContainer", "Cell Feature Data"})) == nullptr);
+  CHECK(pipeline.preflight(ds, false));
+  unit_test::CheckArraysInheritTupleDims(ds);
 }
 
 TEST_CASE("SimplnxCore::RotateSampleRefFrame: Child names containing the geometry name are kept", "[SimplnxCore][RotateSampleRefFrame]")
