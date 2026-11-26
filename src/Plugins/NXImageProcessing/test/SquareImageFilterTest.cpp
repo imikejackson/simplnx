@@ -1,4 +1,3 @@
-#include "ItkGoldenTestUtils.hpp"
 #include "UnaryFilterTestUtils.hpp"
 
 #include "NXImageProcessing/Filters/SquareImageFilter.hpp"
@@ -29,31 +28,5 @@ TEST_CASE("NXImageProcessing::SquareImageFilter: square near sqrt(FLT_MAX) overf
 // -----------------------------------------------------------------------------
 TEST_CASE("NXImageProcessing::SquareImageFilter: ITK real-image golden (defaults)", "[NXImageProcessing][ItkGolden][SquareImageFilter]")
 {
-  unit_test::LoadPlugins();
-  const unit_test::PreferencesSentinel prefsSentinel(nx::core::DataStorageMode::ForceInCore, 0);
-
-  const DataPath geom({"Image Geometry"});
-  const DataPath input = geom.createChildPath("CellData").createChildPath("Input");
-  const DataPath output = geom.createChildPath("CellData").createChildPath("Output");
-
-  DataStructure dataStructure;
-  const auto readInput = ip_golden::ReadInputImage(dataStructure, ip_golden::InputPath("Ramp-Zero-One-Float.nrrd"), geom, "CellData", "Input");
-  SIMPLNX_RESULT_REQUIRE_VALID(readInput);
-
-  Arguments args;
-  args.insertOrAssign(SquareImageFilter::k_InputImageGeomPath_Key, std::make_any<DataPath>(geom));
-  args.insertOrAssign(SquareImageFilter::k_InputImageDataPath_Key, std::make_any<DataPath>(input));
-  args.insertOrAssign(SquareImageFilter::k_OutputImageArrayName_Key, std::make_any<std::string>("Output"));
-  SquareImageFilter filter;
-  auto preflightResult = filter.preflight(dataStructure, args);
-  SIMPLNX_RESULT_REQUIRE_VALID(preflightResult.output_actions);
-  auto executeResult = filter.execute(dataStructure, args);
-  SIMPLNX_RESULT_REQUIRE_VALID(executeResult.result);
-
-  // DURABLE golden: md5-validity-first (plan Sec.4).
-  const std::string ourMd5 = ip_golden::ComputeMd5Hash(dataStructure, output);
-  INFO(fmt::format("SquareImageFilter defaults md5: ours='{}' committed='{}'", ourMd5, "314065b457b66e102b9cafd7c49be6b3"));
-  REQUIRE(ourMd5 == "314065b457b66e102b9cafd7c49be6b3");
-
-  unit_test::CheckArraysInheritTupleDims(dataStructure);
+  ip_test::CheckItkRampMd5(ip_test::RunPointwiseFilter<SquareImageFilter>, "314065b457b66e102b9cafd7c49be6b3");
 }

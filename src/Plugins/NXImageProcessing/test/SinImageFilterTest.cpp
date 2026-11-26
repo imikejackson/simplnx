@@ -1,4 +1,4 @@
-#include "ItkGoldenTestUtils.hpp"
+#include "UnaryFilterTestUtils.hpp"
 
 #include "NXImageProcessing/Filters/SinImageFilter.hpp"
 
@@ -11,34 +11,5 @@ using namespace nx::core;
 // -----------------------------------------------------------------------------
 TEST_CASE("NXImageProcessing::SinImageFilter: ITK real-image golden (defaults)", "[NXImageProcessing][ItkGolden][SinImageFilter]")
 {
-  unit_test::LoadPlugins();
-  const unit_test::PreferencesSentinel prefsSentinel(nx::core::DataStorageMode::ForceInCore, 0);
-
-  const DataPath geom({"Image Geometry"});
-  const DataPath input = geom.createChildPath("CellData").createChildPath("Input");
-  const DataPath output = geom.createChildPath("CellData").createChildPath("Output");
-
-  DataStructure dataStructure;
-  const auto readInput = ip_golden::ReadInputImage(dataStructure, ip_golden::InputPath("Ramp-Zero-One-Float.nrrd"), geom, "CellData", "Input");
-  SIMPLNX_RESULT_REQUIRE_VALID(readInput);
-
-  Arguments args;
-  args.insertOrAssign(SinImageFilter::k_InputImageGeomPath_Key, std::make_any<DataPath>(geom));
-  args.insertOrAssign(SinImageFilter::k_InputImageDataPath_Key, std::make_any<DataPath>(input));
-  args.insertOrAssign(SinImageFilter::k_OutputImageArrayName_Key, std::make_any<std::string>("Output"));
-  SinImageFilter filter;
-  auto preflightResult = filter.preflight(dataStructure, args);
-  SIMPLNX_RESULT_REQUIRE_VALID(preflightResult.output_actions);
-  auto executeResult = filter.execute(dataStructure, args);
-  SIMPLNX_RESULT_REQUIRE_VALID(executeResult.result);
-
-  // DURABLE golden: baseline compare @ 0.01.
-  const DataPath bGeom({"Baseline Geometry"});
-  const auto readBaseline = ip_golden::ReadInputImage(dataStructure, ip_golden::BaselinePath("BasicFilters_SinImageFilter_defaults.nrrd"), bGeom, "CellData", "Baseline");
-  SIMPLNX_RESULT_REQUIRE_VALID(readBaseline);
-  const DataPath baseline = bGeom.createChildPath("CellData").createChildPath("Baseline");
-  const auto compareResult = ip_golden::CompareImages(dataStructure, bGeom, baseline, geom, output, 0.01);
-  SIMPLNX_RESULT_REQUIRE_VALID(compareResult);
-
-  unit_test::CheckArraysInheritTupleDims(dataStructure);
+  ip_test::CheckItkRampBaseline(ip_test::RunPointwiseFilter<SinImageFilter>, "BasicFilters_SinImageFilter_defaults.nrrd", 0.01);
 }

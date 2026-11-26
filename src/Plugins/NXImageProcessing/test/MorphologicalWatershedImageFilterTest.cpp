@@ -13,7 +13,6 @@
 #include "simplnx/DataStructure/IDataArray.hpp"
 #include "simplnx/Filter/IFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
-#include "simplnx/Utilities/DataStoreUtilities.hpp"
 #include "simplnx/Utilities/ImageProcessing/ImageProcessingConstants.hpp"
 #include "simplnx/Utilities/ImageProcessing/ImageProcessingFilterUtilities.hpp"
 
@@ -65,11 +64,7 @@ TEST_CASE("NXImageProcessing::MorphologicalWatershedImageFilter: preflight guard
   SECTION("multi-component rejected")
   {
     DataStructure dataStructure;
-    const DataPath scalarPath = rt::BuildImageFromPattern<int32>(dataStructure, 6, 6, 1, std::vector<int32>(36, 0));
-    const DataPath vecPath({"Image Geometry", "CellData", "Vec"});
-    auto vecStore = data_store_utilities::CreateDataStore<int32>(dataStructure, vecPath, {1, 6, 6}, {3});
-    const auto& cellAM = dataStructure.getDataRefAs<AttributeMatrix>(DataPath({"Image Geometry", "CellData"}));
-    DataArray<int32>::Create(dataStructure, "Vec", vecStore, cellAM.getId());
+    const DataPath vecPath = rt::BuildThreeComponentImage(dataStructure);
     const DataPath geomPath = vecPath.getParent().getParent();
     WsFilterType filter;
     Arguments args;

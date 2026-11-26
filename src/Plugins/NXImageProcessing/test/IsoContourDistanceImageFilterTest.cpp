@@ -102,11 +102,7 @@ TEST_CASE("NXImageProcessing::IsoContourDistanceImageFilter: preflight accepts f
   SECTION("multi-component rejected")
   {
     DataStructure dataStructure;
-    const DataPath scalarPath = rt::BuildImageFromPattern<int32>(dataStructure, 6, 6, 1, std::vector<int32>(36, 0)); // creates the geometry + CellData
-    const DataPath vecPath({"Image Geometry", "CellData", "Vec"});
-    auto vecStore = data_store_utilities::CreateDataStore<int32>(dataStructure, vecPath, {1, 6, 6}, {3});
-    const auto& cellAM = dataStructure.getDataRefAs<AttributeMatrix>(DataPath({"Image Geometry", "CellData"}));
-    DataArray<int32>::Create(dataStructure, "Vec", vecStore, cellAM.getId());
+    const DataPath vecPath = rt::BuildThreeComponentImage(dataStructure);
 
     auto result = runPreflight(dataStructure, vecPath);
     REQUIRE(result.output_actions.invalid());
