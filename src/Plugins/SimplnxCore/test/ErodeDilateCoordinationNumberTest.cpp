@@ -1,3 +1,5 @@
+#include "CellDataAliasTestUtils.hpp"
+
 #include "SimplnxCore/Filters/ErodeDilateCoordinationNumberFilter.hpp"
 #include "SimplnxCore/SimplnxCore_test_dirs.hpp"
 
@@ -7,7 +9,6 @@
 
 #include "simplnx/DataStructure/AttributeMatrix.hpp"
 #include "simplnx/DataStructure/DataArray.hpp"
-#include "simplnx/DataStructure/DataGroup.hpp"
 #include "simplnx/DataStructure/DataStore.hpp"
 #include "simplnx/DataStructure/Geometry/ImageGeom.hpp"
 #include "simplnx/Parameters/ArraySelectionParameter.hpp"
@@ -521,15 +522,9 @@ TEST_CASE("SimplnxCore::ErodeDilateCoordinationNumberFilter: Literal Scan Order"
 
       ExecuteCoordinationLiteralFixture(fixture);
 
-      REQUIRE_NOTHROW(fixture.data_structure.getDataRefAs<Int32ArrayType>(fixture.feature_ids_path));
-      const auto& actualFeatureIdsArrayRef = fixture.data_structure.getDataRefAs<Int32ArrayType>(fixture.feature_ids_path);
-      REQUIRE_NOTHROW(fixture.data_structure.getDataRefAs<Int32ArrayType>(fixture.transferred_values_path));
-      const auto& actualTransferredValuesArrayRef = fixture.data_structure.getDataRefAs<Int32ArrayType>(fixture.transferred_values_path);
-      REQUIRE_NOTHROW(fixture.data_structure.getDataRefAs<Int32ArrayType>(fixture.ignored_values_path));
-      const auto& actualIgnoredValuesArrayRef = fixture.data_structure.getDataRefAs<Int32ArrayType>(fixture.ignored_values_path);
-      CheckCoordinationValues(actualFeatureIdsArrayRef, k_ExpectedFeatureIds);
-      CheckCoordinationValues(actualTransferredValuesArrayRef, k_ExpectedTransferredValues);
-      CheckCoordinationValues(actualIgnoredValuesArrayRef, k_ExpectedIgnoredValues);
+      CheckCoordinationValues(fixture, fixture.feature_ids_path, k_ExpectedFeatureIds);
+      CheckCoordinationValues(fixture, fixture.transferred_values_path, k_ExpectedTransferredValues);
+      CheckCoordinationValues(fixture, fixture.ignored_values_path, k_ExpectedIgnoredValues);
     }
   }
 }
@@ -766,57 +761,30 @@ TEST_CASE("SimplnxCore::ErodeDilateCoordinationNumberFilter: Strict Feature Ids"
 {
   unit_test::LoadPlugins();
   DataStructure dataStructure;
-  const DataPath geometryPath({"Strict Geometry"});
-  const DataPath cellPath = geometryPath.createChildPath("Cell Data");
-  const DataPath featureIdsPath = cellPath.createChildPath("Feature Ids");
-  const DataPath otherPath = geometryPath.createChildPath("Other Data").createChildPath("Other Values");
-  const ShapeType shape{1, 2, 2};
-  auto* imageGeomPtr = ImageGeom::Create(dataStructure, geometryPath.getTargetName());
-  REQUIRE(imageGeomPtr != nullptr);
-  imageGeomPtr->setDimensions({2, 2, 1});
-  auto* cellsPtr = AttributeMatrix::Create(dataStructure, "Cell Data", shape, imageGeomPtr->getId());
-  REQUIRE(cellsPtr != nullptr);
-  imageGeomPtr->setCellData(*cellsPtr);
-  REQUIRE(AttributeMatrix::Create(dataStructure, "Feature Data", ShapeType{3}, imageGeomPtr->getId()) != nullptr);
-  auto* otherPtr = AttributeMatrix::Create(dataStructure, "Other Data", shape, imageGeomPtr->getId());
-  REQUIRE(otherPtr != nullptr);
-  REQUIRE(Int32ArrayType::Create(dataStructure, "Feature Ids", std::make_shared<DataStore<int32>>(shape, ShapeType{1}, 1), cellsPtr->getId()) != nullptr);
-  REQUIRE(Int32ArrayType::Create(dataStructure, "Other Values", std::make_shared<DataStore<int32>>(shape, ShapeType{1}, 1), otherPtr->getId()) != nullptr);
+  CellDataAliasTest::BuildStrictInput(dataStructure);
 
   ErodeDilateCoordinationNumberFilter filter;
   auto args = filter.getDefaultArguments();
-  args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_SelectedImageGeometryPath_Key, std::make_any<DataPath>(geometryPath));
-  args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_CellFeatureIdsArrayPath_Key, std::make_any<DataPath>(featureIdsPath));
+  args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_SelectedImageGeometryPath_Key, std::make_any<DataPath>(CellDataAliasTest::k_StrictGeometry));
+  args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_CellFeatureIdsArrayPath_Key, std::make_any<DataPath>(CellDataAliasTest::k_StrictIds));
 
   int32 expectedCode = 0;
   SECTION("Correct Cell Attribute Matrix")
   {
-    args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_IgnoredDataArrayPaths_Key, std::make_any<std::vector<DataPath>>(std::vector<DataPath>{featureIdsPath}));
+    args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_IgnoredDataArrayPaths_Key, std::make_any<std::vector<DataPath>>(std::vector<DataPath>{CellDataAliasTest::k_StrictIds}));
   }
   SECTION("Feature Ids in another Attribute Matrix with the same tuple shape")
   {
-    args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_CellFeatureIdsArrayPath_Key, std::make_any<DataPath>(otherPath));
+    args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_CellFeatureIdsArrayPath_Key, std::make_any<DataPath>(CellDataAliasTest::k_OtherValues));
     expectedCode = -16801;
   }
   SECTION("Ignored array in another Attribute Matrix")
   {
-    args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_IgnoredDataArrayPaths_Key, std::make_any<std::vector<DataPath>>(std::vector<DataPath>{otherPath}));
+    args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_IgnoredDataArrayPaths_Key, std::make_any<std::vector<DataPath>>(std::vector<DataPath>{CellDataAliasTest::k_OtherValues}));
     expectedCode = -16802;
   }
   const auto result = filter.preflight(dataStructure, args);
-  if(expectedCode == 0)
-  {
-    REQUIRE(result.output_actions.valid());
-  }
-  else
-  {
-    REQUIRE(result.output_actions.invalid());
-    REQUIRE(result.output_actions.errors().size() == 1);
-    CHECK(result.output_actions.errors().front().code == expectedCode);
-    CHECK(result.output_actions.errors().front().message.find(otherPath.toString()) != std::string::npos);
-    CHECK(result.output_actions.errors().front().message.find(cellPath.toString()) != std::string::npos);
-    CHECK(result.output_actions.errors().front().message.find(geometryPath.toString()) != std::string::npos);
-  }
+  CellDataAliasTest::CheckStrictPreflight(result, expectedCode);
   unit_test::CheckArraysInheritTupleDims(dataStructure);
 }
 
@@ -824,53 +792,21 @@ TEST_CASE("SimplnxCore::ErodeDilateCoordinationNumberFilter: Ignored Array Cell 
 {
   unit_test::LoadPlugins();
   DataStructure dataStructure;
-  const DataPath geometryPath({"Alias Test Geometry"});
-  const DataPath cellPath = geometryPath.createChildPath("Cells");
-  const DataPath ignoredPath = cellPath.createChildPath("Ignored");
-  const DataPath aliasCellPath({"Alternate Parent", "Cells"});
-  const ShapeType shape{1, 1, 4};
-  auto* imageGeomPtr = ImageGeom::Create(dataStructure, geometryPath.getTargetName());
-  REQUIRE(imageGeomPtr != nullptr);
-  imageGeomPtr->setDimensions({4, 1, 1});
-  auto* cellsPtr = AttributeMatrix::Create(dataStructure, "Cells", shape, imageGeomPtr->getId());
-  REQUIRE(cellsPtr != nullptr);
-  imageGeomPtr->setCellData(*cellsPtr);
-  auto* alternateParentPtr = DataGroup::Create(dataStructure, "Alternate Parent");
-  REQUIRE(alternateParentPtr != nullptr);
-  REQUIRE(dataStructure.setAdditionalParent(cellsPtr->getId(), alternateParentPtr->getId()));
-  REQUIRE(imageGeomPtr->getCellDataPath() == cellPath);
-  auto* idsPtr = Int32ArrayType::Create(dataStructure, "Ids", std::make_shared<DataStore<int32>>(shape, ShapeType{1}, 0), cellsPtr->getId());
-  auto* ignoredPtr = Int32ArrayType::Create(dataStructure, "Ignored", std::make_shared<DataStore<int32>>(shape, ShapeType{1}, 0), cellsPtr->getId());
-  REQUIRE(idsPtr != nullptr);
-  REQUIRE(ignoredPtr != nullptr);
-  const std::vector<int32> originalIds{1, 0, 0, 1};
-  for(usize index = 0; index < 4; index++)
-  {
-    (*idsPtr)[index] = originalIds[index];
-    (*ignoredPtr)[index] = static_cast<int32>(10 * (index + 1));
-  }
+  CellDataAliasTest::BuildAliasInput(dataStructure);
+
   ErodeDilateCoordinationNumberFilter filter;
   auto args = filter.getDefaultArguments();
-  args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_SelectedImageGeometryPath_Key, std::make_any<DataPath>(geometryPath));
-  args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_CellFeatureIdsArrayPath_Key, std::make_any<DataPath>(aliasCellPath.createChildPath("Ids")));
-  args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_IgnoredDataArrayPaths_Key, std::make_any<std::vector<DataPath>>(std::vector<DataPath>{aliasCellPath.createChildPath("Ignored")}));
+  args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_SelectedImageGeometryPath_Key, std::make_any<DataPath>(CellDataAliasTest::k_AliasGeometry));
+  args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_CellFeatureIdsArrayPath_Key, std::make_any<DataPath>(CellDataAliasTest::k_AliasCells.createChildPath("Ids")));
+  args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_IgnoredDataArrayPaths_Key,
+                      std::make_any<std::vector<DataPath>>(std::vector<DataPath>{CellDataAliasTest::k_AliasCells.createChildPath("Ignored")}));
   args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_CoordinationNumber_Key, std::make_any<int32>(1));
   args.insertOrAssign(ErodeDilateCoordinationNumberFilter::k_Loop_Key, std::make_any<bool>(false));
   const auto preflight = filter.preflight(dataStructure, args);
-  REQUIRE(preflight.output_actions.valid());
-  for(const auto& modification : preflight.output_actions.value().modified_actions)
-  {
-    CHECK(modification.modified_path != ignoredPath);
-  }
+  CellDataAliasTest::CheckAliasPreflight(preflight);
   const auto execute = filter.execute(dataStructure, args);
   SIMPLNX_RESULT_REQUIRE_VALID(execute.result);
-  bool idsChanged = false;
-  for(usize index = 0; index < 4; index++)
-  {
-    CHECK((*ignoredPtr)[index] == static_cast<int32>(10 * (index + 1)));
-    idsChanged = idsChanged || (*idsPtr)[index] != originalIds[index];
-  }
-  CHECK(idsChanged);
+  CellDataAliasTest::CheckAliasOutput(dataStructure, {0, 0, 1, 1});
   unit_test::CheckArraysInheritTupleDims(dataStructure);
 }
 
