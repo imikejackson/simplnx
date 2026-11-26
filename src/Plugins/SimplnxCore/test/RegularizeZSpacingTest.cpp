@@ -1,3 +1,5 @@
+#include "ImageGeometryFeatureTestUtils.hpp"
+
 #include "simplnx/DataStructure/Geometry/VertexGeom.hpp"
 #include <catch2/catch.hpp>
 
@@ -9,7 +11,6 @@
 #include "simplnx/DataStructure/IO/Generic/InMemoryFormatResolver.hpp"
 #include "simplnx/DataStructure/NeighborList.hpp"
 #include "simplnx/DataStructure/StringArray.hpp"
-#include "simplnx/Filter/Actions/CopyDataObjectAction.hpp"
 #include "simplnx/Parameters/BoolParameter.hpp"
 #include "simplnx/Parameters/FileSystemPathParameter.hpp"
 #include "simplnx/Parameters/GeometrySelectionParameter.hpp"
@@ -113,23 +114,7 @@ DataStructure CreateFeatureRegularizeFixture()
     (*featureIdsPtr)[z] = static_cast<int32>(z + 1);
   }
 
-  auto* featureDataPtr = AttributeMatrix::Create(dataStructure, "Cell Feature Data", ShapeType{5}, imageGeomPtr->getId());
-  REQUIRE(featureDataPtr != nullptr);
-  auto* numElementsPtr = unit_test::CreateTestDataArray<int32>(dataStructure, "NumElements", {5}, {1}, featureDataPtr->getId());
-  REQUIRE(numElementsPtr != nullptr);
-  numElementsPtr->fill(1);
-  (*numElementsPtr)[0] = 0;
-  auto* neighborsPtr = NeighborList<int32>::Create(dataStructure, "NeighborList", ShapeType{5}, featureDataPtr->getId());
-  REQUIRE(neighborsPtr != nullptr);
-  neighborsPtr->setLists({{}, {2}, {1, 3}, {2, 4}, {3}});
-  REQUIRE(StringArray::CreateWithValues(dataStructure, "Names", ShapeType{5}, {"Background", "One", "Two", "Three", "Four"}, featureDataPtr->getId()) != nullptr);
-
-  auto* ensembleDataPtr = AttributeMatrix::Create(dataStructure, "Cell Ensemble Data", ShapeType{2}, imageGeomPtr->getId());
-  REQUIRE(ensembleDataPtr != nullptr);
-  auto* crystalStructuresPtr = unit_test::CreateTestDataArray<uint32>(dataStructure, "CrystalStructures", {2}, {1}, ensembleDataPtr->getId());
-  REQUIRE(crystalStructuresPtr != nullptr);
-  (*crystalStructuresPtr)[0] = 999;
-  (*crystalStructuresPtr)[1] = 1;
+  ImageGeometryFeatureTest::AddFourFeatureData(dataStructure, *imageGeomPtr, 1);
   return dataStructure;
 }
 
@@ -1024,28 +1009,7 @@ TEST_CASE("SimplnxCore::RegularizeZSpacingFilter: Feature AM nested alias regres
   auto ds = CreateFeatureRegularizeFixture();
   const DataPath sourcePath({"Image"});
   const DataPath outputPath({"Regularized"});
-  const auto featurePath = sourcePath.createChildPath("Cell Feature Data");
-  const auto* featuresPtr = ds.getDataAs<AttributeMatrix>(featurePath);
-  REQUIRE(featuresPtr != nullptr);
-  const auto featureId = featuresPtr->getId();
-  const auto shape = featuresPtr->getShape();
-  const auto countsPath = featurePath.createChildPath("NumElements");
-  const auto& counts = ds.getDataRefAs<Int32ArrayType>(countsPath);
-  std::vector<int32> originalCounts(counts.getSize());
-  for(usize i = 0; i < originalCounts.size(); ++i)
-  {
-    originalCounts[i] = counts[i];
-  }
-  auto* nestedPtr = DataGroup::Create(ds, "Misc", ds.getData(sourcePath)->getId());
-  REQUIRE(nestedPtr != nullptr);
-  auto* keepPtr = unit_test::CreateTestDataArray<int32>(ds, "Keep", {1}, {1}, nestedPtr->getId());
-  REQUIRE(keepPtr != nullptr);
-  (*keepPtr)[0] = 123;
-  REQUIRE(ds.setAdditionalParent(featureId, nestedPtr->getId()));
-  auto* outsidePtr = DataGroup::Create(ds, "Outside");
-  REQUIRE(outsidePtr != nullptr);
-  REQUIRE(ds.setAdditionalParent(nestedPtr->getId(), outsidePtr->getId()));
-  const auto parents = ds.getData(featurePath)->getParentIds();
+  const auto originalPtr = ImageGeometryFeatureTest::AddNestedFeatureAlias(ds, sourcePath);
   auto args = MakeFeatureRegularizeArgs(clear, renumber);
   if(selectNested)
   {
@@ -1054,46 +1018,10 @@ TEST_CASE("SimplnxCore::RegularizeZSpacingFilter: Feature AM nested alias regres
   RegularizeZSpacingFilter filter;
   auto preflight = filter.preflight(ds, args);
   SIMPLNX_RESULT_REQUIRE_VALID(preflight.output_actions);
-  bool foundNestedCopy = false;
-  const auto nestedOutputPath = outputPath.createChildPath("Misc").createChildPath("Cell Feature Data");
-  for(const auto& action : preflight.output_actions.value().actions)
-  {
-    const auto* copyPtr = dynamic_cast<const CopyDataObjectAction*>(action.get());
-    if(copyPtr != nullptr && copyPtr->path() == sourcePath.createChildPath("Misc"))
-    {
-      foundNestedCopy = true;
-      bool declaresFeature = false;
-      for(const auto& created : copyPtr->getAllCreatedPaths())
-      {
-        if(created.rebase(nestedOutputPath, DataPath{}).has_value())
-        {
-          declaresFeature = true;
-        }
-      }
-      CHECK(declaresFeature == !clear);
-    }
-  }
-  REQUIRE(foundNestedCopy);
+  ImageGeometryFeatureTest::CheckNestedFeatureCopyAction(preflight.output_actions.value(), sourcePath, outputPath, clear);
   auto result = filter.execute(ds, args);
   SIMPLNX_RESULT_REQUIRE_VALID(result.result);
-  const auto* outputFeaturesPtr = ds.getDataAs<AttributeMatrix>(outputPath.createChildPath("Cell Feature Data"));
-  REQUIRE(outputFeaturesPtr != nullptr);
-  CHECK(outputFeaturesPtr->getSize() == (clear ? 0 : 3));
-  CHECK((ds.getData(nestedOutputPath) == nullptr) == clear);
-  CHECK(ds.getDataRefAs<Int32ArrayType>(outputPath.createChildPath("Misc").createChildPath("Keep"))[0] == 123);
-  CHECK(ds.getData(featurePath)->getId() == featureId);
-  CHECK(ds.getData(featurePath)->getParentIds() == parents);
-  CHECK(ds.getDataRefAs<AttributeMatrix>(featurePath).getShape() == shape);
-  CHECK(ds.getDataRefAs<AttributeMatrix>(featurePath).getSize() == 3);
-  CHECK(ds.getData(DataPath({"Outside", "Misc", "Cell Feature Data"}))->getId() == featureId);
-  for(usize i = 0; i < originalCounts.size(); ++i)
-  {
-    CHECK(ds.getDataRefAs<Int32ArrayType>(countsPath)[i] == originalCounts[i]);
-    if(!clear)
-    {
-      CHECK(ds.getDataRefAs<Int32ArrayType>(nestedOutputPath.createChildPath("NumElements"))[i] == originalCounts[i]);
-    }
-  }
+  ImageGeometryFeatureTest::CheckNestedFeatureAlias(ds, sourcePath, outputPath, clear, originalPtr);
 }
 
 TEST_CASE("SimplnxCore::RegularizeZSpacingFilter: Reject nonnumeric Feature Ids", "[SimplnxCore][RegularizeZSpacingFilter][ClearFeatureAM]")
@@ -1132,13 +1060,7 @@ TEST_CASE("SimplnxCore::RegularizeZSpacingFilter: Reject another geometry elemen
   const auto featurePath = DataPath({"Image", "Cell Feature Data"});
   const auto* featuresPtr = ds.getDataAs<AttributeMatrix>(featurePath);
   REQUIRE(featuresPtr != nullptr);
-  auto* otherPtr = VertexGeom::Create(ds, "OtherGeometry");
-  REQUIRE(otherPtr != nullptr);
-  auto* verticesPtr = unit_test::CreateTestDataArray<float32>(ds, "Vertices", {featuresPtr->getNumberOfTuples()}, {3}, otherPtr->getId());
-  REQUIRE(verticesPtr != nullptr);
-  otherPtr->setVertices(*verticesPtr);
-  REQUIRE(ds.setAdditionalParent(featuresPtr->getId(), otherPtr->getId()));
-  otherPtr->setVertexAttributeMatrix(*featuresPtr);
+  const auto& otherPtr = ImageGeometryFeatureTest::ShareFeatureMatrixWithVertexGeometry(ds, *featuresPtr);
   RegularizeZSpacingFilter filter;
   auto result = filter.preflight(ds, MakeFeatureRegularizeArgs(true, false));
   SIMPLNX_RESULT_REQUIRE_INVALID(result.output_actions);
@@ -1146,7 +1068,7 @@ TEST_CASE("SimplnxCore::RegularizeZSpacingFilter: Reject another geometry elemen
   CHECK(result.output_actions.errors()[0].code == -67460);
   CHECK(result.output_actions.errors()[0].message.find(featurePath.toString()) != std::string::npos);
   CHECK(result.output_actions.errors()[0].message.find("OtherGeometry") != std::string::npos);
-  CHECK(otherPtr->getVertexAttributeMatrix() == featuresPtr);
+  CHECK(otherPtr.getVertexAttributeMatrix() == featuresPtr);
   CHECK(featuresPtr->getSize() > 0);
 }
 
