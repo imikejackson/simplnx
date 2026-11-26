@@ -8,9 +8,6 @@
 #include "simplnx/Parameters/FileSystemPathParameter.hpp"
 #include "simplnx/Utilities/Parsing/HDF5/IO/FileIO.hpp"
 
-#include "simplnx/Core/Application.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 
 #include <catch2/catch.hpp>
@@ -141,41 +138,11 @@ TEST_CASE("SimplnxCore::ApproximatePointCloudHullFilter: Instantiate Filter", "[
 
 TEST_CASE("SimplnxCore::ApproximatePointCloudHullFilter: SIMPL Backwards Compatibility", "[SimplnxCore][ApproximatePointCloudHullFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "ApproximatePointCloudHullFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<ApproximatePointCloudHullFilter>::uuid);
-
-      CHECK(pipelineFilterPtr->getComments().empty());
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      CHECK(args.value<uint64>(ApproximatePointCloudHullFilter::k_MinEmptyNeighbors_Key) == 5);
-      CHECK(args.value<DataPath>(ApproximatePointCloudHullFilter::k_VertexGeomPath_Key) == DataPath({"VertexDataContainer"}));
-      CHECK(args.value<DataPath>(ApproximatePointCloudHullFilter::k_HullVertexGeomPath_Key) == DataPath({"HullDataContainer"}));
-    }
-  }
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / "6_5" / "ApproximatePointCloudHullFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<ApproximatePointCloudHullFilter>::uuid);
+  CHECK(args.value<uint64>(ApproximatePointCloudHullFilter::k_MinEmptyNeighbors_Key) == 5);
+  CHECK(args.value<DataPath>(ApproximatePointCloudHullFilter::k_VertexGeomPath_Key) == DataPath({"VertexDataContainer"}));
+  CHECK(args.value<DataPath>(ApproximatePointCloudHullFilter::k_HullVertexGeomPath_Key) == DataPath({"HullDataContainer"}));
 }
 
 namespace

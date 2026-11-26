@@ -11,7 +11,6 @@
 #include "simplnx/DataStructure/NeighborList.hpp"
 #include "simplnx/Parameters/StringParameter.hpp"
 #include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 #include "simplnx/Utilities/AlgorithmDispatch.hpp"
 #include "simplnx/Utilities/DataStoreUtilities.hpp"
@@ -906,42 +905,13 @@ TEMPLATE_LIST_TEST_CASE("SimplnxCore::CopyFeatureArrayToElementArrayFilter: Vali
 
 TEST_CASE("SimplnxCore::CopyFeatureArrayToElementArrayFilter: SIMPL Backwards Compatibility", "[SimplnxCore][CopyFeatureArrayToElementArrayFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "CopyFeatureArrayToElementArrayFilter.json"},
-      {"SIMPL 6.4 (Filter_Name)", conversionDir / "6_4" / "CopyFeatureArrayToElementArrayFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<CopyFeatureArrayToElementArrayFilter>::uuid);
-
-      CHECK(pipelineFilterPtr->getComments().empty());
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      CHECK(args.value<std::vector<DataPath>>(CopyFeatureArrayToElementArrayFilter::k_SelectedFeatureArrayPaths_Key) == std::vector<DataPath>{DataPath({"DataContainer", "CellData", "TestArray"})});
-      CHECK(args.value<DataPath>(CopyFeatureArrayToElementArrayFilter::k_CellFeatureIdsArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      // Legacy CreatedArrayName does not map to the suffix parameter.
-      // The copied array keeps its input name, so the suffix remains empty.
-      CHECK(args.value<std::string>(CopyFeatureArrayToElementArrayFilter::k_CreatedArraySuffix_Key).empty());
-    }
-  }
+  const auto version = GENERATE("6_4", "6_5");
+  CAPTURE(version);
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "CopyFeatureArrayToElementArrayFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<CopyFeatureArrayToElementArrayFilter>::uuid);
+  CHECK(args.value<std::vector<DataPath>>(CopyFeatureArrayToElementArrayFilter::k_SelectedFeatureArrayPaths_Key) == std::vector<DataPath>{DataPath({"DataContainer", "CellData", "TestArray"})});
+  CHECK(args.value<DataPath>(CopyFeatureArrayToElementArrayFilter::k_CellFeatureIdsArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
+  // Legacy CreatedArrayName does not map to the suffix parameter.
+  // The copied array keeps its input name, so the suffix remains empty.
+  CHECK(args.value<std::string>(CopyFeatureArrayToElementArrayFilter::k_CreatedArraySuffix_Key).empty());
 }

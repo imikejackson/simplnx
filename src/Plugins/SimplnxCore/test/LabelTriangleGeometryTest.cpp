@@ -7,8 +7,6 @@
 #include "simplnx/DataStructure/Geometry/TriangleGeom.hpp"
 #include "simplnx/DataStructure/IO/HDF5/DataStructureReader.hpp"
 #include "simplnx/DataStructure/IO/HDF5/DataStructureWriter.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 #include "simplnx/Utilities/DataStoreUtilities.hpp"
 
@@ -85,42 +83,12 @@ TEST_CASE("SimplnxCore::LabelTriangleGeometryFilter: Valid Filter Execution", "[
 
 TEST_CASE("SimplnxCore::LabelTriangleGeometryFilter: SIMPL Backwards Compatibility", "[SimplnxCore][LabelTriangleGeometryFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "LabelTriangleGeometryFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<LabelTriangleGeometryFilter>::uuid);
-
-      CHECK(pipelineFilterPtr->getComments().empty());
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      CHECK(args.value<DataPath>(LabelTriangleGeometryFilter::k_TriangleGeomPath_Key) == DataPath({"DataContainer"}));
-      CHECK(args.value<DataPath>(LabelTriangleGeometryFilter::k_CreatedRegionIdsPath_Key) == DataPath({"DataContainer", "FaceData", "RegionIds"}));
-      CHECK(args.value<std::string>(LabelTriangleGeometryFilter::k_TriangleAttributeMatrixName_Key) == "TriangleData");
-      CHECK(args.value<std::string>(LabelTriangleGeometryFilter::k_NumTrianglesName_Key) == "NumTriangles");
-    }
-  }
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / "6_5" / "LabelTriangleGeometryFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<LabelTriangleGeometryFilter>::uuid);
+  CHECK(args.value<DataPath>(LabelTriangleGeometryFilter::k_TriangleGeomPath_Key) == DataPath({"DataContainer"}));
+  CHECK(args.value<DataPath>(LabelTriangleGeometryFilter::k_CreatedRegionIdsPath_Key) == DataPath({"DataContainer", "FaceData", "RegionIds"}));
+  CHECK(args.value<std::string>(LabelTriangleGeometryFilter::k_TriangleAttributeMatrixName_Key) == "TriangleData");
+  CHECK(args.value<std::string>(LabelTriangleGeometryFilter::k_NumTrianglesName_Key) == "NumTriangles");
 }
 
 namespace

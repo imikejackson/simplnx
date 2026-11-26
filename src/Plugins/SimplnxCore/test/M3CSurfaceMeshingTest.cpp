@@ -2,7 +2,6 @@
 #include "SimplnxCore/SimplnxCore_test_dirs.hpp"
 #include "SurfaceMeshingTestUtils.hpp"
 
-#include "simplnx/Core/Application.hpp"
 #include "simplnx/DataStructure/AttributeMatrix.hpp"
 #include "simplnx/DataStructure/DataArray.hpp"
 #include "simplnx/DataStructure/Geometry/INodeGeometry0D.hpp"
@@ -12,8 +11,6 @@
 #include "simplnx/DataStructure/Geometry/TriangleGeom.hpp"
 #include "simplnx/Parameters/BoolParameter.hpp"
 #include "simplnx/Parameters/MultiArraySelectionParameter.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/CellTupleCountTest.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 #include "simplnx/Utilities/DataStoreUtilities.hpp"
@@ -593,26 +590,8 @@ void ExecuteM3CParityCase(DataStructure& dataStructure, AlgorithmTestScope& scop
 
 TEST_CASE("SimplnxCore::M3CSurfaceMeshingFilter: SIMPL Backwards Compatibility", "[SimplnxCore][M3CSurfaceMeshingFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
   const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / "6_5" / "M3CSurfaceMeshingFilter.json";
-
-  auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-  REQUIRE(pipelineResult.valid());
-
-  auto& pipeline = pipelineResult.value();
-  REQUIRE(pipeline.size() == 1);
-
-  auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-  REQUIRE(pipelineFilterPtr != nullptr);
-
-  const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-  REQUIRE(filterPtr != nullptr);
-  REQUIRE(filterPtr->uuid() == FilterTraits<M3CSurfaceMeshingFilter>::uuid);
-
-  const Arguments args = pipelineFilterPtr->getArguments();
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<M3CSurfaceMeshingFilter>::uuid);
   CHECK(args.value<DataPath>(M3CSurfaceMeshingFilter::k_GridGeometryDataPath_Key) == DataPath({"DataContainer"}));
   CHECK(args.value<DataPath>(M3CSurfaceMeshingFilter::k_FeatureIdsArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
   CHECK(args.value<DataPath>(M3CSurfaceMeshingFilter::k_CreatedTriangleGeometryPath_Key) == DataPath({"DataContainer"}));

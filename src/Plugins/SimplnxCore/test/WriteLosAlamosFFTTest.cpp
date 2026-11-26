@@ -2,14 +2,11 @@
 #include <catch2/catch.hpp>
 
 #include "simplnx/Common/Constants.hpp"
-#include "simplnx/Core/Application.hpp"
 #include "simplnx/DataStructure/AttributeMatrix.hpp"
 #include "simplnx/DataStructure/DataArray.hpp"
 #include "simplnx/DataStructure/Geometry/ImageGeom.hpp"
 #include "simplnx/Parameters/ArraySelectionParameter.hpp"
 #include "simplnx/Parameters/FileSystemPathParameter.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 #include "simplnx/Utilities/AlgorithmDispatch.hpp"
 #include "simplnx/Utilities/DataStoreUtilities.hpp"
@@ -181,44 +178,15 @@ TEST_CASE("SimplnxCore::WriteLosAlamosFFTFilter: Valid Filter Execution", "[Simp
 
 TEST_CASE("SimplnxCore::WriteLosAlamosFFTFilter: SIMPL Backwards Compatibility", "[SimplnxCore][WriteLosAlamosFFTFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "WriteLosAlamosFFTFilter.json"},
-      {"SIMPL 6.4 (Filter_Name)", conversionDir / "6_4" / "WriteLosAlamosFFTFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<WriteLosAlamosFFTFilter>::uuid);
-
-      CHECK(pipelineFilterPtr->getComments().empty());
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      CHECK(args.value<FileSystemPathParameter::ValueType>(WriteLosAlamosFFTFilter::k_OutputFile_Key) == fs::path("/test/path/file.txt"));
-      CHECK(args.value<DataPath>(WriteLosAlamosFFTFilter::k_ImageGeomPath) == DataPath({"DataContainer"}));
-      CHECK(args.value<DataPath>(WriteLosAlamosFFTFilter::k_FeatureIdsArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<DataPath>(WriteLosAlamosFFTFilter::k_CellEulerAnglesArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<DataPath>(WriteLosAlamosFFTFilter::k_CellPhasesArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-    }
-  }
+  const auto version = GENERATE("6_4", "6_5");
+  CAPTURE(version);
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "WriteLosAlamosFFTFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<WriteLosAlamosFFTFilter>::uuid);
+  CHECK(args.value<FileSystemPathParameter::ValueType>(WriteLosAlamosFFTFilter::k_OutputFile_Key) == fs::path("/test/path/file.txt"));
+  CHECK(args.value<DataPath>(WriteLosAlamosFFTFilter::k_ImageGeomPath) == DataPath({"DataContainer"}));
+  CHECK(args.value<DataPath>(WriteLosAlamosFFTFilter::k_FeatureIdsArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
+  CHECK(args.value<DataPath>(WriteLosAlamosFFTFilter::k_CellEulerAnglesArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
+  CHECK(args.value<DataPath>(WriteLosAlamosFFTFilter::k_CellPhasesArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
 }
 
 TEST_CASE("SimplnxCore::WriteLosAlamosFFTFilter: Geometry cell tuple count", "[SimplnxCore][WriteLosAlamosFFTFilter][TupleCount]")

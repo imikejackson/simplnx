@@ -1,7 +1,6 @@
 #include "SimplnxCore/Filters/CreateGeometryFilter.hpp"
 #include "SimplnxCore/SimplnxCore_test_dirs.hpp"
 
-#include "simplnx/Core/Application.hpp"
 #include "simplnx/DataStructure/EmptyDataStore.hpp"
 #include "simplnx/DataStructure/Geometry/EdgeGeom.hpp"
 #include "simplnx/DataStructure/Geometry/HexahedralGeom.hpp"
@@ -14,8 +13,6 @@
 #include "simplnx/Parameters/ArraySelectionParameter.hpp"
 #include "simplnx/Parameters/ChoicesParameter.hpp"
 #include "simplnx/Parameters/VectorParameter.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 
 #include <catch2/catch.hpp>
@@ -3136,42 +3133,15 @@ TEST_CASE("SimplnxCore::CreateGeometry: RectGrid preflight with EmptyDataStore b
 
 TEST_CASE("SimplnxCore::CreateGeometryFilter: SIMPL Backwards Compatibility", "[SimplnxCore][CreateGeometryFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "CreateGeometryFilter.json"},
-      {"SIMPL 6.4 (Filter_Name)", conversionDir / "6_4" / "CreateGeometryFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<CreateGeometryFilter>::uuid);
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      // Fixture uses GeometryType=0 (Image); only common params + image-specific CellAttributeMatrixName are populated.
-      CHECK(args.value<ChoicesParameter::ValueType>(CreateGeometryFilter::k_GeometryType_Key) == 0);
-      CHECK(args.value<bool>(CreateGeometryFilter::k_WarningsAsErrors_Key) == true);
-      CHECK(args.value<ChoicesParameter::ValueType>(CreateGeometryFilter::k_ArrayHandling_Key) == 0);
-      CHECK(args.value<DataPath>(CreateGeometryFilter::k_GeometryPath_Key) == DataPath({"DataContainer"}));
-    }
-  }
+  const auto version = GENERATE("6_4", "6_5");
+  CAPTURE(version);
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "CreateGeometryFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<CreateGeometryFilter>::uuid);
+  // Fixture uses GeometryType=0 (Image); only common params + image-specific CellAttributeMatrixName are populated.
+  CHECK(args.value<ChoicesParameter::ValueType>(CreateGeometryFilter::k_GeometryType_Key) == 0);
+  CHECK(args.value<bool>(CreateGeometryFilter::k_WarningsAsErrors_Key) == true);
+  CHECK(args.value<ChoicesParameter::ValueType>(CreateGeometryFilter::k_ArrayHandling_Key) == 0);
+  CHECK(args.value<DataPath>(CreateGeometryFilter::k_GeometryPath_Key) == DataPath({"DataContainer"}));
 }
 
 TEST_CASE("SimplnxCore::CreateGeometryFilter: Numeric domain regression", "[SimplnxCore][CreateGeometryFilter][NumericDomainRed]")

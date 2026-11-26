@@ -610,60 +610,33 @@ TEST_CASE("SimplnxCore::RegularizeZSpacingFilter: real HDF5 slice-copy oracle", 
 
 TEST_CASE("SimplnxCore::RegularizeZSpacingFilter: SIMPL Backwards Compatibility", "[SimplnxCore][RegularizeZSpacingFilter][BackwardsCompatibility]")
 {
-  unit_test::LoadPlugins();
-  auto app = Application::GetOrCreateInstance();
-  auto* filterListPtr = app->getFilterList();
+  const auto version = GENERATE("6_4", "6_5");
+  CAPTURE(version);
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "RegularizeZSpacingFilter.json";
+  Arguments args;
+  auto& pipeline = unit_test::LoadSIMPLConversionPipeline(fixturePath, FilterTraits<RegularizeZSpacingFilter>::uuid, args);
+  // Only the DataContainer name survives conversion of the legacy CellAttributeMatrixPath;
+  // the filter binds to the geometry's assigned cell AttributeMatrix (see V&V report, delta 5).
+  CHECK(args.value<DataPath>(RegularizeZSpacingFilter::k_SelectedImageGeometryPath_Key) == DataPath({"DataContainer"}));
+  CHECK(args.value<FileSystemPathParameter::ValueType>(RegularizeZSpacingFilter::k_InputFile_Key) == fs::path("/test/z_positions.txt"));
+  CHECK(args.value<float32>(RegularizeZSpacingFilter::k_NewZRes_Key) == 0.5f);
+  CHECK_FALSE(args.value<bool>(RegularizeZSpacingFilter::k_ClearFeatureAttributeMatrix_Key));
+  CHECK(args.value<bool>(RegularizeZSpacingFilter::k_RenumberFeatures_Key) == false);
+  CHECK(args.value<DataPath>(RegularizeZSpacingFilter::k_CellFeatureIdsArrayPath_Key) == DataPath({"Cell Data", "FeatureIds"}));
+  CHECK(args.value<DataPath>(RegularizeZSpacingFilter::k_FeatureAttributeMatrix_Key) == DataPath({"Cell Feature Data"}));
+  // Legacy had no new-geometry option; the unconverted default must stay in place.
+  CHECK(args.value<bool>(RegularizeZSpacingFilter::k_RemoveOriginalGeometry_Key) == true);
 
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "RegularizeZSpacingFilter.json"},
-      {"SIMPL 6.4 (Filter_Name)", conversionDir / "6_4" / "RegularizeZSpacingFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<RegularizeZSpacingFilter>::uuid);
-
-      Arguments args = pipelineFilterPtr->getArguments();
-      // Only the DataContainer name survives conversion of the legacy CellAttributeMatrixPath;
-      // the filter binds to the geometry's assigned cell AttributeMatrix (see V&V report, delta 5).
-      CHECK(args.value<DataPath>(RegularizeZSpacingFilter::k_SelectedImageGeometryPath_Key) == DataPath({"DataContainer"}));
-      CHECK(args.value<FileSystemPathParameter::ValueType>(RegularizeZSpacingFilter::k_InputFile_Key) == fs::path("/test/z_positions.txt"));
-      CHECK(args.value<float32>(RegularizeZSpacingFilter::k_NewZRes_Key) == 0.5f);
-      CHECK_FALSE(args.value<bool>(RegularizeZSpacingFilter::k_ClearFeatureAttributeMatrix_Key));
-      CHECK(args.value<bool>(RegularizeZSpacingFilter::k_RenumberFeatures_Key) == false);
-      CHECK(args.value<DataPath>(RegularizeZSpacingFilter::k_CellFeatureIdsArrayPath_Key) == DataPath({"Cell Data", "FeatureIds"}));
-      CHECK(args.value<DataPath>(RegularizeZSpacingFilter::k_FeatureAttributeMatrix_Key) == DataPath({"Cell Feature Data"}));
-      // Legacy had no new-geometry option; the unconverted default must stay in place.
-      CHECK(args.value<bool>(RegularizeZSpacingFilter::k_RemoveOriginalGeometry_Key) == true);
-
-      // Supply only the legacy inputs: a geometry with cell data and no Feature Attribute Matrix.
-      auto ds = CreateTestDataStructure();
-      auto* imageGeomPtr = ds.getDataAs<ImageGeom>(k_InputGeometryPath);
-      REQUIRE(imageGeomPtr != nullptr);
-      REQUIRE(imageGeomPtr->rename("DataContainer"));
-      REQUIRE(ds.getDataAs<AttributeMatrix>(DataPath({"DataContainer", "Cell Feature Data"})) == nullptr);
-      args.insertOrAssign(RegularizeZSpacingFilter::k_InputFile_Key,
-                          std::make_any<FileSystemPathParameter::ValueType>(WriteZBoundsFile("RegularizeZSpacing_legacy.txt", {0.0F, 1.0F, 3.0F, 6.0F, 10.0F})));
-      pipelineFilterPtr->setArguments(args);
-      CHECK(pipeline.preflight(ds, false));
-      unit_test::CheckArraysInheritTupleDims(ds);
-    }
-  }
+  // Supply only the legacy inputs: a geometry with cell data and no Feature Attribute Matrix.
+  auto ds = CreateTestDataStructure();
+  auto* imageGeomPtr = ds.getDataAs<ImageGeom>(k_InputGeometryPath);
+  REQUIRE(imageGeomPtr != nullptr);
+  REQUIRE(imageGeomPtr->rename("DataContainer"));
+  REQUIRE(ds.getDataAs<AttributeMatrix>(DataPath({"DataContainer", "Cell Feature Data"})) == nullptr);
+  args.insertOrAssign(RegularizeZSpacingFilter::k_InputFile_Key, std::make_any<FileSystemPathParameter::ValueType>(WriteZBoundsFile("RegularizeZSpacing_legacy.txt", {0.0F, 1.0F, 3.0F, 6.0F, 10.0F})));
+  static_cast<PipelineFilter*>(pipeline.at(0))->setArguments(args);
+  CHECK(pipeline.preflight(ds, false));
+  unit_test::CheckArraysInheritTupleDims(ds);
 }
 
 TEST_CASE("SimplnxCore::RegularizeZSpacingFilter: Clear ON, renumber OFF preflight", "[SimplnxCore][RegularizeZSpacingFilter][ClearFeatureAM]")

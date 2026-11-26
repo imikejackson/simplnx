@@ -1,12 +1,9 @@
 #include "SimplnxCore/Filters/ComputeVertexToTriangleDistancesFilter.hpp"
 #include "SimplnxCore/SimplnxCore_test_dirs.hpp"
 
-#include "simplnx/Core/Application.hpp"
 #include "simplnx/DataStructure/Geometry/TriangleGeom.hpp"
 #include "simplnx/DataStructure/Geometry/VertexGeom.hpp"
 #include "simplnx/Parameters/ArrayCreationParameter.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 
 #include <algorithm>
@@ -80,43 +77,13 @@ TEST_CASE("SimplnxCore::ComputeVertexToTriangleDistancesFilter", "[SimplnxCore][
 
 TEST_CASE("SimplnxCore::ComputeVertexToTriangleDistancesFilter: SIMPL Backwards Compatibility", "[SimplnxCore][ComputeVertexToTriangleDistancesFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "ComputeVertexToTriangleDistancesFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<ComputeVertexToTriangleDistancesFilter>::uuid);
-
-      CHECK(pipelineFilterPtr->getComments().empty());
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      CHECK(args.value<DataPath>(ComputeVertexToTriangleDistancesFilter::k_SelectedVertexGeometryPath_Key) == DataPath({"VertexDataContainer"}));
-      CHECK(args.value<DataPath>(ComputeVertexToTriangleDistancesFilter::k_SelectedTriangleGeometryPath_Key) == DataPath({"TriangleDataContainer"}));
-      CHECK(args.value<DataPath>(ComputeVertexToTriangleDistancesFilter::k_TriangleNormalsArrayPath_Key) == DataPath({"TriangleDataContainer", "FaceData", "Normals"}));
-      CHECK(args.value<std::string>(ComputeVertexToTriangleDistancesFilter::k_DistancesArrayName_Key) == "Distances");
-      CHECK(args.value<std::string>(ComputeVertexToTriangleDistancesFilter::k_ClosestTriangleIdArrayName_Key) == "ClosestTriangleId");
-    }
-  }
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / "6_5" / "ComputeVertexToTriangleDistancesFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<ComputeVertexToTriangleDistancesFilter>::uuid);
+  CHECK(args.value<DataPath>(ComputeVertexToTriangleDistancesFilter::k_SelectedVertexGeometryPath_Key) == DataPath({"VertexDataContainer"}));
+  CHECK(args.value<DataPath>(ComputeVertexToTriangleDistancesFilter::k_SelectedTriangleGeometryPath_Key) == DataPath({"TriangleDataContainer"}));
+  CHECK(args.value<DataPath>(ComputeVertexToTriangleDistancesFilter::k_TriangleNormalsArrayPath_Key) == DataPath({"TriangleDataContainer", "FaceData", "Normals"}));
+  CHECK(args.value<std::string>(ComputeVertexToTriangleDistancesFilter::k_DistancesArrayName_Key) == "Distances");
+  CHECK(args.value<std::string>(ComputeVertexToTriangleDistancesFilter::k_ClosestTriangleIdArrayName_Key) == "ClosestTriangleId");
 }
 
 TEST_CASE("SimplnxCore::ComputeVertexToTriangleDistancesFilter: Triangle Normals requires 3 components", "[SimplnxCore][ComputeVertexToTriangleDistancesFilter][ComponentShape]")

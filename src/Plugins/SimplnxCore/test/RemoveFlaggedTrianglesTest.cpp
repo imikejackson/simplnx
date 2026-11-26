@@ -1,12 +1,9 @@
 #include "SimplnxCore/Filters/RemoveFlaggedTrianglesFilter.hpp"
 #include "SimplnxCore/SimplnxCore_test_dirs.hpp"
 
-#include "simplnx/Core/Application.hpp"
 #include "simplnx/DataStructure/AttributeMatrix.hpp"
 #include "simplnx/DataStructure/Geometry/TriangleGeom.hpp"
 #include "simplnx/Parameters/ChoicesParameter.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 
 #include <catch2/catch.hpp>
@@ -94,41 +91,11 @@ TEST_CASE("SimplnxCore::RemoveFlaggedTrianglesFilter: Test Algorithm", "[Simplnx
 
 TEST_CASE("SimplnxCore::RemoveFlaggedTrianglesFilter: SIMPL Backwards Compatibility", "[SimplnxCore][RemoveFlaggedTrianglesFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "RemoveFlaggedTrianglesFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<RemoveFlaggedTrianglesFilter>::uuid);
-
-      CHECK(pipelineFilterPtr->getComments().empty());
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      CHECK(args.value<DataPath>(RemoveFlaggedTrianglesFilter::k_SelectedTriangleGeometryPath_Key) == DataPath({"DataContainer"}));
-      CHECK(args.value<DataPath>(RemoveFlaggedTrianglesFilter::k_MaskArrayPath_Key) == DataPath({"DataContainer", "FaceData", "Mask"}));
-      CHECK(args.value<DataPath>(RemoveFlaggedTrianglesFilter::k_CreatedTriangleGeometryPath_Key) == DataPath({"ReducedTriangleGeometry"}));
-    }
-  }
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / "6_5" / "RemoveFlaggedTrianglesFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<RemoveFlaggedTrianglesFilter>::uuid);
+  CHECK(args.value<DataPath>(RemoveFlaggedTrianglesFilter::k_SelectedTriangleGeometryPath_Key) == DataPath({"DataContainer"}));
+  CHECK(args.value<DataPath>(RemoveFlaggedTrianglesFilter::k_MaskArrayPath_Key) == DataPath({"DataContainer", "FaceData", "Mask"}));
+  CHECK(args.value<DataPath>(RemoveFlaggedTrianglesFilter::k_CreatedTriangleGeometryPath_Key) == DataPath({"ReducedTriangleGeometry"}));
 }
 
 TEST_CASE("SimplnxCore::RemoveFlaggedTrianglesFilter: Reduced geometry preserves the face attribute matrix name", "[SimplnxCore][RemoveFlaggedTrianglesFilter]")

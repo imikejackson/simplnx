@@ -14,8 +14,6 @@
 #include "simplnx/Parameters/ChoicesParameter.hpp"
 #include "simplnx/Parameters/Dream3dImportParameter.hpp"
 #include "simplnx/Parameters/VectorParameter.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 
 #include <EbsdLib/IO/HKL/H5CtfImporter.h>
@@ -469,47 +467,20 @@ TEST_CASE("OrientationAnalysis::ReadH5Ebsd: Valid filter execution", "[Orientati
 
 TEST_CASE("OrientationAnalysis::ReadH5EbsdFilter: SIMPL Backwards Compatibility", "[OrientationAnalysis][ReadH5EbsdFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
+  const auto version = GENERATE("6_4", "6_5");
+  CAPTURE(version);
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "ReadH5EbsdFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<ReadH5EbsdFilter>::uuid);
+  CHECK(args.value<DataPath>(ReadH5EbsdFilter::k_CreatedImageGeometryPath_Key) == DataPath({"DataContainer"}));
+  CHECK(args.value<std::string>(ReadH5EbsdFilter::k_CellAttributeMatrixName_Key) == "TestName");
+  CHECK(args.value<std::string>(ReadH5EbsdFilter::k_CellEnsembleAttributeMatrixName_Key) == "TestName");
 
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "ReadH5EbsdFilter.json"},
-      {"SIMPL 6.4 (Filter_Name)", conversionDir / "6_4" / "ReadH5EbsdFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<ReadH5EbsdFilter>::uuid);
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      CHECK(args.value<DataPath>(ReadH5EbsdFilter::k_CreatedImageGeometryPath_Key) == DataPath({"DataContainer"}));
-      CHECK(args.value<std::string>(ReadH5EbsdFilter::k_CellAttributeMatrixName_Key) == "TestName");
-      CHECK(args.value<std::string>(ReadH5EbsdFilter::k_CellEnsembleAttributeMatrixName_Key) == "TestName");
-
-      const auto h5EbsdValue = args.value<ReadH5EbsdFileParameter::ValueType>(ReadH5EbsdFilter::k_ReadH5EbsdParameter_Key);
-      CHECK(h5EbsdValue.input_file_path == "/test/path/file.h5ebsd");
-      CHECK(h5EbsdValue.start_slice == 0);
-      CHECK(h5EbsdValue.end_slice == 10);
-      CHECK(h5EbsdValue.use_recommended_transform == true);
-      CHECK(h5EbsdValue.selected_array_names == std::vector<std::string>{"Confidence Index", "Image Quality"});
-    }
-  }
+  const auto h5EbsdValue = args.value<ReadH5EbsdFileParameter::ValueType>(ReadH5EbsdFilter::k_ReadH5EbsdParameter_Key);
+  CHECK(h5EbsdValue.input_file_path == "/test/path/file.h5ebsd");
+  CHECK(h5EbsdValue.start_slice == 0);
+  CHECK(h5EbsdValue.end_slice == 10);
+  CHECK(h5EbsdValue.use_recommended_transform == true);
+  CHECK(h5EbsdValue.selected_array_names == std::vector<std::string>{"Confidence Index", "Image Quality"});
 }
 
 TEST_CASE("OrientationAnalysis::ReadH5Ebsd: Single sample rotation origin", "[OrientationAnalysis][ReadH5Ebsd]")
