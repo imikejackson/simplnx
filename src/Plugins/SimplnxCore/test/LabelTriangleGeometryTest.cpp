@@ -1,27 +1,26 @@
+#include "TriangleGeometrySupportTestUtils.hpp"
+
 #include "SimplnxCore/Filters/Algorithms/LabelTriangleGeometry.hpp"
 #include "SimplnxCore/Filters/LabelTriangleGeometryFilter.hpp"
 #include "SimplnxCore/SimplnxCore_test_dirs.hpp"
 
 #include "simplnx/Core/Application.hpp"
-#include "simplnx/DataStructure/DataStore.hpp"
 #include "simplnx/DataStructure/Geometry/TriangleGeom.hpp"
 #include "simplnx/DataStructure/IO/HDF5/DataStructureReader.hpp"
 #include "simplnx/DataStructure/IO/HDF5/DataStructureWriter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
-#include "simplnx/Utilities/DataStoreUtilities.hpp"
 
 #include <catch2/catch.hpp>
 
 #include <array>
-#include <chrono>
 #include <filesystem>
 #include <iostream>
 #include <memory>
-#include <optional>
 #include <utility>
 #include <vector>
 
 using namespace nx::core;
+using namespace nx::core::TriangleGeometrySupportTest;
 namespace fs = std::filesystem;
 
 namespace
@@ -93,196 +92,6 @@ TEST_CASE("SimplnxCore::LabelTriangleGeometryFilter: SIMPL Backwards Compatibili
 
 namespace
 {
-constexpr int32 k_InjectedError = -56991;
-const DataPath k_MeshGeomPath({"Triangles"});
-const DataPath k_MeshFacePath = k_MeshGeomPath.createChildPath("FaceData");
-using SupportListType = TriangleGeom::ElementDynamicListType;
-using SupportIndexType = IGeometry::MeshIndexType;
-
-// These stores inject ordinary Result failures only. They do not simulate OOC or allocation failure.
-template <typename T>
-class InjectedFailureStore : public DataStore<T>
-{
-public:
-  using DataStore<T>::DataStore;
-  ~InjectedFailureStore() noexcept override = default;
-  InjectedFailureStore(const InjectedFailureStore&) = delete;
-  InjectedFailureStore(InjectedFailureStore&&) = delete;
-  InjectedFailureStore& operator=(const InjectedFailureStore&) = delete;
-  InjectedFailureStore& operator=(InjectedFailureStore&&) = delete;
-
-  bool reject_resize = false;
-  usize failing_read = 0;
-  mutable std::vector<std::pair<usize, usize>> reads;
-
-  Result<> resizeTuples(const ShapeType& shape) override
-  {
-    return reject_resize ? MakeErrorResult(k_InjectedError, "injected resize failure") : DataStore<T>::resizeTuples(shape);
-  }
-
-  Result<> copyIntoBuffer(usize start, nonstd::span<T> buffer) const override
-  {
-    reads.emplace_back(start, buffer.size());
-    return reads.size() == failing_read ? MakeErrorResult(k_InjectedError, "injected face read failure") : DataStore<T>::copyIntoBuffer(start, buffer);
-  }
-};
-
-struct SupportSnapshot
-{
-  SupportSnapshot() = default;
-  ~SupportSnapshot() noexcept = default;
-  SupportSnapshot(const SupportSnapshot&) = default;
-  SupportSnapshot(SupportSnapshot&&) noexcept = default;
-  SupportSnapshot& operator=(const SupportSnapshot&) = default;
-  SupportSnapshot& operator=(SupportSnapshot&&) noexcept = default;
-
-  std::optional<DataObject::IdType> id;
-  std::optional<DataObject::IdType> association;
-  const SupportListType* object = nullptr;
-  std::vector<DataPath> Paths;
-  std::vector<std::vector<SupportIndexType>> Lists;
-};
-
-DataPath SupportDataPath(bool neighbors)
-{
-  return k_MeshGeomPath.createChildPath(neighbors ? TriangleGeom::k_EltNeighbors : TriangleGeom::k_EltsContainingVert);
-}
-
-SupportSnapshot CaptureSupportSnapshot(const DataStructure& dataStructure, bool neighbors)
-{
-  REQUIRE_NOTHROW(dataStructure.getDataRefAs<TriangleGeom>(k_MeshGeomPath));
-  const auto& geometry = dataStructure.getDataRefAs<TriangleGeom>(k_MeshGeomPath);
-  SupportSnapshot snapshot;
-  snapshot.association = neighbors ? geometry.getElementNeighborsId() : geometry.getElementContainingVertId();
-  snapshot.object = dataStructure.getDataAs<SupportListType>(SupportDataPath(neighbors));
-  if(snapshot.object != nullptr)
-  {
-    snapshot.id = snapshot.object->getId();
-    snapshot.Paths = snapshot.object->getDataPaths();
-    for(usize i = 0; i < snapshot.object->size(); ++i)
-    {
-      std::vector<SupportIndexType> list;
-      list.reserve(snapshot.object->getNumberOfElements(i));
-      for(usize j = 0; j < snapshot.object->getNumberOfElements(i); ++j)
-      {
-        list.push_back(snapshot.object->getElementListPointer(i)[j]);
-      }
-      snapshot.Lists.push_back(std::move(list));
-    }
-  }
-  return snapshot;
-}
-
-void RequireSupportSnapshot(const DataStructure& dataStructure, bool neighbors, const SupportSnapshot& expected)
-{
-  const auto actual = CaptureSupportSnapshot(dataStructure, neighbors);
-  CHECK(actual.association == expected.association);
-  REQUIRE(actual.id == expected.id);
-  CHECK(actual.object == expected.object);
-  CHECK(actual.Paths == expected.Paths);
-  CHECK(actual.Lists == expected.Lists);
-}
-
-void CreateSupportData(DataStructure& dataStructure, bool neighbors, const std::vector<std::vector<SupportIndexType>>& lists, bool associate = true)
-{
-  REQUIRE_NOTHROW(dataStructure.getDataRefAs<TriangleGeom>(k_MeshGeomPath));
-  auto& geometry = dataStructure.getDataRefAs<TriangleGeom>(k_MeshGeomPath);
-  auto* supportPtr = SupportListType::Create(dataStructure, neighbors ? TriangleGeom::k_EltNeighbors : TriangleGeom::k_EltsContainingVert, geometry.getId());
-  REQUIRE(supportPtr != nullptr);
-  supportPtr->allocateLists(std::vector<uint16>(lists.size(), 0));
-  for(usize i = 0; i < lists.size(); ++i)
-  {
-    auto list = lists[i];
-    if(!list.empty())
-    {
-      REQUIRE(supportPtr->setElementList(i, static_cast<uint16>(list.size()), list.data()));
-    }
-  }
-  if(associate)
-  {
-    if(neighbors)
-    {
-      geometry.setElementNeighborsId(supportPtr->getId());
-    }
-    else
-    {
-      geometry.setElementContainingVertId(supportPtr->getId());
-    }
-  }
-  REQUIRE(CaptureSupportSnapshot(dataStructure, neighbors).Lists == lists);
-}
-
-template <typename T>
-DataArray<T>& CreateSupportFixtureArray(DataStructure& dataStructure, const DataPath& path, usize tuples, usize components, DataObject::IdType parent)
-{
-  auto store = data_store_utilities::CreateDataStore<T>(dataStructure, path, {tuples}, {components});
-  REQUIRE(store != nullptr);
-  store->fill(T{});
-  auto* arrayPtr = DataArray<T>::Create(dataStructure, path.getTargetName(), std::move(store), parent);
-  REQUIRE(arrayPtr != nullptr);
-  return *arrayPtr;
-}
-
-void ApplySupportFixtureActions(DataStructure& dataStructure, const IFilter& filter, const Arguments& args)
-{
-  auto preflight = filter.preflight(dataStructure, args);
-  SIMPLNX_RESULT_REQUIRE_VALID(preflight.output_actions);
-  const auto applied = preflight.output_actions.value().applyAll(dataStructure, IDataAction::Mode::Execute);
-  SIMPLNX_RESULT_REQUIRE_VALID(applied);
-}
-
-void RequireInjectedFailure(const Result<>& result, const std::string& message)
-{
-  SIMPLNX_RESULT_REQUIRE_INVALID(result);
-  REQUIRE(result.errors().size() == 1);
-  CHECK(result.errors()[0].code == k_InjectedError);
-  CHECK(result.errors()[0].message == message);
-}
-
-void RequireSupportFixtureOocStores(const DataStructure& dataStructure, const std::vector<DataPath>& paths)
-{
-  for(const auto& path : paths)
-  {
-    CAPTURE(path);
-    const auto* arrayPtr = dataStructure.getDataAs<IDataArray>(path);
-    REQUIRE(arrayPtr != nullptr);
-    REQUIRE(arrayPtr->getDataFormat() == "HDF5-OOC");
-    REQUIRE(arrayPtr->getIDataStoreRef().getStoreType() == IDataStore::StoreType::OutOfCore);
-  }
-}
-
-// A fresh destination stays separate from the backing stores.
-class SupportSaveFiles
-{
-public:
-  explicit SupportSaveFiles(const std::string& label)
-  {
-    const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
-    for(usize i = 0; i < Paths.size(); ++i)
-    {
-      Paths[i] = fs::temp_directory_path() / fmt::format("support-ownership-{}-{}-{}.dream3d", label, nonce, i);
-      REQUIRE_FALSE(fs::exists(Paths[i]));
-    }
-  }
-  ~SupportSaveFiles() noexcept
-  {
-    for(const auto& path : Paths)
-    {
-      std::error_code error;
-      fs::remove(path, error);
-    }
-  }
-  SupportSaveFiles(const SupportSaveFiles&) = delete;
-  SupportSaveFiles(SupportSaveFiles&&) = delete;
-  SupportSaveFiles& operator=(const SupportSaveFiles&) = delete;
-  SupportSaveFiles& operator=(SupportSaveFiles&&) = delete;
-  std::array<fs::path, 1> Paths;
-};
-
-} // namespace
-
-namespace
-{
 const DataPath k_RegionIdsPath = k_MeshFacePath.createChildPath("RegionIds");
 const DataPath k_MeshFeaturePath = k_MeshGeomPath.createChildPath("Features");
 const DataPath k_TriangleCountPath = k_MeshFeaturePath.createChildPath("NumTriangles");
@@ -304,11 +113,11 @@ Arguments CreateLabelFixture(DataStructure& dataStructure, bool incidence, bool 
   geometryPtr->setFaceList(faces);
   if(incidence)
   {
-    CreateSupportData(dataStructure, false, {{0}, {0}, {0}});
+    CreateSupportData(dataStructure, SupportKind::VertexIncidence, {{0}, {0}, {0}});
   }
   if(neighbors)
   {
-    CreateSupportData(dataStructure, true, {{}});
+    CreateSupportData(dataStructure, SupportKind::FaceNeighbors, {{}});
   }
   Arguments args;
   args.insertOrAssign(LabelTriangleGeometryFilter::k_TriangleGeomPath_Key, std::make_any<DataPath>(k_MeshGeomPath));
@@ -368,20 +177,20 @@ void CheckLabelOutputs(const DataStructure& dataStructure)
 
 void CheckLabelSave(DataStructure& dataStructure, const SupportSnapshot& incidence, const SupportSnapshot& neighbors)
 {
-  SupportSaveFiles files("label");
+  SupportSaveFile file("label");
   // The writer omits supplied connectivity and leaves the caller's objects in place.
-  const auto save = hdf5::DataStructureWriter::WriteFile(dataStructure, files.Paths[0]);
+  const auto save = hdf5::DataStructureWriter::WriteFile(dataStructure, file.path);
   SIMPLNX_RESULT_REQUIRE_VALID(save);
-  RequireSupportSnapshot(dataStructure, false, incidence);
-  RequireSupportSnapshot(dataStructure, true, neighbors);
+  RequireSupportSnapshot(dataStructure, SupportKind::VertexIncidence, incidence);
+  RequireSupportSnapshot(dataStructure, SupportKind::FaceNeighbors, neighbors);
   CheckLabelInputs(dataStructure);
   CheckLabelOutputs(dataStructure);
-  const auto read = hdf5::DataStructureReader::ReadFile(files.Paths[0]);
+  const auto read = hdf5::DataStructureReader::ReadFile(file.path);
   SIMPLNX_RESULT_REQUIRE_VALID(read);
   CheckLabelInputs(read.value());
   CheckLabelOutputs(read.value());
-  RequireSupportSnapshot(read.value(), false, {});
-  RequireSupportSnapshot(read.value(), true, {});
+  RequireSupportSnapshot(read.value(), SupportKind::VertexIncidence, {});
+  RequireSupportSnapshot(read.value(), SupportKind::FaceNeighbors, {});
   unit_test::CheckArraysInheritTupleDims(read.value());
 }
 
@@ -389,8 +198,8 @@ void CheckLabelSuccess(bool incidence, bool neighbors, bool cancelled, bool save
 {
   DataStructure dataStructure;
   const auto args = CreateLabelFixture(dataStructure, incidence, neighbors);
-  const auto incidenceBefore = CaptureSupportSnapshot(dataStructure, false);
-  const auto neighborsBefore = CaptureSupportSnapshot(dataStructure, true);
+  const auto incidenceBefore = CaptureSupportSnapshot(dataStructure, SupportKind::VertexIncidence);
+  const auto neighborsBefore = CaptureSupportSnapshot(dataStructure, SupportKind::FaceNeighbors);
   LabelTriangleGeometryFilter filter;
   if(cancelled)
   {
@@ -417,8 +226,8 @@ void CheckLabelSuccess(bool incidence, bool neighbors, bool cancelled, bool save
   }
   else
   {
-    RequireSupportSnapshot(dataStructure, false, incidenceBefore);
-    RequireSupportSnapshot(dataStructure, true, neighborsBefore);
+    RequireSupportSnapshot(dataStructure, SupportKind::VertexIncidence, incidenceBefore);
+    RequireSupportSnapshot(dataStructure, SupportKind::FaceNeighbors, neighborsBefore);
   }
   unit_test::CheckArraysInheritTupleDims(dataStructure);
 }
@@ -444,8 +253,8 @@ TEST_CASE("SimplnxCore::LabelTriangleGeometryFilter: cleanup on resize failure",
   CAPTURE(incidence, neighbors);
   DataStructure dataStructure;
   const auto args = CreateLabelFixture(dataStructure, incidence, neighbors);
-  const auto incidenceBefore = CaptureSupportSnapshot(dataStructure, false);
-  const auto neighborsBefore = CaptureSupportSnapshot(dataStructure, true);
+  const auto incidenceBefore = CaptureSupportSnapshot(dataStructure, SupportKind::VertexIncidence);
+  const auto neighborsBefore = CaptureSupportSnapshot(dataStructure, SupportKind::FaceNeighbors);
   ApplySupportFixtureActions(dataStructure, LabelTriangleGeometryFilter{}, args);
   auto store = std::make_shared<InjectedFailureStore<uint64>>(ShapeType{1}, ShapeType{1}, 73);
   store->reject_resize = true;
@@ -454,8 +263,8 @@ TEST_CASE("SimplnxCore::LabelTriangleGeometryFilter: cleanup on resize failure",
   SIMPLNX_RESULT_REQUIRE_VALID(replacement);
   const auto result = RunLabel(dataStructure, false);
   RequireInjectedFailure(result, "AttributeMatrix 'Features' failed to resize child array 'Triangles/Features/NumTriangles' to shape [3]: injected resize failure");
-  RequireSupportSnapshot(dataStructure, false, incidenceBefore);
-  RequireSupportSnapshot(dataStructure, true, neighborsBefore);
+  RequireSupportSnapshot(dataStructure, SupportKind::VertexIncidence, incidenceBefore);
+  RequireSupportSnapshot(dataStructure, SupportKind::FaceNeighbors, neighborsBefore);
   CheckLabelInputs(dataStructure);
   REQUIRE_NOTHROW(dataStructure.getDataRefAs<Int32ArrayType>(k_RegionIdsPath));
   CHECK(dataStructure.getDataRefAs<Int32ArrayType>(k_RegionIdsPath)[0] == 1);
@@ -475,7 +284,7 @@ TEST_CASE("SimplnxCore::LabelTriangleGeometryFilter: support creation failure", 
   CAPTURE(mode);
   DataStructure dataStructure;
   const auto args = CreateLabelFixture(dataStructure, mode == 2, false);
-  const auto incidenceBefore = CaptureSupportSnapshot(dataStructure, false);
+  const auto incidenceBefore = CaptureSupportSnapshot(dataStructure, SupportKind::VertexIncidence);
   ApplySupportFixtureActions(dataStructure, LabelTriangleGeometryFilter{}, args);
   auto store = std::make_shared<InjectedFailureStore<SupportIndexType>>(ShapeType{1}, ShapeType{3}, 0);
   (*store)[1] = 1;
@@ -489,8 +298,8 @@ TEST_CASE("SimplnxCore::LabelTriangleGeometryFilter: support creation failure", 
   RequireInjectedFailure(result, "injected face read failure");
   const std::vector<std::pair<usize, usize>> expectedReads(store->failing_read, {0, 3});
   REQUIRE(store->reads == expectedReads);
-  RequireSupportSnapshot(dataStructure, false, incidenceBefore);
-  RequireSupportSnapshot(dataStructure, true, {});
+  RequireSupportSnapshot(dataStructure, SupportKind::VertexIncidence, incidenceBefore);
+  RequireSupportSnapshot(dataStructure, SupportKind::FaceNeighbors, {});
   CheckLabelInputs(dataStructure);
   unit_test::CheckArraysInheritTupleDims(dataStructure);
 }
@@ -503,16 +312,16 @@ TEST_CASE("SimplnxCore::LabelTriangleGeometryFilter: unassociated named child", 
   CAPTURE(neighbors);
   DataStructure dataStructure;
   const auto args = CreateLabelFixture(dataStructure, false, false);
-  CreateSupportData(dataStructure, neighbors, {{42, 7}}, false);
-  const auto incidenceBefore = CaptureSupportSnapshot(dataStructure, false);
-  const auto neighborsBefore = CaptureSupportSnapshot(dataStructure, true);
+  CreateSupportData(dataStructure, neighbors ? SupportKind::FaceNeighbors : SupportKind::VertexIncidence, {{42, 7}}, false);
+  const auto incidenceBefore = CaptureSupportSnapshot(dataStructure, SupportKind::VertexIncidence);
+  const auto neighborsBefore = CaptureSupportSnapshot(dataStructure, SupportKind::FaceNeighbors);
   ApplySupportFixtureActions(dataStructure, LabelTriangleGeometryFilter{}, args);
   const auto result = RunLabel(dataStructure, false);
   SIMPLNX_RESULT_REQUIRE_INVALID(result);
   REQUIRE(result.errors().size() == 1);
   CHECK(result.errors()[0].code == (neighbors ? -2232 : -2231));
-  RequireSupportSnapshot(dataStructure, false, incidenceBefore);
-  RequireSupportSnapshot(dataStructure, true, neighborsBefore);
+  RequireSupportSnapshot(dataStructure, SupportKind::VertexIncidence, incidenceBefore);
+  RequireSupportSnapshot(dataStructure, SupportKind::FaceNeighbors, neighborsBefore);
   CheckLabelInputs(dataStructure);
   unit_test::CheckArraysInheritTupleDims(dataStructure);
 }
