@@ -42,24 +42,6 @@ void RunCurvatureAniso(IFilter& filter, DataStructure& dataStructure, const Data
   SIMPLNX_RESULT_REQUIRE_VALID(executeResult.result);
 }
 
-// A deterministic non-constant pattern with values in [0, 16], varying along all three axes so the gradient (and
-// the conductance term it feeds) is non-trivial.
-template <class T>
-std::vector<T> MakeRamp(usize dx, usize dy, usize dz)
-{
-  std::vector<T> v(dx * dy * dz);
-  for(usize z = 0; z < dz; ++z)
-  {
-    for(usize y = 0; y < dy; ++y)
-    {
-      for(usize x = 0; x < dx; ++x)
-      {
-        v[rt::FlatIndex(x, y, z, dx, dy)] = static_cast<T>((3 * x + 2 * y + z) % 17);
-      }
-    }
-  }
-  return v;
-}
 } // namespace
 
 // -----------------------------------------------------------------------------
@@ -80,7 +62,7 @@ TEST_CASE("NXImageProcessing::CurvatureAnisotropicDiffusionImageFilter: prefligh
     // (unlike the multi-component case below, which int32 with 1 component sails past that parameter check and is
     // rejected inside PreflightImageFilter itself, where the code IS stable).
     DataStructure dataStructure;
-    const std::vector<int32> field = MakeRamp<int32>(6, 6, 1);
+    const std::vector<int32> field = rt::MakeWrappedRamp<int32>(6, 6, 1);
     const DataPath inputPath = rt::BuildImageFromPattern<int32>(dataStructure, 6, 6, 1, field);
     CurvatureAnisoFilterType filter;
     Arguments args;
@@ -119,7 +101,7 @@ TEST_CASE("NXImageProcessing::CurvatureAnisotropicDiffusionImageFilter: prefligh
   SECTION("scalar float input creates a SameAsInput output")
   {
     DataStructure dataStructure;
-    const std::vector<float32> field = MakeRamp<float32>(6, 6, 1);
+    const std::vector<float32> field = rt::MakeWrappedRamp<float32>(6, 6, 1);
     const DataPath inputPath = rt::BuildImageFromPattern<float32>(dataStructure, 6, 6, 1, field);
     CurvatureAnisoFilterType filter;
     RunCurvatureAniso(filter, dataStructure, inputPath, 0.0625, 3.0, 1u, 5u);
@@ -130,7 +112,7 @@ TEST_CASE("NXImageProcessing::CurvatureAnisotropicDiffusionImageFilter: prefligh
   {
     // effDim==2 (Z==1), unit spacing -> stable bound = 1/2^3 = 0.125. 0.5 is well above that.
     DataStructure dataStructure;
-    const std::vector<float32> field = MakeRamp<float32>(6, 6, 1);
+    const std::vector<float32> field = rt::MakeWrappedRamp<float32>(6, 6, 1);
     const DataPath inputPath = rt::BuildImageFromPattern<float32>(dataStructure, 6, 6, 1, field);
     CurvatureAnisoFilterType filter;
     Arguments args;
@@ -259,7 +241,7 @@ TEST_CASE("NXImageProcessing::CurvatureAnisotropicDiffusionImageFilter: over-lar
   constexpr usize k_Dy = 6;
   constexpr usize k_Dz = 6;
   DataStructure dataStructure;
-  const DataPath inputPath = rt::BuildImageFromPattern<float32>(dataStructure, k_Dx, k_Dy, k_Dz, MakeRamp<float32>(k_Dx, k_Dy, k_Dz));
+  const DataPath inputPath = rt::BuildImageFromPattern<float32>(dataStructure, k_Dx, k_Dy, k_Dz, rt::MakeWrappedRamp<float32>(k_Dx, k_Dy, k_Dz));
   CurvatureAnisoFilterType filter;
   Arguments args;
   args.insertOrAssign(CurvatureAnisoFilterType::k_InputImageGeomPath_Key, std::make_any<DataPath>(inputPath.getParent().getParent()));
@@ -290,7 +272,7 @@ TEST_CASE("NXImageProcessing::CurvatureAnisotropicDiffusionImageFilter: zero con
   constexpr usize k_Dy = 8;
   constexpr usize k_Dz = 8;
   DataStructure dataStructure;
-  const DataPath inputPath = rt::BuildImageFromPattern<float32>(dataStructure, k_Dx, k_Dy, k_Dz, MakeRamp<float32>(k_Dx, k_Dy, k_Dz));
+  const DataPath inputPath = rt::BuildImageFromPattern<float32>(dataStructure, k_Dx, k_Dy, k_Dz, rt::MakeWrappedRamp<float32>(k_Dx, k_Dy, k_Dz));
   CurvatureAnisoFilterType filter;
   RunCurvatureAniso(filter, dataStructure, inputPath, /*timeStep=*/0.0625, /*conductanceParameter=*/3.0, /*conductanceScalingUpdateInterval=*/0u, /*numberOfIterations=*/5u);
 
@@ -311,7 +293,7 @@ TEST_CASE("NXImageProcessing::CurvatureAnisotropicDiffusionImageFilter: zero ite
   constexpr usize k_Dy = 8;
   constexpr usize k_Dz = 8;
   DataStructure dataStructure;
-  const DataPath inputPath = rt::BuildImageFromPattern<float32>(dataStructure, k_Dx, k_Dy, k_Dz, MakeRamp<float32>(k_Dx, k_Dy, k_Dz));
+  const DataPath inputPath = rt::BuildImageFromPattern<float32>(dataStructure, k_Dx, k_Dy, k_Dz, rt::MakeWrappedRamp<float32>(k_Dx, k_Dy, k_Dz));
   CurvatureAnisoFilterType filter;
   RunCurvatureAniso(filter, dataStructure, inputPath, /*timeStep=*/0.0625, /*conductanceParameter=*/3.0, /*conductanceScalingUpdateInterval=*/1u, /*numberOfIterations=*/0u);
 

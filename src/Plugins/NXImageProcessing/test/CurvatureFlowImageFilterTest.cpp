@@ -38,24 +38,6 @@ void RunCurvatureFlow(IFilter& filter, DataStructure& dataStructure, const DataP
   SIMPLNX_RESULT_REQUIRE_VALID(executeResult.result);
 }
 
-// A deterministic non-constant pattern with values in [0, 16], representable in EVERY scalar type (incl. uint8/int8)
-// so the full 10-type parity grid can reuse it. Varies along all three axes so the curvature-flow update is non-trivial.
-template <class T>
-std::vector<T> MakeRamp(usize dx, usize dy, usize dz)
-{
-  std::vector<T> v(dx * dy * dz);
-  for(usize z = 0; z < dz; ++z)
-  {
-    for(usize y = 0; y < dy; ++y)
-    {
-      for(usize x = 0; x < dx; ++x)
-      {
-        v[rt::FlatIndex(x, y, z, dx, dy)] = static_cast<T>((3 * x + 2 * y + z) % 17);
-      }
-    }
-  }
-  return v;
-}
 } // namespace
 
 // -----------------------------------------------------------------------------
@@ -86,7 +68,7 @@ TEST_CASE("NXImageProcessing::CurvatureFlowImageFilter: preflight guards", "[NXI
   SECTION("scalar input creates a SameAsInput output")
   {
     DataStructure dataStructure;
-    const std::vector<uint8> field = MakeRamp<uint8>(6, 6, 1);
+    const std::vector<uint8> field = rt::MakeWrappedRamp<uint8>(6, 6, 1);
     const DataPath inputPath = rt::BuildImageFromPattern<uint8>(dataStructure, 6, 6, 1, field);
     CurvFilterType filter;
     RunCurvatureFlow(filter, dataStructure, inputPath, 0.05, 5u);
@@ -128,7 +110,7 @@ TEST_CASE("NXImageProcessing::CurvatureFlowImageFilter: zero iterations is a no-
   constexpr usize k_Dy = 8;
   constexpr usize k_Dz = 8;
   DataStructure dataStructure;
-  const DataPath inputPath = rt::BuildImageFromPattern<float32>(dataStructure, k_Dx, k_Dy, k_Dz, MakeRamp<float32>(k_Dx, k_Dy, k_Dz));
+  const DataPath inputPath = rt::BuildImageFromPattern<float32>(dataStructure, k_Dx, k_Dy, k_Dz, rt::MakeWrappedRamp<float32>(k_Dx, k_Dy, k_Dz));
   CurvFilterType filter;
   RunCurvatureFlow(filter, dataStructure, inputPath, /*timeStep=*/0.05, /*numberOfIterations=*/0u);
 
