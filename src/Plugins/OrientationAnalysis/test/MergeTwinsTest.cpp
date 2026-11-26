@@ -9,8 +9,6 @@
 #include "OrientationAnalysisTestUtils.hpp"
 
 #include "simplnx/Core/Application.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 
 namespace fs = std::filesystem;
@@ -168,48 +166,19 @@ TEST_CASE("OrientationAnalysis::MergeTwinsFilter: Phase Index Bounds", "[Orienta
 
 TEST_CASE("OrientationAnalysis::MergeTwinsFilter: SIMPL Backwards Compatibility", "[OrientationAnalysis][MergeTwinsFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "MergeTwinsFilter.json"},
-      {"SIMPL 6.4 (Filter_Name)", conversionDir / "6_4" / "MergeTwinsFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<MergeTwinsFilter>::uuid);
-
-      CHECK(pipelineFilterPtr->getComments().empty());
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      CHECK(args.value<DataPath>(MergeTwinsFilter::k_ContiguousNeighborListArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<float32>(MergeTwinsFilter::k_AxisTolerance_Key) == 2.5f);
-      CHECK(args.value<float32>(MergeTwinsFilter::k_AngleTolerance_Key) == 2.5f);
-      CHECK(args.value<DataPath>(MergeTwinsFilter::k_FeaturePhasesArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<DataPath>(MergeTwinsFilter::k_AvgQuatsArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<DataPath>(MergeTwinsFilter::k_CellFeatureIdsArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<DataPath>(MergeTwinsFilter::k_CrystalStructuresArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<std::string>(MergeTwinsFilter::k_CellParentIdsArrayName_Key) == "TestName");
-      CHECK(args.value<std::string>(MergeTwinsFilter::k_CreatedFeatureAttributeMatrixName_Key) == "TestName");
-      CHECK(args.value<std::string>(MergeTwinsFilter::k_FeatureParentIdsArrayName_Key) == "TestName");
-      CHECK(args.value<std::string>(MergeTwinsFilter::k_ActiveArrayName_Key) == "TestName");
-    }
-  }
+  const auto version = GENERATE("6_4", "6_5");
+  CAPTURE(version);
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "MergeTwinsFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<MergeTwinsFilter>::uuid);
+  CHECK(args.value<DataPath>(MergeTwinsFilter::k_ContiguousNeighborListArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
+  CHECK(args.value<float32>(MergeTwinsFilter::k_AxisTolerance_Key) == 2.5f);
+  CHECK(args.value<float32>(MergeTwinsFilter::k_AngleTolerance_Key) == 2.5f);
+  CHECK(args.value<DataPath>(MergeTwinsFilter::k_FeaturePhasesArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
+  CHECK(args.value<DataPath>(MergeTwinsFilter::k_AvgQuatsArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
+  CHECK(args.value<DataPath>(MergeTwinsFilter::k_CellFeatureIdsArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
+  CHECK(args.value<DataPath>(MergeTwinsFilter::k_CrystalStructuresArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
+  CHECK(args.value<std::string>(MergeTwinsFilter::k_CellParentIdsArrayName_Key) == "TestName");
+  CHECK(args.value<std::string>(MergeTwinsFilter::k_CreatedFeatureAttributeMatrixName_Key) == "TestName");
+  CHECK(args.value<std::string>(MergeTwinsFilter::k_FeatureParentIdsArrayName_Key) == "TestName");
+  CHECK(args.value<std::string>(MergeTwinsFilter::k_ActiveArrayName_Key) == "TestName");
 }

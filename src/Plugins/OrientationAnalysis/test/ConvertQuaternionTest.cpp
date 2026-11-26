@@ -10,8 +10,6 @@
 #include "simplnx/Parameters/ArrayCreationParameter.hpp"
 #include "simplnx/Parameters/ArraySelectionParameter.hpp"
 #include "simplnx/Parameters/ChoicesParameter.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 #include "simplnx/Utilities/AlgorithmDispatch.hpp"
 #include "simplnx/Utilities/DataArrayUtilities.hpp"
@@ -167,41 +165,12 @@ TEST_CASE("OrientationAnalysis::ConvertQuaternionFilter: Float64 conversion pres
 
 TEST_CASE("OrientationAnalysis::ConvertQuaternionFilter: SIMPL Backwards Compatibility", "[OrientationAnalysis][ConvertQuaternionFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "ConvertQuaternionFilter.json"},
-      {"SIMPL 6.4 (Filter_Name)", conversionDir / "6_4" / "ConvertQuaternionFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<ConvertQuaternionFilter>::uuid);
-
-      CHECK(pipelineFilterPtr->getComments().empty());
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      CHECK(args.value<DataPath>(ConvertQuaternionFilter::k_CellQuatsArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<std::string>(ConvertQuaternionFilter::k_OutputDataArrayName_Key) == "TestArray");
-      CHECK(args.value<bool>(ConvertQuaternionFilter::k_DeleteOriginalData_Key) == true);
-      CHECK(args.value<ChoicesParameter::ValueType>(ConvertQuaternionFilter::k_ConversionType_Key) == 0);
-    }
-  }
+  const auto version = GENERATE("6_4", "6_5");
+  CAPTURE(version);
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "ConvertQuaternionFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<ConvertQuaternionFilter>::uuid);
+  CHECK(args.value<DataPath>(ConvertQuaternionFilter::k_CellQuatsArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
+  CHECK(args.value<std::string>(ConvertQuaternionFilter::k_OutputDataArrayName_Key) == "TestArray");
+  CHECK(args.value<bool>(ConvertQuaternionFilter::k_DeleteOriginalData_Key) == true);
+  CHECK(args.value<ChoicesParameter::ValueType>(ConvertQuaternionFilter::k_ConversionType_Key) == 0);
 }

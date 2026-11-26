@@ -3,8 +3,6 @@
 #include "simplnx/Core/Application.hpp"
 #include "simplnx/DataStructure/DataGroup.hpp"
 #include "simplnx/Parameters/FileSystemPathParameter.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 
 #include <filesystem>
@@ -203,42 +201,13 @@ TEST_CASE("OrientationAnalysis::ReadEnsembleInfoFilter: InValid Filter Execution
 
 TEST_CASE("OrientationAnalysis::ReadEnsembleInfoFilter: SIMPL Backwards Compatibility", "[OrientationAnalysis][ReadEnsembleInfoFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "ReadEnsembleInfoFilter.json"},
-      {"SIMPL 6.4 (Filter_Name)", conversionDir / "6_4" / "ReadEnsembleInfoFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<ReadEnsembleInfoFilter>::uuid);
-
-      CHECK(pipelineFilterPtr->getComments().empty());
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      CHECK(args.value<FileSystemPathParameter::ValueType>(ReadEnsembleInfoFilter::k_InputFile_Key) == fs::path("/test/path/file.txt"));
-      CHECK(args.value<DataPath>(ReadEnsembleInfoFilter::k_ParentGroupPath_Key) == DataPath({"DataContainer"}));
-      CHECK(args.value<std::string>(ReadEnsembleInfoFilter::k_CellEnsembleAttributeMatrixName_Key) == "TestName");
-      CHECK(args.value<std::string>(ReadEnsembleInfoFilter::k_CrystalStructuresArrayName_Key) == "TestName");
-      CHECK(args.value<std::string>(ReadEnsembleInfoFilter::k_PhaseTypesArrayName_Key) == "TestName");
-    }
-  }
+  const auto version = GENERATE("6_4", "6_5");
+  CAPTURE(version);
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "ReadEnsembleInfoFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<ReadEnsembleInfoFilter>::uuid);
+  CHECK(args.value<FileSystemPathParameter::ValueType>(ReadEnsembleInfoFilter::k_InputFile_Key) == fs::path("/test/path/file.txt"));
+  CHECK(args.value<DataPath>(ReadEnsembleInfoFilter::k_ParentGroupPath_Key) == DataPath({"DataContainer"}));
+  CHECK(args.value<std::string>(ReadEnsembleInfoFilter::k_CellEnsembleAttributeMatrixName_Key) == "TestName");
+  CHECK(args.value<std::string>(ReadEnsembleInfoFilter::k_CrystalStructuresArrayName_Key) == "TestName");
+  CHECK(args.value<std::string>(ReadEnsembleInfoFilter::k_PhaseTypesArrayName_Key) == "TestName");
 }

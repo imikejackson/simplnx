@@ -12,8 +12,6 @@
 #include "simplnx/Parameters/BoolParameter.hpp"
 #include "simplnx/Parameters/NumberParameter.hpp"
 #include "simplnx/Parameters/StringParameter.hpp"
-#include "simplnx/Pipeline/Pipeline.hpp"
-#include "simplnx/Pipeline/PipelineFilter.hpp"
 #include "simplnx/UnitTest/UnitTestCommon.hpp"
 #include "simplnx/Utilities/DataStoreUtilities.hpp"
 
@@ -664,50 +662,21 @@ TEST_CASE("OrientationAnalysis::GroupMicroTextureRegionsFilter: Default contiguo
 
 TEST_CASE("OrientationAnalysis::GroupMicroTextureRegionsFilter: SIMPL Backwards Compatibility", "[OrientationAnalysis][GroupMicroTextureRegionsFilter][BackwardsCompatibility]")
 {
-  auto app = Application::GetOrCreateInstance();
-  unit_test::LoadPlugins();
-  auto* filterListPtr = app->getFilterList();
-
-  const fs::path conversionDir = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion";
-
-  const std::vector<std::pair<std::string, fs::path>> fixtures = {
-      {"SIMPL 6.5 (UUID)", conversionDir / "6_5" / "GroupMicroTextureRegionsFilter.json"},
-      {"SIMPL 6.4 (Filter_Name)", conversionDir / "6_4" / "GroupMicroTextureRegionsFilter.json"},
-  };
-
-  for(const auto& [label, fixturePath] : fixtures)
-  {
-    DYNAMIC_SECTION(label)
-    {
-      auto pipelineResult = Pipeline::FromSIMPLFile(fixturePath, filterListPtr);
-      REQUIRE(pipelineResult.valid());
-
-      auto& pipeline = pipelineResult.value();
-      REQUIRE(pipeline.size() == 1);
-
-      auto* pipelineFilterPtr = dynamic_cast<PipelineFilter*>(pipeline.at(0));
-      REQUIRE(pipelineFilterPtr != nullptr);
-
-      const IFilter* filterPtr = pipelineFilterPtr->getFilter();
-      REQUIRE(filterPtr != nullptr);
-      REQUIRE(filterPtr->uuid() == FilterTraits<GroupMicroTextureRegionsFilter>::uuid);
-
-      CHECK(pipelineFilterPtr->getComments().empty());
-
-      const Arguments args = pipelineFilterPtr->getArguments();
-      CHECK(args.value<DataPath>(GroupMicroTextureRegionsFilter::k_AvgQuatsArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<float32>(GroupMicroTextureRegionsFilter::k_CAxisTolerance_Key) == 2.5f);
-      CHECK(args.value<std::string>(GroupMicroTextureRegionsFilter::k_CellParentIdsArrayName_Key) == "TestName");
-      CHECK(args.value<DataPath>(GroupMicroTextureRegionsFilter::k_ContiguousNeighborListArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<DataPath>(GroupMicroTextureRegionsFilter::k_CrystalStructuresArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<DataPath>(GroupMicroTextureRegionsFilter::k_FeatureIdsArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<std::string>(GroupMicroTextureRegionsFilter::k_FeatureParentIdsArrayName_Key) == "TestName");
-      CHECK(args.value<DataPath>(GroupMicroTextureRegionsFilter::k_FeaturePhasesArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<DataPath>(GroupMicroTextureRegionsFilter::k_NewCellFeatureAttributeMatrixName_Key) == DataPath({"TestName"}));
-      CHECK(args.value<DataPath>(GroupMicroTextureRegionsFilter::k_NonContiguousNeighborListArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-      CHECK(args.value<bool>(GroupMicroTextureRegionsFilter::k_UseNonContiguousNeighbors_Key) == true);
-      CHECK(args.value<bool>(GroupMicroTextureRegionsFilter::k_UseRunningAverage_Key) == true);
-      CHECK(args.value<DataPath>(GroupMicroTextureRegionsFilter::k_VolumesArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
-    }
-  }
+  const auto version = GENERATE("6_4", "6_5");
+  CAPTURE(version);
+  const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "GroupMicroTextureRegionsFilter.json";
+  const auto args = unit_test::LoadSIMPLConversionArguments(fixturePath, FilterTraits<GroupMicroTextureRegionsFilter>::uuid);
+  CHECK(args.value<DataPath>(GroupMicroTextureRegionsFilter::k_AvgQuatsArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
+  CHECK(args.value<float32>(GroupMicroTextureRegionsFilter::k_CAxisTolerance_Key) == 2.5f);
+  CHECK(args.value<std::string>(GroupMicroTextureRegionsFilter::k_CellParentIdsArrayName_Key) == "TestName");
+  CHECK(args.value<DataPath>(GroupMicroTextureRegionsFilter::k_ContiguousNeighborListArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
+  CHECK(args.value<DataPath>(GroupMicroTextureRegionsFilter::k_CrystalStructuresArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
+  CHECK(args.value<DataPath>(GroupMicroTextureRegionsFilter::k_FeatureIdsArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
+  CHECK(args.value<std::string>(GroupMicroTextureRegionsFilter::k_FeatureParentIdsArrayName_Key) == "TestName");
+  CHECK(args.value<DataPath>(GroupMicroTextureRegionsFilter::k_FeaturePhasesArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
+  CHECK(args.value<DataPath>(GroupMicroTextureRegionsFilter::k_NewCellFeatureAttributeMatrixName_Key) == DataPath({"TestName"}));
+  CHECK(args.value<DataPath>(GroupMicroTextureRegionsFilter::k_NonContiguousNeighborListArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
+  CHECK(args.value<bool>(GroupMicroTextureRegionsFilter::k_UseNonContiguousNeighbors_Key) == true);
+  CHECK(args.value<bool>(GroupMicroTextureRegionsFilter::k_UseRunningAverage_Key) == true);
+  CHECK(args.value<DataPath>(GroupMicroTextureRegionsFilter::k_VolumesArrayPath_Key) == DataPath({"DataContainer", "CellData", "TestArray"}));
 }
