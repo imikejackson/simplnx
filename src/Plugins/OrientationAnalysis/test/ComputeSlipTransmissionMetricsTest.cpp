@@ -66,10 +66,11 @@ TEST_CASE("OrientationAnalysis::ComputeSlipTransmissionMetricsFilter: Valid Filt
   WriteTestDataStructure(dataStructure, fs::path(fmt::format("{}/7_0_ComputeSlipTransmissionMetricsFilter.dream3d", unit_test::k_BinaryTestOutputDir)));
   // #endif
 
-  unit_test::CompareNeighborLists<float32>(dataStructure, GrainDataPath.createChildPath("F1List"), GrainDataPath.createChildPath(k_F1s));
-  unit_test::CompareNeighborLists<float32>(dataStructure, GrainDataPath.createChildPath("F1sptList"), GrainDataPath.createChildPath(k_F1spts));
-  unit_test::CompareNeighborLists<float32>(dataStructure, GrainDataPath.createChildPath("F7List"), GrainDataPath.createChildPath(k_F7s));
-  unit_test::CompareNeighborLists<float32>(dataStructure, GrainDataPath.createChildPath("mPrimeList"), GrainDataPath.createChildPath(k_MPrimes));
+  // The legacy filter writes each metric at the same index as its input neighbor ID.
+  unit_test::CompareNeighborLists<float32>(dataStructure, GrainDataPath.createChildPath("F1List"), GrainDataPath.createChildPath(k_F1s), unit_test::NeighborListOrder::Ordered);
+  unit_test::CompareNeighborLists<float32>(dataStructure, GrainDataPath.createChildPath("F1sptList"), GrainDataPath.createChildPath(k_F1spts), unit_test::NeighborListOrder::Ordered);
+  unit_test::CompareNeighborLists<float32>(dataStructure, GrainDataPath.createChildPath("F7List"), GrainDataPath.createChildPath(k_F7s), unit_test::NeighborListOrder::Ordered);
+  unit_test::CompareNeighborLists<float32>(dataStructure, GrainDataPath.createChildPath("mPrimeList"), GrainDataPath.createChildPath(k_MPrimes), unit_test::NeighborListOrder::Ordered);
 
   unit_test::CheckArraysInheritTupleDims(dataStructure);
 }

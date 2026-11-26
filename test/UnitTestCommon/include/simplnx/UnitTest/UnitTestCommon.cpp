@@ -9,7 +9,9 @@
 
 #include <zlib.h>
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstring>
 #include <fstream>
 #include <map>
@@ -37,6 +39,87 @@ bool VolumeSupportsPosixRename(const fs::path& directory)
   return (flags & k_SupportsPosixUnlinkRename) != 0;
 }
 #endif
+
+namespace
+{
+template <typename T>
+bool NeighborValuesEqual(T expected, T actual, float64 epsilon, NeighborListNaNs nans)
+{
+  if constexpr(std::is_floating_point_v<T>)
+  {
+    if(std::isnan(expected) || std::isnan(actual))
+    {
+      return nans == NeighborListNaNs::Ignore || (nans == NeighborListNaNs::Match && std::isnan(expected) && std::isnan(actual));
+    }
+    return expected == actual || std::abs(static_cast<float64>(expected) - static_cast<float64>(actual)) < epsilon;
+  }
+  return expected == actual;
+}
+
+template <typename T>
+void SortNeighborRow(std::vector<T>& row)
+{
+  // std::less on floats with NaNs does not provide the strict weak ordering that sort requires.
+  std::sort(row.begin(), row.end(), [](T a, T b) {
+    if constexpr(std::is_floating_point_v<T>)
+    {
+      if(std::isnan(b))
+      {
+        return !std::isnan(a);
+      }
+    }
+    return a < b;
+  });
+}
+} // namespace
+
+Result<> EvaluateNeighborLists(const INeighborList* exemplar, const INeighborList* computed, DataType expectedType, NeighborListOrder order, float64 epsilon, NeighborListNaNs nans)
+{
+  if(exemplar == nullptr || computed == nullptr)
+  {
+    return MakeErrorResult(-90061, "Neighbor-list comparison requires both an exemplar and a computed list.");
+  }
+  if(expectedType == DataType::boolean || exemplar->getDataType() != expectedType || computed->getDataType() != expectedType)
+  {
+    return MakeErrorResult(-90062, fmt::format("Expected two {} neighbor lists. Exemplar '{}' has type {} and computed '{}' has type {}.", DataTypeToString(expectedType), exemplar->getName(),
+                                               DataTypeToString(exemplar->getDataType()), computed->getName(), DataTypeToString(computed->getDataType())));
+  }
+  const usize tupleCount = exemplar->getNumberOfTuples();
+  if(tupleCount != computed->getNumberOfTuples())
+  {
+    return MakeErrorResult(-90063, fmt::format("Exemplar '{}' has {} tuples and computed '{}' has {}.", exemplar->getName(), tupleCount, computed->getName(), computed->getNumberOfTuples()));
+  }
+
+  return ExecuteNeighborFunction(
+      [&]<class T>() -> Result<> {
+        const auto& left = dynamic_cast<const NeighborList<T>&>(*exemplar);
+        const auto& right = dynamic_cast<const NeighborList<T>&>(*computed);
+        for(usize tuple = 0; tuple < tupleCount; ++tuple)
+        {
+          auto expected = left.at(tuple);
+          auto actual = right.at(tuple);
+          if(expected.size() != actual.size())
+          {
+            return MakeErrorResult(-90064, fmt::format("Neighbor-list tuple {}: '{}' has {} entries, '{}' has {}.", tuple, left.getName(), expected.size(), right.getName(), actual.size()));
+          }
+          if(order == NeighborListOrder::Unordered)
+          {
+            SortNeighborRow(expected);
+            SortNeighborRow(actual);
+          }
+          for(usize slot = 0; slot < expected.size(); ++slot)
+          {
+            if(!NeighborValuesEqual(expected[slot], actual[slot], epsilon, nans))
+            {
+              return MakeErrorResult(-90065,
+                                     fmt::format("Neighbor-list tuple {}, slot {}: '{}' expected {}, '{}' contained {}.", tuple, slot, left.getName(), expected[slot], right.getName(), actual[slot]));
+            }
+          }
+        }
+        return {};
+      },
+      expectedType);
+}
 
 void SetGridDimensionsAndCellData(IGridGeometry* grid, const SizeVec3Type& dimensions, const ShapeType& cellShape)
 {
@@ -764,41 +847,11 @@ void CompareDataStructures(const DataStructure& dataStructureA, const DataStruct
         break;
       }
       case nx::core::DataObject::Type::IDataArray:
-      case nx::core::DataObject::Type::DataArray: {
-        const auto* dataArrayAPtr = dynamic_cast<const IDataArray*>(objectAPtr);
-        const auto* dataArrayBPtr = dynamic_cast<const IDataArray*>(objectBPtr);
-        REQUIRE(dataArrayAPtr != nullptr);
-        REQUIRE(dataArrayBPtr != nullptr);
-        REQUIRE(dataArrayAPtr->getDataType() == dataArrayBPtr->getDataType());
-        // std::cout << "DEBUG TEST: data array A DataType = " << DataTypeToString(dataArrayA->getDataType()) << "\tdata array B DataType = " << DataTypeToString(dataArrayB->getDataType());
-        INFO(fmt::format("DEBUG TEST: data array A DataType = {}\tdata array B DataType = {}", DataTypeToString(dataArrayAPtr->getDataType()), DataTypeToString(dataArrayBPtr->getDataType())));
-
-        ExecuteDataFunction(CompareArraysFunctor{}, dataArrayAPtr->getDataType(), *dataArrayAPtr, *dataArrayBPtr);
-
-        break;
-      }
-      case nx::core::DataObject::Type::StringArray: {
-        const auto* stringArrayAPtr = dynamic_cast<const StringArray*>(objectAPtr);
-        const auto* stringArrayBPtr = dynamic_cast<const StringArray*>(objectBPtr);
-        REQUIRE(stringArrayAPtr != nullptr);
-        REQUIRE(stringArrayBPtr != nullptr);
-        CompareStringArrays(*stringArrayAPtr, *stringArrayBPtr);
-        break;
-      }
+      case nx::core::DataObject::Type::DataArray:
+      case nx::core::DataObject::Type::StringArray:
       case nx::core::DataObject::Type::INeighborList:
       case nx::core::DataObject::Type::NeighborList: {
-        const auto* neighborlistAPtr = dynamic_cast<const INeighborList*>(objectAPtr);
-        const auto* neighborlistBPtr = dynamic_cast<const INeighborList*>(objectBPtr);
-        REQUIRE(neighborlistAPtr != nullptr);
-        REQUIRE(neighborlistBPtr != nullptr);
-        // std::cout << "DEBUG TEST: neighborlist array A DataType = " << DataTypeToString(neighborlistA->getDataType()) << "\tneighborlist B DataType = " <<
-        // DataTypeToString(neighborlistB->getDataType());
-        INFO(fmt::format("DEBUG TEST: NeighborList A DataType = {}\tNeighborList B DataType = {}", DataTypeToString(neighborlistAPtr->getDataType()),
-                         DataTypeToString(neighborlistBPtr->getDataType())));
-        REQUIRE(neighborlistAPtr->getDataType() == neighborlistBPtr->getDataType());
-
-        ExecuteDataFunction(CompareNeighborListsFunctor{}, neighborlistAPtr->getDataType(), neighborlistAPtr, neighborlistBPtr);
-
+        CompareArrays(dynamic_cast<const IArray*>(objectBPtr), dynamic_cast<const IArray*>(objectAPtr));
         break;
       }
       case nx::core::DataObject::Type::VertexGeom:
@@ -947,16 +1000,59 @@ void AddImageGeometry(DataStructure& dataStructure, const SizeVec3Type& imageGeo
 }
 
 // -----------------------------------------------------------------------------
+void CompareArrays(const IArray* generatedArrayPtr, const IArray* exemplarArrayPtr, std::optional<DataType> expectedType)
+{
+  REQUIRE(generatedArrayPtr != nullptr);
+  REQUIRE(exemplarArrayPtr != nullptr);
+  CAPTURE(generatedArrayPtr->getName(), generatedArrayPtr->getTypeName(), exemplarArrayPtr->getName(), exemplarArrayPtr->getTypeName());
+  REQUIRE(generatedArrayPtr->getArrayType() == exemplarArrayPtr->getArrayType());
+  switch(generatedArrayPtr->getArrayType())
+  {
+  case IArray::ArrayType::DataArray: {
+    const auto* generated = dynamic_cast<const IDataArray*>(generatedArrayPtr);
+    const auto* exemplar = dynamic_cast<const IDataArray*>(exemplarArrayPtr);
+    REQUIRE(generated != nullptr);
+    REQUIRE(exemplar != nullptr);
+    const DataType type = generated->getDataType();
+    REQUIRE(type == exemplar->getDataType());
+    if(expectedType.has_value())
+    {
+      REQUIRE(type == *expectedType);
+    }
+    ExecuteDataFunction(CompareArraysFunctor{}, type, *exemplar, *generated);
+    return;
+  }
+  case IArray::ArrayType::NeighborListArray: {
+    const auto* generated = dynamic_cast<const INeighborList*>(generatedArrayPtr);
+    const auto* exemplar = dynamic_cast<const INeighborList*>(exemplarArrayPtr);
+    REQUIRE(generated != nullptr);
+    REQUIRE(exemplar != nullptr);
+    const auto comparison = EvaluateNeighborLists(exemplar, generated, expectedType.value_or(exemplar->getDataType()));
+    SIMPLNX_RESULT_REQUIRE_VALID(comparison);
+    return;
+  }
+  case IArray::ArrayType::StringArray: {
+    const auto* generated = dynamic_cast<const StringArray*>(generatedArrayPtr);
+    const auto* exemplar = dynamic_cast<const StringArray*>(exemplarArrayPtr);
+    REQUIRE(generated != nullptr);
+    REQUIRE(exemplar != nullptr);
+    CompareStringArrays(*exemplar, *generated);
+    return;
+  }
+  default:
+    FAIL(fmt::format("Unsupported array category {}.", fmt::underlying(generatedArrayPtr->getArrayType())));
+  }
+}
+
+// -----------------------------------------------------------------------------
 void CompareExemplarToGenerateAttributeMatrix(const DataStructure& exemplarDataStructure, const DataPath& exemplarAttributeMatrix, const DataStructure& computedDataStructure,
                                               const DataPath& computedAttributeMatrix, bool allMustMatch)
 {
   const auto& exemplarAttrMatr = exemplarDataStructure.getDataRefAs<AttributeMatrix>(exemplarAttributeMatrix);
-  // std::vector<DataPath> selectedCellArrays;
 
   // Each exemplar child selects the corresponding computed array by name.
   for(const auto& exemplarArrayPath : exemplarAttrMatr)
   {
-
     DataPath exemplarDataArrayPath = exemplarAttributeMatrix.createChildPath(exemplarArrayPath.second->getName());
     DataPath computedDataArrayPath = computedAttributeMatrix.createChildPath(exemplarArrayPath.second->getName());
     INFO(fmt::format("Exemplar Array:'{}'  Computed Array: '{}'", exemplarDataArrayPath.toString(), computedDataArrayPath.toString()));
@@ -965,82 +1061,11 @@ void CompareExemplarToGenerateAttributeMatrix(const DataStructure& exemplarDataS
     const auto* computedArrayPtr = computedDataStructure.getDataAs<IArray>(computedDataArrayPath);
 
     // Optional mode omits arrays that are absent from either DataStructure.
-    if(nullptr == exemplarArrayPtr && !allMustMatch)
+    if(!allMustMatch && (exemplarArrayPtr == nullptr || computedArrayPtr == nullptr))
     {
       continue;
     }
-    if(nullptr == computedArrayPtr && !allMustMatch)
-    {
-      continue;
-    }
-
-    if(allMustMatch)
-    {
-      REQUIRE(exemplarArrayPtr != nullptr);
-      REQUIRE(computedArrayPtr != nullptr);
-    }
-
-    DataType type = DataType::int8;
-    const IArray::ArrayType arrayType = computedArrayPtr->getArrayType();
-    if(arrayType == IArray::ArrayType::DataArray)
-    {
-      type = exemplarDataStructure.getDataRefAs<IDataArray>(exemplarDataArrayPath).getDataType();
-    }
-    if(arrayType == IArray::ArrayType::NeighborListArray)
-    {
-      type = exemplarDataStructure.getDataRefAs<INeighborList>(exemplarDataArrayPath).getDataType();
-    }
-
-    switch(type)
-    {
-    case DataType::boolean: {
-      nx::core::unit_test::CompareArrays<bool>(computedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::int8: {
-      nx::core::unit_test::CompareArrays<int8>(computedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::int16: {
-      nx::core::unit_test::CompareArrays<int16>(computedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::int32: {
-      nx::core::unit_test::CompareArrays<int32>(computedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::int64: {
-      nx::core::unit_test::CompareArrays<int64>(computedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::uint8: {
-      nx::core::unit_test::CompareArrays<uint8>(computedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::uint16: {
-      nx::core::unit_test::CompareArrays<uint16>(computedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::uint32: {
-      nx::core::unit_test::CompareArrays<uint32>(computedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::uint64: {
-      nx::core::unit_test::CompareArrays<uint64>(computedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::float32: {
-      nx::core::unit_test::CompareArrays<float32>(computedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::float64: {
-      nx::core::unit_test::CompareArrays<float64>(computedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    default: {
-      throw std::runtime_error("Invalid DataType");
-    }
-    }
+    CompareArrays(computedArrayPtr, exemplarArrayPtr);
   }
 }
 
@@ -1071,67 +1096,8 @@ void CompareExemplarToGeneratedData(const DataStructure& dataStructure, const Da
       continue;
     }
 
-    DataType type = DataType::int8;
-    const IArray::ArrayType arrayType = generatedArrayPtr->getArrayType();
-    if(arrayType == IArray::ArrayType::DataArray)
-    {
-      type = dataStructure.getDataRefAs<IDataArray>(cellArrayPath).getDataType();
-    }
-    if(arrayType == IArray::ArrayType::NeighborListArray)
-    {
-      type = dataStructure.getDataRefAs<INeighborList>(cellArrayPath).getDataType();
-    }
-
-    switch(type)
-    {
-    case DataType::boolean: {
-      nx::core::unit_test::CompareArrays<bool>(generatedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::int8: {
-      nx::core::unit_test::CompareArrays<int8>(generatedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::int16: {
-      nx::core::unit_test::CompareArrays<int16>(generatedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::int32: {
-      nx::core::unit_test::CompareArrays<int32>(generatedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::int64: {
-      nx::core::unit_test::CompareArrays<int64>(generatedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::uint8: {
-      nx::core::unit_test::CompareArrays<uint8>(generatedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::uint16: {
-      nx::core::unit_test::CompareArrays<uint16>(generatedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::uint32: {
-      nx::core::unit_test::CompareArrays<uint32>(generatedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::uint64: {
-      nx::core::unit_test::CompareArrays<uint64>(generatedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::float32: {
-      nx::core::unit_test::CompareArrays<float32>(generatedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    case DataType::float64: {
-      nx::core::unit_test::CompareArrays<float64>(generatedArrayPtr, exemplarArrayPtr);
-      break;
-    }
-    default: {
-      throw std::runtime_error("Invalid DataType");
-    }
-    }
+    CAPTURE(cellArrayPath.toString(), exemplarDataArrayPath.toString());
+    CompareArrays(generatedArrayPtr, exemplarArrayPtr);
   }
 }
 
