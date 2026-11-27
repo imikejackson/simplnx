@@ -213,8 +213,8 @@ TEST_CASE("NXImageProcessing::every SIMPL map entry converts a DREAM3D 6.x fixtu
       DYNAMIC_SECTION(version + "::" + className)
       {
         Arguments args;
-        const auto& pipeline = unit_test::LoadSIMPLConversionPipeline(fixturePath, newUuid, args);
-        const auto* filterPtr = static_cast<const PipelineFilter*>(pipeline.at(0))->getFilter();
+        const auto pipeline = unit_test::LoadSIMPLConversionPipeline(fixturePath, newUuid, args);
+        const auto* filterPtr = dynamic_cast<const PipelineFilter&>(*pipeline.at(0)).getFilter();
 
         // The conversion must move data. A conversion that silently produces the defaults resolves
         // the filter but loses every saved value, so compare the arguments with the defaults.

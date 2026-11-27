@@ -599,7 +599,7 @@ TEST_CASE("SimplnxCore::RegularizeZSpacingFilter: SIMPL Backwards Compatibility"
   CAPTURE(version);
   const fs::path fixturePath = fs::path(nx::core::unit_test::k_SourceDir.view()) / "test" / "simpl_conversion" / version / "RegularizeZSpacingFilter.json";
   Arguments args;
-  auto& pipeline = unit_test::LoadSIMPLConversionPipeline(fixturePath, FilterTraits<RegularizeZSpacingFilter>::uuid, args);
+  auto pipeline = unit_test::LoadSIMPLConversionPipeline(fixturePath, FilterTraits<RegularizeZSpacingFilter>::uuid, args);
   // Only the DataContainer name survives conversion of the legacy CellAttributeMatrixPath;
   // the filter binds to the geometry's assigned cell AttributeMatrix (see V&V report, delta 5).
   CHECK(args.value<DataPath>(RegularizeZSpacingFilter::k_SelectedImageGeometryPath_Key) == DataPath({"DataContainer"}));
@@ -619,7 +619,7 @@ TEST_CASE("SimplnxCore::RegularizeZSpacingFilter: SIMPL Backwards Compatibility"
   REQUIRE(imageGeomPtr->rename("DataContainer"));
   REQUIRE(ds.getDataAs<AttributeMatrix>(DataPath({"DataContainer", "Cell Feature Data"})) == nullptr);
   args.insertOrAssign(RegularizeZSpacingFilter::k_InputFile_Key, std::make_any<FileSystemPathParameter::ValueType>(WriteZBoundsFile("RegularizeZSpacing_legacy.txt", {0.0F, 1.0F, 3.0F, 6.0F, 10.0F})));
-  static_cast<PipelineFilter*>(pipeline.at(0))->setArguments(args);
+  dynamic_cast<PipelineFilter&>(*pipeline.at(0)).setArguments(args);
   CHECK(pipeline.preflight(ds, false));
   unit_test::CheckArraysInheritTupleDims(ds);
 }

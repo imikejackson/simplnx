@@ -30,7 +30,7 @@ public:
 
   mutable std::vector<std::pair<usize, usize>> reads;
   usize failing_read_call = 0;
-  bool warnOnRead = false;
+  bool warn_on_read = false;
 
   /**
    * @brief Records each range before reading values or returning the selected error.
@@ -42,7 +42,7 @@ public:
   {
     reads.emplace_back(startIndex, buffer.size());
     auto result = reads.size() == failing_read_call ? MakeErrorResult(k_InjectedReadError, "Injected floating-array read error") : DataStore<T>::copyIntoBuffer(startIndex, buffer);
-    if(warnOnRead)
+    if(warn_on_read)
     {
       result.warnings().push_back({k_InjectedReadWarning, "Injected floating-array read warning"});
     }

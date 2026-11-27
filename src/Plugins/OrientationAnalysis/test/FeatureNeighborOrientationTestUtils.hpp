@@ -12,10 +12,10 @@ struct InputPaths
 {
   InputPaths(const DataPath& featureMatrix, const DataPath& ensembleMatrix);
 
-  DataPath featurePhases;
-  DataPath avgQuats;
-  DataPath neighborList;
-  DataPath crystalStructures;
+  DataPath feature_phases;
+  DataPath avg_quats;
+  DataPath neighbor_list;
+  DataPath crystal_structures;
 };
 
 /** @brief Initializes unassigned features with identity quaternions and empty neighbor lists. */

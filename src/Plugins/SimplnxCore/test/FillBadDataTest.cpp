@@ -346,8 +346,8 @@ TEST_CASE("SimplnxCore::FillBadData::AllBadData_TerminatesWithoutHang", "[Core][
   SIMPLNX_RESULT_REQUIRE_VALID(executeResult.result)
 
   CHECK(sawNoDonorWarning == expectWarning);
-  const auto* finalIds = dataStructure.getDataAs<Int32ArrayType>(k_FeatureIdsPath);
-  const auto* finalPhases = dataStructure.getDataAs<Int32ArrayType>(k_PhasesPath);
+  const auto* finalIds = dataStructure.getDataAs<Int32ArrayType>(kFeatureIdsPath);
+  const auto* finalPhases = dataStructure.getDataAs<Int32ArrayType>(kPhasesPath);
   REQUIRE(finalIds != nullptr);
   REQUIRE(finalPhases != nullptr);
   REQUIRE(finalIds->getNumberOfTuples() == 9);

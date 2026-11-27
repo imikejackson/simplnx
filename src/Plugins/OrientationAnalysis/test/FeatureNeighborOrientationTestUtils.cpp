@@ -15,10 +15,10 @@
 namespace nx::core::unit_test::FeatureNeighbors
 {
 InputPaths::InputPaths(const DataPath& featureMatrix, const DataPath& ensembleMatrix)
-: featurePhases(featureMatrix.createChildPath("FeaturePhases"))
-, avgQuats(featureMatrix.createChildPath("AvgQuats"))
-, neighborList(featureMatrix.createChildPath("NeighborList"))
-, crystalStructures(ensembleMatrix.createChildPath("CrystalStructures"))
+: feature_phases(featureMatrix.createChildPath("FeaturePhases"))
+, avg_quats(featureMatrix.createChildPath("AvgQuats"))
+, neighbor_list(featureMatrix.createChildPath("NeighborList"))
+, crystal_structures(ensembleMatrix.createChildPath("CrystalStructures"))
 {
 }
 

@@ -469,8 +469,8 @@ TEST_CASE("simplnx::Numeric array comparison reads the requested flat suffix in 
   DataStructure ds;
   auto left = std::make_shared<RecordingStore<float64>>(ShapeType{20002}, ShapeType{2}, 3.0);
   auto right = std::make_shared<RecordingStore<float64>>(ShapeType{20002}, ShapeType{2}, 3.0);
-  auto* exemplar = Float64Array::Create(ds, "Exemplar", left);
-  auto* computed = Float64Array::Create(ds, "Computed", right);
+  auto* exemplar = Float64ArrayType::Create(ds, "Exemplar", left);
+  auto* computed = Float64ArrayType::Create(ds, "Computed", right);
   REQUIRE(exemplar != nullptr);
   REQUIRE(computed != nullptr);
   right->setValue(2, -3.0); // Start at the second component of tuple 1.

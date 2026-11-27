@@ -24,7 +24,7 @@ void AddFourFeatureData(DataStructure& dataStructure, const ImageGeom& imageGeom
 
 struct FeatureAliasSnapshot
 {
-  DataObject::IdType featureId;
+  DataObject::IdType feature_id;
   ShapeType shape;
   DataObject::ParentCollectionType parents;
   std::vector<int32> counts;

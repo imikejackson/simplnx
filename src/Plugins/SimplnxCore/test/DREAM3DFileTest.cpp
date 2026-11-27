@@ -2527,7 +2527,7 @@ TEST_CASE("SimplnxCore::ReadDREAM3DFilter: SIMPL selection controls relocated v7
   SIMPLNX_RESULT_REQUIRE_VALID(executed.result);
   CHECK(imported.containsData(DataPath({"StatsContainer", "StatsAM"})));
   CHECK(imported.containsData(DataPath({"StatsContainer", "Statistics"})) == checked);
-  const auto* values = imported.getDataAs<Float32Array>(DataPath({"StatsContainer", "Statistics", "Values_Mean"}));
+  const auto* values = imported.getDataAs<Float32ArrayType>(DataPath({"StatsContainer", "Statistics", "Values_Mean"}));
   if(checked)
   {
     REQUIRE(values != nullptr);
